@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "../cn";
 
-const alertVariants = cva("flex gap-3 rounded-md border px-4 py-3 text-sm", {
+const alertVariants = cva("flex gap-3 rounded-xl border px-4 py-3 text-sm", {
   variants: {
     tone: {
       info: "border-info/30 bg-info-subtle text-info",
@@ -51,7 +51,7 @@ export function Alert({
 }
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+  "inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium",
   {
     variants: {
       tone: {

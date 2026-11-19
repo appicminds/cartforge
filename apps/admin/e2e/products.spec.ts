@@ -170,6 +170,32 @@ test.describe("Products — Sprint 1 exit gate", () => {
 });
 
 test.describe("Products — list states and permissions", () => {
+  test("rows open the product; '/' focuses search; Ctrl+S saves", async ({ page }) => {
+    const title = `Shortcut ${RUN}`;
+    await signIn(page, "catalog@cartforge.test");
+    await createProduct(page, title);
+    await expect(page.getByText("Product created")).toBeVisible();
+
+    await page.goto(`/admin/products?q=${encodeURIComponent(title)}`);
+    await page
+      .getByRole("row", { name: new RegExp(title) })
+      .getByRole("cell")
+      .nth(4)
+      .click();
+    await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+
+    await page.getByLabel("Title").fill(`${title} saved by keyboard`);
+    await expect(page.getByRole("region", { name: "Save changes" })).toBeVisible();
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(page.getByText("Product saved")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Save changes" })).toBeHidden();
+
+    await page.goto("/admin/products");
+    await page.locator("body").click({ position: { x: 5, y: 300 } });
+    await page.keyboard.press("/");
+    await expect(page.getByRole("searchbox", { name: "Search products" })).toBeFocused();
+  });
+
   test("first-use empty state in a store with no products", async ({ page }) => {
     await signIn(page, "owner@cartforge.test");
     await page.getByLabel("Active store").selectOption({ label: "Quiet Pines" });
@@ -190,7 +216,11 @@ test.describe("Products — list states and permissions", () => {
   test("status filter and sorting are reflected in the URL", async ({ page }) => {
     await signIn(page, "catalog@cartforge.test");
     await openProducts(page);
-    await page.getByLabel("Filter by status").selectOption("active");
+    await page.getByRole("tab", { name: "Active" }).click();
+    await expect(page.getByRole("tab", { name: "Active" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page).toHaveURL(/status=active/);
     await page.getByRole("button", { name: "Product" }).click();
     await expect(page).toHaveURL(/sort=title/);
@@ -199,7 +229,10 @@ test.describe("Products — list states and permissions", () => {
       "ascending",
     );
     await page.reload();
-    await expect(page.getByLabel("Filter by status")).toHaveValue("active");
+    await expect(page.getByRole("tab", { name: "Active" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   test("read-only roles can view but not create or edit", async ({ page }) => {

@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { ArrowLeft } from "lucide-react";
@@ -166,6 +166,19 @@ export function ProductForm({ product, onCreate, onUpdate, onDelete }: ProductFo
   const heading = isNew ? "Add product" : product.title;
   const showSaveBar = canWrite && (isNew || isDirty);
 
+  // Ctrl/⌘+S saves when there is something to save.
+  useEffect(() => {
+    if (!showSaveBar) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (!isSubmitting) void submit();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showSaveBar, isSubmitting, submit]);
+
   return (
     <form noValidate onSubmit={submit} className="flex flex-col gap-6 pb-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -177,7 +190,7 @@ export function ProductForm({ product, onCreate, onUpdate, onDelete }: ProductFo
           </Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold tracking-tight">{heading}</h1>
+              <h1 className="truncate text-xl font-bold tracking-tight">{heading}</h1>
               {product && (
                 <Badge tone={STATUS_TONE[product.status]}>{STATUS_LABEL[product.status]}</Badge>
               )}
@@ -379,22 +392,37 @@ export function ProductForm({ product, onCreate, onUpdate, onDelete }: ProductFo
       </fieldset>
 
       {showSaveBar && (
-        <div className="sticky bottom-0 z-(--cf-z-sticky) -mx-4 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-          <div className="flex items-center justify-end gap-3">
-            {isDirty && <p className="mr-auto text-sm text-fg-muted">Unsaved changes</p>}
-            {isNew ? (
-              <Button asChild variant="secondary">
-                <Link href={lastListUrl()}>Cancel</Link>
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => form.reset()} disabled={isSubmitting}>
-                Discard
-              </Button>
-            )}
-            <Button type="submit" loading={isSubmitting}>
-              {isNew ? "Save product" : "Save"}
+        // Contextual save bar: overlays the top bar while there are unsaved changes.
+        <div
+          role="region"
+          aria-label="Save changes"
+          className="fixed inset-x-0 top-0 z-(--cf-z-savebar) flex h-(--cf-topbar-height) items-center gap-3 bg-savebar-bg px-4 text-savebar-fg shadow-lg sm:px-6"
+        >
+          <p className="mr-auto flex items-center gap-2 text-sm font-medium">
+            <span aria-hidden className="size-2 rounded-full bg-primary" />
+            {isNew ? "Unsaved product" : "Unsaved changes"}
+          </p>
+          {isNew ? (
+            <Button
+              asChild
+              variant="ghost"
+              className="text-savebar-fg hover:bg-white/10 hover:text-white"
+            >
+              <Link href={lastListUrl()}>Cancel</Link>
             </Button>
-          </div>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={() => form.reset()}
+              disabled={isSubmitting}
+              className="text-savebar-fg hover:bg-white/10 hover:text-white"
+            >
+              Discard
+            </Button>
+          )}
+          <Button type="submit" loading={isSubmitting} aria-keyshortcuts="Control+S Meta+S">
+            {isNew ? "Save product" : "Save"}
+          </Button>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ImageIcon, MoreHorizontal, Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { PERMISSIONS, type ProductListItem } from "@cartforge/types";
 import { PRODUCT_SORT_FIELDS } from "@cartforge/validation";
@@ -25,6 +25,7 @@ import {
   Table,
   Td,
   Th,
+  Tabs,
   Tr,
   useToast,
   type MenuItem,
@@ -42,6 +43,21 @@ import { useDebounced } from "@/lib/use-debounced";
 import { useSession } from "@/lib/session";
 
 const PAGE_SIZES = [10, 25, 50, 100];
+type StatusTab = "all" | "active" | "draft" | "archived";
+const STATUS_TABS: { value: StatusTab; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "draft", label: "Draft" },
+  { value: "archived", label: "Archived" },
+];
+
+/** Interactive descendants handle their own clicks; the row shouldn't navigate. */
+function isInteractive(target: EventTarget | null, row: HTMLElement): boolean {
+  const el = (target as Element | null)?.closest(
+    "a,button,input,select,textarea,label,[role=menu],dialog",
+  );
+  return Boolean(el && row.contains(el));
+}
 type SortField = ProductListParams["sort"];
 
 /** List state lives in the URL so it survives navigation, reloads and sharing (PRD §8.3). */
@@ -98,6 +114,20 @@ function ProductsPageInner() {
   const [pendingDelete, setPendingDelete] = useState<ProductListItem | null>(null);
 
   const [search, setSearch] = useState(params.q ?? "");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses search (unless typing in a field already).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   const debounced = useDebounced(search.trim(), 300);
   useEffect(() => {
     if ((params.q ?? "") !== debounced) update({ q: debounced || undefined });
@@ -192,202 +222,205 @@ function ProductsPageInner() {
         </Card>
       ) : (
         <Card>
-          <div
-            className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center"
-            role="search"
-          >
-            <div className="relative flex-1">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
-              />
-              <Input
-                type="search"
-                aria-label="Search products"
-                placeholder="Search by product name, SKU, or barcode"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 md:flex">
-              <Select
-                aria-label="Filter by status"
-                value={params.status ?? ""}
-                onChange={(e) => update({ status: e.target.value || undefined })}
-                className="md:w-40"
-              >
-                <option value="">All statuses</option>
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-              </Select>
+          <div className="flex flex-col gap-2 border-b border-border px-2 pb-2 pt-2 sm:flex-row sm:items-center">
+            <Tabs
+              label="Product status views"
+              controls="products-panel"
+              items={STATUS_TABS}
+              value={(params.status as StatusTab | undefined) ?? "all"}
+              onChange={(v) => update({ status: v === "all" ? undefined : v })}
+            />
+            <div className="flex flex-1 items-center gap-2 sm:justify-end" role="search">
+              <div className="relative min-w-0 flex-1 sm:max-w-80">
+                <Search
+                  aria-hidden
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+                />
+                <Input
+                  ref={searchRef}
+                  type="search"
+                  aria-label="Search products"
+                  aria-keyshortcuts="/"
+                  placeholder="Search by name, SKU, or barcode"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
               <Select
                 aria-label="Filter by product type"
                 value={params.product_type ?? ""}
                 onChange={(e) => update({ product_type: e.target.value || undefined })}
-                className="md:w-40"
+                className="w-32 shrink-0"
               >
                 <option value="">All types</option>
                 <option value="simple">Simple</option>
                 <option value="variable">Variable</option>
               </Select>
+              {hasFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
+                  <X aria-hidden />
+                  Clear
+                </Button>
+              )}
             </div>
-            {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X aria-hidden />
-                Clear filters
-              </Button>
-            )}
           </div>
-
-          {list.isError ? (
-            <div className="p-4">
-              <Alert
-                tone="danger"
-                title="Couldn't load products"
+          <div id="products-panel" role="tabpanel" aria-label="Products">
+            {list.isError ? (
+              <div className="p-4">
+                <Alert
+                  tone="danger"
+                  title="Couldn't load products"
+                  action={
+                    <Button size="sm" variant="secondary" onClick={() => list.refetch()}>
+                      Retry
+                    </Button>
+                  }
+                >
+                  {list.error.message}
+                </Alert>
+              </div>
+            ) : data && data.data.length === 0 ? (
+              <EmptyState
+                icon={<Search />}
+                title="No products match your search"
+                description="Try a different search term or remove some filters."
                 action={
-                  <Button size="sm" variant="secondary" onClick={() => list.refetch()}>
-                    Retry
+                  <Button variant="secondary" onClick={clearFilters}>
+                    Clear filters
                   </Button>
                 }
-              >
-                {list.error.message}
-              </Alert>
-            </div>
-          ) : data && data.data.length === 0 ? (
-            <EmptyState
-              icon={<Search />}
-              title="No products match your search"
-              description="Try a different search term or remove some filters."
-              action={
-                <Button variant="secondary" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              <Table
-                aria-busy={list.isFetching || undefined}
-                className={list.isPlaceholderData ? "opacity-60" : undefined}
-              >
-                <caption className="sr-only">Products</caption>
-                <THead>
-                  <tr>
-                    <Th className="w-14">
-                      <span className="sr-only">Image</span>
-                    </Th>
-                    <SortableTh
-                      active={params.sort === "title"}
-                      direction={params.order}
-                      onSort={() => sortBy("title")}
-                    >
-                      Product
-                    </SortableTh>
-                    <SortableTh
-                      active={params.sort === "status"}
-                      direction={params.order}
-                      onSort={() => sortBy("status")}
-                    >
-                      Status
-                    </SortableTh>
-                    <Th>SKU / Variants</Th>
-                    <Th>Type</Th>
-                    <SortableTh
-                      active={params.sort === "updated_at"}
-                      direction={params.order}
-                      onSort={() => sortBy("updated_at")}
-                    >
-                      Updated
-                    </SortableTh>
-                    <Th className="w-12">
-                      <span className="sr-only">Actions</span>
-                    </Th>
-                  </tr>
-                </THead>
-                <TBody>
-                  {!data
-                    ? Array.from({ length: 6 }, (_, i) => (
-                        <tr key={i}>
-                          <Td>
-                            <Skeleton className="size-10" />
-                          </Td>
-                          <Td>
-                            <Skeleton className="h-4 w-48" />
-                          </Td>
-                          <Td>
-                            <Skeleton className="h-5 w-16 rounded-full" />
-                          </Td>
-                          <Td>
-                            <Skeleton className="h-4 w-24" />
-                          </Td>
-                          <Td>
-                            <Skeleton className="h-4 w-14" />
-                          </Td>
-                          <Td>
-                            <Skeleton className="h-4 w-24" />
-                          </Td>
-                          <Td />
-                        </tr>
-                      ))
-                    : data.data.map((p) => (
-                        <Tr key={p.id}>
-                          <Td>
-                            <div className="flex size-10 items-center justify-center rounded-md border border-border bg-surface-sunken text-fg-subtle">
-                              <ImageIcon aria-hidden className="size-4" />
-                            </div>
-                          </Td>
-                          <Td className="max-w-80">
-                            <Link
-                              href={`/admin/products/${p.id}`}
-                              className="block truncate font-medium text-fg hover:underline"
-                            >
-                              {p.title}
-                            </Link>
-                            {p.vendor && (
-                              <span className="block truncate text-xs text-fg-subtle">
-                                {p.vendor}
-                              </span>
-                            )}
-                          </Td>
-                          <Td>
-                            <Badge tone={STATUS_TONE[p.status]}>{STATUS_LABEL[p.status]}</Badge>
-                          </Td>
-                          <Td className="text-fg-muted">
-                            {p.product_type === "variable"
-                              ? `${p.variant_count} variant${p.variant_count === 1 ? "" : "s"}`
-                              : (p.sku ?? "—")}
-                          </Td>
-                          <Td className="capitalize text-fg-muted">{p.product_type}</Td>
-                          <Td className="whitespace-nowrap text-fg-muted">
-                            {formatDate(p.updated_at)}
-                          </Td>
-                          <Td>
-                            <Menu
-                              label={`Actions for ${p.title}`}
-                              trigger={<MoreHorizontal />}
-                              items={rowMenu(p)}
-                            />
-                          </Td>
-                        </Tr>
-                      ))}
-                </TBody>
-              </Table>
-              {data && (
-                <Pagination
-                  className="border-t border-border p-4"
-                  page={data.meta.page}
-                  pageSize={data.meta.page_size}
-                  total={data.meta.total}
-                  totalPages={data.meta.total_pages}
-                  pageSizes={PAGE_SIZES}
-                  onPageChange={(page) => update({ page }, false)}
-                  onPageSizeChange={(page_size) => update({ page_size })}
-                />
-              )}
-            </>
-          )}
+              />
+            ) : (
+              <>
+                <Table
+                  aria-busy={list.isFetching || undefined}
+                  className={list.isPlaceholderData ? "opacity-60" : undefined}
+                >
+                  <caption className="sr-only">Products</caption>
+                  <THead>
+                    <tr>
+                      <Th className="w-14">
+                        <span className="sr-only">Image</span>
+                      </Th>
+                      <SortableTh
+                        active={params.sort === "title"}
+                        direction={params.order}
+                        onSort={() => sortBy("title")}
+                      >
+                        Product
+                      </SortableTh>
+                      <SortableTh
+                        active={params.sort === "status"}
+                        direction={params.order}
+                        onSort={() => sortBy("status")}
+                      >
+                        Status
+                      </SortableTh>
+                      <Th>SKU / Variants</Th>
+                      <Th>Type</Th>
+                      <SortableTh
+                        active={params.sort === "updated_at"}
+                        direction={params.order}
+                        onSort={() => sortBy("updated_at")}
+                      >
+                        Updated
+                      </SortableTh>
+                      <Th className="w-12">
+                        <span className="sr-only">Actions</span>
+                      </Th>
+                    </tr>
+                  </THead>
+                  <TBody>
+                    {!data
+                      ? Array.from({ length: 6 }, (_, i) => (
+                          <tr key={i}>
+                            <Td>
+                              <Skeleton className="size-9 rounded-lg" />
+                            </Td>
+                            <Td>
+                              <Skeleton className="h-4 w-48" />
+                            </Td>
+                            <Td>
+                              <Skeleton className="h-5 w-16 rounded-full" />
+                            </Td>
+                            <Td>
+                              <Skeleton className="h-4 w-24" />
+                            </Td>
+                            <Td>
+                              <Skeleton className="h-4 w-14" />
+                            </Td>
+                            <Td>
+                              <Skeleton className="h-4 w-24" />
+                            </Td>
+                            <Td />
+                          </tr>
+                        ))
+                      : data.data.map((p) => (
+                          <Tr
+                            key={p.id}
+                            className="cursor-pointer"
+                            onClick={(e) => {
+                              if (isInteractive(e.target, e.currentTarget)) return;
+                              router.push(`/admin/products/${p.id}`);
+                            }}
+                          >
+                            <Td>
+                              <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-surface-sunken text-fg-subtle">
+                                <ImageIcon aria-hidden className="size-4" />
+                              </div>
+                            </Td>
+                            <Td className="max-w-80">
+                              <Link
+                                href={`/admin/products/${p.id}`}
+                                className="block truncate font-medium text-fg hover:underline"
+                              >
+                                {p.title}
+                              </Link>
+                              {p.vendor && (
+                                <span className="block truncate text-xs text-fg-subtle">
+                                  {p.vendor}
+                                </span>
+                              )}
+                            </Td>
+                            <Td>
+                              <Badge tone={STATUS_TONE[p.status]}>{STATUS_LABEL[p.status]}</Badge>
+                            </Td>
+                            <Td className="text-fg-muted">
+                              {p.product_type === "variable"
+                                ? `${p.variant_count} variant${p.variant_count === 1 ? "" : "s"}`
+                                : (p.sku ?? "—")}
+                            </Td>
+                            <Td className="capitalize text-fg-muted">{p.product_type}</Td>
+                            <Td className="whitespace-nowrap text-fg-muted">
+                              {formatDate(p.updated_at)}
+                            </Td>
+                            <Td>
+                              <Menu
+                                label={`Actions for ${p.title}`}
+                                trigger={<MoreHorizontal />}
+                                items={rowMenu(p)}
+                              />
+                            </Td>
+                          </Tr>
+                        ))}
+                  </TBody>
+                </Table>
+                {data && (
+                  <Pagination
+                    className="border-t border-border p-4"
+                    page={data.meta.page}
+                    pageSize={data.meta.page_size}
+                    total={data.meta.total}
+                    totalPages={data.meta.total_pages}
+                    pageSizes={PAGE_SIZES}
+                    onPageChange={(page) => update({ page }, false)}
+                    onPageSizeChange={(page_size) => update({ page_size })}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </Card>
       )}
 

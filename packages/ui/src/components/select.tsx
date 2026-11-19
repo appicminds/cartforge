@@ -13,7 +13,7 @@ export const Select = forwardRef<
         ref={ref}
         aria-invalid={invalid || undefined}
         className={cn(
-          "h-9 w-full appearance-none rounded-md border border-border-strong bg-surface pl-3 pr-8 text-sm text-fg shadow-sm",
+          "h-8 w-full appearance-none rounded-lg border border-border-strong bg-surface pl-3 pr-8 text-sm text-fg",
           "focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus/30",
           "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:opacity-70 aria-invalid:border-danger",
         )}

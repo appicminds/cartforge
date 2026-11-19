@@ -14,7 +14,7 @@ export function Table({ className, children, ...props }: HTMLAttributes<HTMLTabl
 }
 
 export function THead(props: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className="border-b border-border bg-surface-sunken/60" {...props} />;
+  return <thead className="border-b border-border bg-surface-sunken" {...props} />;
 }
 
 export function TBody(props: HTMLAttributes<HTMLTableSectionElement>) {
@@ -22,9 +22,7 @@ export function TBody(props: HTMLAttributes<HTMLTableSectionElement>) {
 }
 
 export function Tr({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return (
-    <tr className={cn("transition-colors hover:bg-surface-sunken/40", className)} {...props} />
-  );
+  return <tr className={cn("transition-colors hover:bg-surface-hover", className)} {...props} />;
 }
 
 export function Th({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
@@ -32,7 +30,7 @@ export function Th({ className, ...props }: ThHTMLAttributes<HTMLTableCellElemen
     <th
       scope="col"
       className={cn(
-        "h-10 whitespace-nowrap px-4 text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
+        "h-8 whitespace-nowrap px-3 text-left text-xs font-medium text-fg-muted",
         className,
       )}
       {...props}
@@ -41,7 +39,7 @@ export function Th({ className, ...props }: ThHTMLAttributes<HTMLTableCellElemen
 }
 
 export function Td({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3 align-middle text-fg", className)} {...props} />;
+  return <td className={cn("px-3 py-2 align-middle text-fg", className)} {...props} />;
 }
 
 export type SortDirection = "asc" | "desc";
@@ -70,7 +68,7 @@ export function SortableTh({
         type="button"
         onClick={onSort}
         className={cn(
-          "-mx-1 inline-flex items-center gap-1 rounded px-1 uppercase hover:text-fg",
+          "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-fg",
           active && "text-fg",
         )}
       >

@@ -21,3 +21,4 @@ export { Pagination } from "./components/pagination";
 export { Dialog, ConfirmDialog } from "./components/dialog";
 export { ToastProvider, useToast } from "./components/toast";
 export { Menu, type MenuItem } from "./components/menu";
+export { Tabs, type TabItem } from "./components/tabs";

@@ -20,8 +20,8 @@ export function PageHeader({
       className={cn("flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}
     >
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
-        {description && <p className="mt-1 text-sm text-fg-muted">{description}</p>}
+        <h1 className="text-xl font-bold tracking-tight text-fg">{title}</h1>
+        {description && <p className="mt-0.5 text-sm text-fg-muted">{description}</p>}
       </div>
       {(primaryAction || secondaryActions) && (
         <div className="flex flex-wrap items-center gap-2">

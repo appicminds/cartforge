@@ -16,7 +16,7 @@ export const Input = forwardRef<
       ref={ref}
       aria-invalid={invalid || undefined}
       className={cn(
-        "h-9 w-full rounded-md border border-border-strong bg-surface px-3 text-sm text-fg shadow-sm",
+        "h-8 w-full rounded-lg border border-border-strong bg-surface px-3 text-sm text-fg",
         "placeholder:text-fg-subtle focus-visible:border-focus focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus/30",
         "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:opacity-70",
         "aria-invalid:border-danger aria-invalid:focus-visible:outline-danger/30",
@@ -28,7 +28,7 @@ export const Input = forwardRef<
 });
 
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className={cn("text-sm font-medium text-fg", className)} {...props} />;
+  return <label className={cn("text-sm text-fg", className)} {...props} />;
 }
 
 export interface FieldProps {
@@ -46,7 +46,7 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <Label htmlFor={id}>
         {label}
         {required && (
@@ -57,11 +57,11 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
       </Label>
       {children({ id, describedBy, invalid: Boolean(error) })}
       {error ? (
-        <p id={errorId} className="text-sm text-danger">
+        <p id={errorId} className="text-xs text-danger">
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="text-sm text-fg-subtle">
+        <p id={hintId} className="text-xs text-fg-subtle">
           {hint}
         </p>
       ) : null}

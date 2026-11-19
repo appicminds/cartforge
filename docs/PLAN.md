@@ -79,7 +79,20 @@ No work on later modules starts before Products Management is accepted.
 6. Company naming: PRD says "Appisminds"; GitHub org is `appicminds`. To confirm.
 7. PRD §13.3 list numbering continues from §8.8 (11–17) — cosmetic only.
 
-## 5. Working agreements
+## 5. Admin design direction
+
+The admin follows the **interaction patterns and density of Shopify Admin** (PRD §5.3) using
+CartForge's own component library, tokens, icons (Lucide) and brand colours.
+
+- Adopted: compact 13px type scale, 32px controls, hairline-edged cards, resource lists with
+  status view tabs, clickable rows, two-column resource pages, a contextual save bar that
+  overlays the top bar while there are unsaved changes, `/` to search, Ctrl/⌘+S to save.
+- Not used: Shopify Polaris packages, tokens or icons. Their license only permits use in apps that
+  integrate with Shopify; stand-alone apps must be "visually distinct from Shopify products …
+  including the internal administration page of a Shopify merchant store". CartForge keeps its
+  own visual identity (dark navigation, ember primary, own logo) for that reason and per PRD §5.3.
+
+## 6. Working agreements
 
 - Every task follows PRD §28.1 (ID, objective, FE, BE, DB, API, permissions,
   validation, tests, acceptance) and §28.2 Definition of Done.
