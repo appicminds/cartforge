@@ -88,6 +88,7 @@ export const SYSTEM_ROLES = {
       P.INVENTORY_READ,
       P.MEDIA_READ,
       P.MEDIA_WRITE,
+      P.MEDIA_DELETE,
     ],
   },
   order_manager: {
@@ -110,6 +111,7 @@ export const SYSTEM_ROLES = {
       P.THEMES_WRITE,
       P.MEDIA_READ,
       P.MEDIA_WRITE,
+      P.MEDIA_DELETE,
     ],
   },
 } as const satisfies Record<string, { name: string; permissions: readonly Permission[] }>;

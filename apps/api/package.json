@@ -12,6 +12,7 @@
     "check:cjs": "node --no-experimental-require-module -e \"require('./dist/serverless.js')\""
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1160.0",
     "@cartforge/config": "workspace:*",
     "@cartforge/database": "workspace:*",
     "@cartforge/types": "workspace:*",
@@ -20,16 +21,19 @@
     "@nestjs/core": "11.1.9",
     "@nestjs/platform-express": "11.1.9",
     "@nestjs/swagger": "11.2.3",
+    "@vercel/blob": "2.8.2",
     "argon2": "0.44.0",
     "cookie-parser": "1.4.7",
     "helmet": "8.1.0",
     "ioredis": "5.8.2",
+    "multer": "2.0.2",
     "nestjs-pino": "4.4.1",
     "pino": "9.14.0",
     "pino-http": "10.5.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "sanitize-html": "2.17.0",
+    "sharp": "0.35.5",
     "zod": "4.1.12"
   },
   "devDependencies": {
@@ -37,6 +41,7 @@
     "@swc/core": "1.13.5",
     "@types/cookie-parser": "1.4.9",
     "@types/express": "5.0.5",
+    "@types/multer": "2.3.0",
     "@types/node": "22.19.1",
     "@types/sanitize-html": "2.16.0",
     "@types/supertest": "6.0.3",

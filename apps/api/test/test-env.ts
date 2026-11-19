@@ -1,3 +1,5 @@
+import os from "node:os";
+import path from "node:path";
 /** Test environment: a dedicated database derived from DATABASE_URL (…/cartforge → …/cartforge_test). */
 const base =
   process.env.DATABASE_URL ??
@@ -28,6 +30,9 @@ export const TEST_ENV: Record<string, string> = {
   SESSION_SECRET: "test-session-secret-0123456789-abcdefghijklmnop",
   SESSION_TTL_HOURS: "1",
   APP_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
+  STORAGE_DRIVER: "local",
+  STORAGE_LOCAL_PATH: path.join(os.tmpdir(), "cartforge-test-storage"),
+  MEDIA_MAX_BYTES: String(1024 * 1024), // 1 MB: lets tests exercise the size limit cheaply
 };
 
 export function applyTestEnv(): void {

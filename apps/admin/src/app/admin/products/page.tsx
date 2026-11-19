@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ImageIcon, MoreHorizontal, Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { PERMISSIONS, type ProductListItem } from "@cartforge/types";
-import { PRODUCT_SORT_FIELDS } from "@cartforge/validation";
+import { PRODUCT_SORT_FIELDS, formatMoney } from "@cartforge/validation";
 import {
   Alert,
   Badge,
@@ -319,6 +319,7 @@ function ProductsPageInner() {
                       </SortableTh>
                       <Th>SKU / Variants</Th>
                       <Th>Type</Th>
+                      <Th className="text-right">Price</Th>
                       <SortableTh
                         active={params.sort === "updated_at"}
                         direction={params.order}
@@ -351,6 +352,9 @@ function ProductsPageInner() {
                               <Skeleton className="h-4 w-14" />
                             </Td>
                             <Td>
+                              <Skeleton className="ml-auto h-4 w-14" />
+                            </Td>
+                            <Td>
                               <Skeleton className="h-4 w-24" />
                             </Td>
                             <Td />
@@ -366,9 +370,18 @@ function ProductsPageInner() {
                             }}
                           >
                             <Td>
-                              <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-surface-sunken text-fg-subtle">
-                                <ImageIcon aria-hidden className="size-4" />
-                              </div>
+                              {p.thumbnail_url ? (
+                                <img
+                                  src={p.thumbnail_url}
+                                  alt=""
+                                  loading="lazy"
+                                  className="size-9 rounded-lg border border-border bg-surface-sunken object-cover"
+                                />
+                              ) : (
+                                <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-surface-sunken text-fg-subtle">
+                                  <ImageIcon aria-hidden className="size-4" />
+                                </div>
+                              )}
                             </Td>
                             <Td className="max-w-80">
                               <Link
@@ -392,6 +405,15 @@ function ProductsPageInner() {
                                 : (p.sku ?? "—")}
                             </Td>
                             <Td className="capitalize text-fg-muted">{p.product_type}</Td>
+                            <Td className="whitespace-nowrap text-right tabular-nums">
+                              {p.price_minor !== null ? (
+                                formatMoney(p.price_minor, p.currency)
+                              ) : (
+                                <span className="text-fg-subtle">
+                                  {p.product_type === "variable" ? "Varies" : "—"}
+                                </span>
+                              )}
+                            </Td>
                             <Td className="whitespace-nowrap text-fg-muted">
                               {formatDate(p.updated_at)}
                             </Td>

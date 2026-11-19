@@ -102,6 +102,28 @@ Notes / follow-ups:
 | S2-08 | Admin: Pricing card with currency-aware money input                                                                                   |
 | S2-09 | Tests: file validation, price validation, restart persistence                                                                         |
 
+**Exit gate:** PRD §27.3 — a product can contain multiple uploaded images and valid pricing;
+assets remain available after application restart.
+
+**Status: ☑ all tasks done, exit gate passed (2026-11-19).** Evidence: `apps/api/test/media.e2e.test.ts`
+(upload, dedupe, validation, size limit, traversal, ordering/primary, pricing rules, in-use deletion),
+`apps/api/src/media/image-processor.test.ts`, `apps/admin/e2e/media-pricing.spec.ts`. Assets live in
+object storage (local disk / S3 / Vercel Blob) and the database, so they survive restarts — the E2E
+suite reloads pages against freshly restarted servers. Totals: 136 unit/integration + 23 E2E, green.
+
+Decisions and deviations:
+
+- **Derivatives are generated synchronously during upload** (thumb 160, medium 640, large 1280, WebP).
+  The PRD asks for async generation; there is no worker on the Vercel demo. `media_assets.status` exists
+  so a worker job can take over later (Sprint 5 or Next 10) without schema changes.
+- **Vercel Blob driver** added alongside local and S3 drivers (`STORAGE_DRIVER`). Vercel caps request
+  bodies at 4.5 MB, so `MEDIA_MAX_BYTES=4194304` there; self-hosted default is 10 MB.
+- **Primary image = first image** in the admin UI (the API still accepts `primary_media_id`).
+- Originals are re-encoded on upload: strips EXIF/GPS and trailing payloads. SVG is not accepted (PRD §10).
+- Catalog Manager and Content Designer roles gained `media.delete` (PRD §3 lists media for both).
+- Tax class mapping is deferred to the tax module (Next 7); `taxable` is stored now.
+- Variable products reject product-level prices (`PRICING_REQUIRES_VARIANTS`); per-variant pricing is Sprint 3.
+
 ## Sprint 3 — Variants & inventory
 
 | ID    | Task                                                                                                                                          |

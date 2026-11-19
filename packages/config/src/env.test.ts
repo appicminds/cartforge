@@ -47,6 +47,18 @@ describe("loadApiEnv", () => {
     ).toBe("rediss://default:x@host.upstash.io:6379");
   });
 
+  it("validates storage driver settings", () => {
+    expect(loadApiEnv(valid).STORAGE_DRIVER).toBe("local");
+    expect(() => loadApiEnv({ ...valid, STORAGE_DRIVER: "s3" })).toThrow(/S3_BUCKET/);
+    expect(() => loadApiEnv({ ...valid, STORAGE_DRIVER: "vercel-blob" })).toThrow(
+      /BLOB_READ_WRITE_TOKEN/,
+    );
+    expect(
+      loadApiEnv({ ...valid, STORAGE_DRIVER: "vercel-blob", BLOB_READ_WRITE_TOKEN: "x" })
+        .STORAGE_DRIVER,
+    ).toBe("vercel-blob");
+  });
+
   it("rejects a wrong-length encryption key", () => {
     expect(() => loadApiEnv({ ...valid, APP_ENCRYPTION_KEY: "abc" })).toThrow(EnvValidationError);
   });

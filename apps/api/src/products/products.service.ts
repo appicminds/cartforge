@@ -1,9 +1,10 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
-import { Prisma, storeScoped, type Product } from "@cartforge/database";
+import { Prisma, storeScoped, type Product, type ProductVariant } from "@cartforge/database";
 import {
   CATALOG_ERROR_CODES,
   ERROR_CODES,
   type ActorSummary,
+  type FieldError,
   type ListResponse,
   type ProductDetail,
   type ProductListItem,
@@ -17,9 +18,10 @@ import {
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { sanitizeRichText } from "../common/sanitize-html";
+import { MEDIA_RESOURCE, MediaService } from "../media/media.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { toDetail, toListItem } from "./product.mapper";
-import { publishErrors } from "./publish-rules";
+import { publishErrors, type PublishCandidate } from "./publish-rules";
 
 export interface ActorContext {
   store_id: string;
@@ -30,12 +32,23 @@ export interface ActorContext {
 }
 
 type Tx = Prisma.TransactionClient;
+type MediaInput = NonNullable<ProductUpdate["media"]>;
+type PricingInput = Pick<ProductUpdate, "price_minor" | "compare_at_minor" | "cost_minor">;
 
 const LIVE = { deleted_at: null } as const;
 const MAX_HANDLE_ATTEMPTS = 50;
 
 /** Fields recorded in audit before/after (description is noted, not copied). */
-const AUDITED_FIELDS = ["title", "handle", "product_type", "vendor", "status"] as const;
+const AUDITED_FIELDS = ["title", "handle", "product_type", "vendor", "status", "taxable"] as const;
+const PRICE_FIELDS = ["price_minor", "compare_at_minor", "cost_minor"] as const;
+
+const MEDIA_INCLUDE = {
+  orderBy: { position: "asc" },
+  include: { asset: { include: { derivatives: true } } },
+} as const satisfies Prisma.Product$mediaArgs;
+
+const big = (v: number | null | undefined) => (v === null || v === undefined ? null : BigInt(v));
+const num = (v: bigint | null) => (v === null ? null : Number(v));
 
 function handleTaken(handle: string) {
   return AppException.conflict(
@@ -45,13 +58,11 @@ function handleTaken(handle: string) {
   );
 }
 
-function isUniqueViolation(err: unknown, index: string): boolean {
+function isHandleViolation(err: unknown): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") return false;
   const target = err.meta?.target;
-  // Partial indexes surface their index name (or columns) as the target.
-  return Array.isArray(target)
-    ? target.includes("handle") || target.includes(index)
-    : String(target ?? "").includes(index) || String(target ?? "").includes("handle");
+  const text = Array.isArray(target) ? target.join(",") : String(target ?? "");
+  return text.includes("handle");
 }
 
 @Injectable()
@@ -59,6 +70,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly media: MediaService,
   ) {}
 
   // ───────────── Queries ─────────────
@@ -88,7 +100,7 @@ export class ProductsService {
       }),
     });
 
-    const [total, rows] = await this.prisma.$transaction([
+    const [total, rows, currency] = await Promise.all([
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({
         where,
@@ -97,14 +109,25 @@ export class ProductsService {
         skip: (q.page - 1) * q.page_size,
         take: q.page_size,
         include: {
-          variants: { where: LIVE, orderBy: { position: "asc" }, take: 1, select: { sku: true } },
+          variants: {
+            where: LIVE,
+            orderBy: { position: "asc" },
+            take: 1,
+            select: { sku: true, price_minor: true },
+          },
+          media: {
+            where: { is_primary: true },
+            take: 1,
+            include: { asset: { include: { derivatives: true } } },
+          },
           _count: { select: { variants: { where: LIVE } } },
         },
       }),
+      this.storeCurrency(this.prisma, storeId),
     ]);
 
     return {
-      data: rows.map(toListItem),
+      data: rows.map((r) => toListItem(r, currency)),
       meta: {
         page: q.page,
         page_size: q.page_size,
@@ -117,20 +140,26 @@ export class ProductsService {
   async get(storeId: string, id: string): Promise<ProductDetail> {
     const product = await this.prisma.product.findFirst({
       where: storeScoped(storeId, { id, ...LIVE }),
-      include: { variants: { where: LIVE, orderBy: { position: "asc" } } },
+      include: { variants: { where: LIVE, orderBy: { position: "asc" } }, media: MEDIA_INCLUDE },
     });
     // Same 404 for "other store" and "missing" so IDs can't be probed (BE-012).
     if (!product) throw AppException.notFound("Product");
-    return toDetail(product, await this.actors([product.created_by, product.updated_by]));
+    const [currency, actors] = await Promise.all([
+      this.storeCurrency(this.prisma, storeId),
+      this.actors([product.created_by, product.updated_by]),
+    ]);
+    return toDetail(product, currency, actors);
   }
 
   // ───────────── Commands ─────────────
 
   async create(input: ProductCreate, ctx: ActorContext): Promise<ProductDetail> {
     if (input.status !== "draft" && !ctx.can_publish) throw this.publishForbidden();
+    this.assertPricingAllowed(input.product_type, input);
 
     try {
       const id = await this.prisma.$transaction(async (tx) => {
+        const currency = await this.storeCurrency(tx, ctx.store_id);
         const handle = input.handle
           ? await this.assertHandleFree(tx, ctx.store_id, input.handle)
           : await this.generateHandle(tx, ctx.store_id, input.title);
@@ -141,6 +170,7 @@ export class ProductsService {
             handle,
             product_type: input.product_type,
             variant_count: 1,
+            price_minor: input.price_minor ?? null,
           });
         }
 
@@ -153,13 +183,34 @@ export class ProductsService {
             product_type: input.product_type,
             vendor: input.vendor ?? null,
             status: input.status,
+            taxable: input.taxable ?? true,
             published_at: input.status === "active" ? new Date() : null,
             created_by: ctx.user_id,
             updated_by: ctx.user_id,
             // Every product starts with one default variant (simple products keep exactly one).
-            variants: { create: { store_id: ctx.store_id, title: "Default", position: 0 } },
+            variants: {
+              create: {
+                store_id: ctx.store_id,
+                title: "Default",
+                position: 0,
+                currency,
+                price_minor: big(input.price_minor),
+                compare_at_minor: big(input.compare_at_minor),
+                cost_minor: big(input.cost_minor),
+              },
+            },
           },
         });
+
+        if (input.media?.length) {
+          await this.syncMedia(
+            tx,
+            ctx.store_id,
+            product.id,
+            input.media,
+            input.primary_media_id ?? null,
+          );
+        }
 
         await this.audit.recordIn(tx, {
           action: "product.created",
@@ -167,7 +218,14 @@ export class ProductsService {
           resource_id: product.id,
           store_id: ctx.store_id,
           actor_user_id: ctx.user_id,
-          metadata: { after: this.auditSnapshot(product) },
+          metadata: {
+            after: {
+              ...this.auditSnapshot(product),
+              price_minor: input.price_minor ?? null,
+              compare_at_minor: input.compare_at_minor ?? null,
+              media_count: input.media?.length ?? 0,
+            },
+          },
           request_id: ctx.request_id,
           ip: ctx.ip,
         });
@@ -175,8 +233,7 @@ export class ProductsService {
       });
       return this.get(ctx.store_id, id);
     } catch (err) {
-      if (input.handle && isUniqueViolation(err, "products_store_handle_live_key"))
-        throw handleTaken(input.handle);
+      if (input.handle && isHandleViolation(err)) throw handleTaken(input.handle);
       throw err;
     }
   }
@@ -191,8 +248,13 @@ export class ProductsService {
 
         const current = await tx.product.findUniqueOrThrow({
           where: { id },
-          include: { _count: { select: { variants: { where: LIVE } } } },
+          include: {
+            variants: { where: LIVE, orderBy: { position: "asc" } },
+            media: { orderBy: { position: "asc" } },
+          },
         });
+        const variantCount = current.variants.length;
+        const defaultVariant = current.variants[0];
 
         const data: Prisma.ProductUpdateInput = {};
         const changed = new Set<string>();
@@ -205,6 +267,7 @@ export class ProductsService {
 
         if (input.title !== undefined) set("title", input.title);
         if (input.vendor !== undefined) set("vendor", input.vendor);
+        if (input.taxable !== undefined) set("taxable", input.taxable);
         if (input.description_html !== undefined)
           set("description_html", sanitizeRichText(input.description_html));
 
@@ -229,7 +292,7 @@ export class ProductsService {
         }
 
         if (input.product_type !== undefined && input.product_type !== current.product_type) {
-          if (input.product_type === "simple" && current._count.variants > 1) {
+          if (input.product_type === "simple" && variantCount > 1) {
             throw new AppException(
               CATALOG_ERROR_CODES.PRODUCT_TYPE_CHANGE_BLOCKED,
               "This product has multiple variants. Remove extra variants before converting it to a simple product.",
@@ -245,6 +308,50 @@ export class ProductsService {
           }
           set("product_type", input.product_type);
         }
+        const nextType =
+          (data.product_type as Product["product_type"] | undefined) ?? current.product_type;
+        this.assertPricingAllowed(nextType, input);
+
+        // ── Pricing on the default variant (compare-at checked against merged values) ──
+        const priceBefore = defaultVariant ? this.priceSnapshot(defaultVariant) : null;
+        const priceAfter = priceBefore ? { ...priceBefore } : null;
+        if (defaultVariant && priceAfter) {
+          for (const f of PRICE_FIELDS)
+            if (input[f] !== undefined) priceAfter[f] = input[f] ?? null;
+          this.assertCompareAt(priceAfter);
+          const priceChanged = PRICE_FIELDS.some((f) => priceAfter[f] !== priceBefore![f]);
+          if (priceChanged) {
+            await tx.productVariant.update({
+              where: { id: defaultVariant.id },
+              data: {
+                price_minor: big(priceAfter.price_minor),
+                compare_at_minor: big(priceAfter.compare_at_minor),
+                cost_minor: big(priceAfter.cost_minor),
+              },
+            });
+            changed.add("pricing");
+          }
+        }
+
+        // ── Media (replaces the ordered list) ──
+        if (input.media !== undefined || input.primary_media_id !== undefined) {
+          const nextMedia: MediaInput =
+            input.media ??
+            current.media.map((m) => ({ media_asset_id: m.media_asset_id, alt_text: m.alt_text }));
+          // Omitted primary: keep the current one if it's still in the list, else the first image.
+          const currentPrimary = current.media.find((m) => m.is_primary)?.media_asset_id ?? null;
+          const primary =
+            input.primary_media_id !== undefined
+              ? input.primary_media_id
+              : nextMedia.some((m) => m.media_asset_id === currentPrimary)
+                ? currentPrimary
+                : null;
+          const before = JSON.stringify(
+            current.media.map((m) => [m.media_asset_id, m.alt_text ?? null, m.is_primary]),
+          );
+          const after = await this.syncMedia(tx, ctx.store_id, id, nextMedia, primary);
+          if (before !== JSON.stringify(after)) changed.add("media");
+        }
 
         if (input.status !== undefined && input.status !== current.status) {
           if (!ctx.can_publish) throw this.publishForbidden();
@@ -252,9 +359,9 @@ export class ProductsService {
             this.assertPublishable({
               title: (data.title as string | undefined) ?? current.title,
               handle: (data.handle as string | undefined) ?? current.handle,
-              product_type:
-                (data.product_type as Product["product_type"] | undefined) ?? current.product_type,
-              variant_count: current._count.variants,
+              product_type: nextType,
+              variant_count: variantCount,
+              price_minor: priceAfter?.price_minor ?? null,
             });
             if (!current.published_at) data.published_at = new Date();
           }
@@ -275,24 +382,29 @@ export class ProductsService {
           actor_user_id: ctx.user_id,
           metadata: {
             changed: [...changed],
-            before: Object.fromEntries(fields.map((f) => [f, current[f]])),
-            after: Object.fromEntries(fields.map((f) => [f, updated[f]])),
+            before: {
+              ...Object.fromEntries(fields.map((f) => [f, current[f]])),
+              ...(changed.has("pricing") && priceBefore),
+            },
+            after: {
+              ...Object.fromEntries(fields.map((f) => [f, updated[f]])),
+              ...(changed.has("pricing") && priceAfter),
+            },
           },
           request_id: ctx.request_id,
           ip: ctx.ip,
         });
       });
     } catch (err) {
-      if (input.handle && isUniqueViolation(err, "products_store_handle_live_key"))
-        throw handleTaken(input.handle);
+      if (input.handle && isHandleViolation(err)) throw handleTaken(input.handle);
       throw err;
     }
     return this.get(ctx.store_id, id);
   }
 
   /**
-   * Soft delete (PRD §8.9). Order item snapshots (Sprint 5+) never reference live
-   * product rows for their data, so history stays intact.
+   * Soft delete (PRD §8.9). Releases the product's media references so unused
+   * images can be deleted; order item snapshots never depend on live product rows.
    */
   async remove(id: string, ctx: ActorContext): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
@@ -304,6 +416,10 @@ export class ProductsService {
       await tx.productVariant.updateMany({
         where: { product_id: id, ...LIVE },
         data: { deleted_at: now },
+      });
+      await tx.productMedia.deleteMany({ where: { product_id: id } });
+      await tx.mediaReference.deleteMany({
+        where: { store_id: ctx.store_id, resource_type: MEDIA_RESOURCE.PRODUCT, resource_id: id },
       });
       await tx.product.update({
         where: { id },
@@ -323,6 +439,111 @@ export class ProductsService {
   }
 
   // ───────────── Helpers ─────────────
+
+  /**
+   * Replaces the product's ordered image list and keeps media_references in sync
+   * (used for safe deletion). Returns the resulting [asset, alt, primary] tuples.
+   */
+  private async syncMedia(
+    tx: Tx,
+    storeId: string,
+    productId: string,
+    items: MediaInput,
+    primaryId: string | null,
+  ): Promise<[string, string | null, boolean][]> {
+    const ids = items.map((m) => m.media_asset_id);
+    await this.media.assertOwned(tx, storeId, ids);
+    if (primaryId && !ids.includes(primaryId)) {
+      throw AppException.validation([
+        {
+          path: "primary_media_id",
+          message: "The primary image must be one of the product's images.",
+          code: "invalid",
+        },
+      ]);
+    }
+    const primary = primaryId ?? ids[0] ?? null;
+
+    await tx.productMedia.deleteMany({ where: { product_id: productId } });
+    await tx.mediaReference.deleteMany({
+      where: { store_id: storeId, resource_type: MEDIA_RESOURCE.PRODUCT, resource_id: productId },
+    });
+    if (items.length) {
+      await tx.productMedia.createMany({
+        data: items.map((m, i) => ({
+          store_id: storeId,
+          product_id: productId,
+          media_asset_id: m.media_asset_id,
+          position: i,
+          is_primary: m.media_asset_id === primary,
+          alt_text: m.alt_text ?? null,
+        })),
+      });
+      await tx.mediaReference.createMany({
+        data: ids.map((mediaId) => ({
+          store_id: storeId,
+          media_asset_id: mediaId,
+          resource_type: MEDIA_RESOURCE.PRODUCT,
+          resource_id: productId,
+        })),
+      });
+    }
+    return items.map((m) => [m.media_asset_id, m.alt_text ?? null, m.media_asset_id === primary]);
+  }
+
+  /** Variable products are priced per variant (Sprint 3). */
+  private assertPricingAllowed(type: "simple" | "variable", input: PricingInput): void {
+    if (
+      type === "variable" &&
+      PRICE_FIELDS.some((f) => input[f] !== undefined && input[f] !== null)
+    ) {
+      throw new AppException(
+        CATALOG_ERROR_CODES.PRICING_REQUIRES_VARIANTS,
+        "Variable products are priced per variant.",
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        PRICE_FIELDS.filter((f) => input[f] != null).map((f) => ({
+          path: f,
+          message: "Set prices on each variant instead.",
+          code: "variant_pricing",
+        })),
+      );
+    }
+  }
+
+  private assertCompareAt(p: {
+    price_minor: number | null;
+    compare_at_minor: number | null;
+  }): void {
+    if (
+      p.compare_at_minor !== null &&
+      p.price_minor !== null &&
+      p.compare_at_minor <= p.price_minor
+    ) {
+      throw AppException.validation([
+        {
+          path: "compare_at_minor",
+          message: "Compare-at price must be higher than the price.",
+          code: "too_low",
+        },
+      ]);
+    }
+  }
+
+  private priceSnapshot(v: ProductVariant) {
+    return {
+      price_minor: num(v.price_minor),
+      compare_at_minor: num(v.compare_at_minor),
+      cost_minor: num(v.cost_minor),
+    };
+  }
+
+  private async storeCurrency(client: Pick<Tx, "store">, storeId: string): Promise<string> {
+    const store = await client.store.findUniqueOrThrow({
+      where: { id: storeId },
+      select: { currency: true },
+    });
+    return store.currency;
+  }
 
   private async assertHandleFree(
     tx: Tx,
@@ -357,8 +578,8 @@ export class ProductsService {
     return `${base}-${Date.now().toString(36)}`;
   }
 
-  private assertPublishable(candidate: Parameters<typeof publishErrors>[0]): void {
-    const errors = publishErrors(candidate);
+  private assertPublishable(candidate: PublishCandidate): void {
+    const errors: FieldError[] = publishErrors(candidate);
     if (errors.length) {
       throw new AppException(
         CATALOG_ERROR_CODES.PRODUCT_NOT_PUBLISHABLE,

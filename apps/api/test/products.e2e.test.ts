@@ -156,7 +156,13 @@ describe("products API (Sprint 1)", () => {
     it("publishes, then requires confirmation to change a published handle", async () => {
       const { body } = await create({ title: `Live ${RUN}` }).expect(201);
       const id = body.data.id;
-      const pub = await catalog.patch(`/products/${id}`, { status: "active" }).expect(200);
+      // Publishing needs a price (Sprint 2 rule); without one it's rejected with a field error.
+      const blockedPub = await catalog.patch(`/products/${id}`, { status: "active" }).expect(422);
+      expect(blockedPub.body.error.code).toBe("PRODUCT_NOT_PUBLISHABLE");
+      expect(blockedPub.body.error.fields[0].path).toBe("price_minor");
+      const pub = await catalog
+        .patch(`/products/${id}`, { status: "active", price_minor: 2500 })
+        .expect(200);
       expect(pub.body.data.status).toBe("active");
       expect(pub.body.data.published_at).toBeTruthy();
 
@@ -188,7 +194,9 @@ describe("products API (Sprint 1)", () => {
           vendor: i % 2 ? "Northwind" : null,
         }).expect(201);
         if (i === 0)
-          await catalog.patch(`/products/${body.data.id}`, { status: "active" }).expect(200);
+          await catalog
+            .patch(`/products/${body.data.id}`, { status: "active", price_minor: 1000 })
+            .expect(200);
         if (i === 1)
           await catalog.patch(`/products/${body.data.id}`, { status: "archived" }).expect(200);
       }

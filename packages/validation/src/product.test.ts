@@ -82,3 +82,31 @@ describe("productListQuerySchema", () => {
     expect(productListQuerySchema.safeParse({ sort: "price; drop table" }).success).toBe(false);
   });
 });
+
+describe("pricing and media input", () => {
+  const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+
+  it("accepts minor-unit prices and rejects floats/negatives", () => {
+    expect(productCreateSchema.safeParse({ title: "A", price_minor: 1999 }).success).toBe(true);
+    expect(productCreateSchema.safeParse({ title: "A", price_minor: 19.99 }).success).toBe(false);
+    expect(productCreateSchema.safeParse({ title: "A", price_minor: -1 }).success).toBe(false);
+  });
+
+  it("requires compare-at to exceed price when both are given", () => {
+    const r = productCreateSchema.safeParse({
+      title: "A",
+      price_minor: 1000,
+      compare_at_minor: 1000,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(["compare_at_minor"]);
+    expect(
+      productUpdateSchema.safeParse({ price_minor: 1000, compare_at_minor: 1500 }).success,
+    ).toBe(true);
+  });
+
+  it("rejects duplicate images", () => {
+    const media = [{ media_asset_id: id(1) }, { media_asset_id: id(1) }];
+    expect(productUpdateSchema.safeParse({ media }).success).toBe(false);
+  });
+});

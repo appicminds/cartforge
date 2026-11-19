@@ -5,11 +5,13 @@ export interface PublishCandidate {
   handle: string;
   product_type: "simple" | "variable";
   variant_count: number;
+  /** Default-variant price for simple products. */
+  price_minor: number | bigint | null;
 }
 
 /**
  * Rules a product must satisfy to become Active (PRD §8.4 I, §8.8 rule 6).
- * Grows with each sprint: price (Sprint 2), variant configuration (Sprint 3).
+ * Sprint 3 adds per-variant pricing/option checks for variable products.
  * Returns actionable field errors; empty array = publishable.
  */
 export function publishErrors(p: PublishCandidate): FieldError[] {
@@ -21,6 +23,9 @@ export function publishErrors(p: PublishCandidate): FieldError[] {
       path: "variants",
       message: "A product needs at least one variant to be published.",
     });
+  }
+  if (p.product_type === "simple" && (p.price_minor === null || p.price_minor === undefined)) {
+    errors.push({ path: "price_minor", message: "Set a price before publishing." });
   }
   return errors;
 }

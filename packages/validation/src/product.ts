@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { paginationQuerySchema, requiredText } from "./common.js";
+import { paginationQuerySchema, requiredText, uuidSchema } from "./common.js";
+import { moneyMinorSchema } from "./money.js";
 
 export const PRODUCT_STATUSES = ["draft", "active", "archived"] as const;
 export const PRODUCT_TYPES = ["simple", "variable"] as const;
@@ -53,6 +54,44 @@ const optionalText = (max: number) =>
     .nullish()
     .transform((v) => (v === undefined ? undefined : v || null));
 
+export const MAX_PRODUCT_MEDIA = 50;
+
+/** Ordered image list; the first item is primary unless primary_media_id says otherwise. */
+export const productMediaInputSchema = z
+  .array(
+    z.object({
+      media_asset_id: uuidSchema,
+      alt_text: z
+        .string()
+        .trim()
+        .max(500)
+        .nullish()
+        .transform((v) => (v === undefined ? undefined : v || null)),
+    }),
+  )
+  .max(MAX_PRODUCT_MEDIA, `A product can have up to ${MAX_PRODUCT_MEDIA} images`)
+  .refine((items) => new Set(items.map((i) => i.media_asset_id)).size === items.length, {
+    message: "Each image can only be added once",
+  });
+
+const nullableMoney = moneyMinorSchema.nullable();
+
+/** Pricing fields (simple products; variable products price per variant from Sprint 3). */
+const pricingFields = {
+  price_minor: nullableMoney.optional(),
+  compare_at_minor: nullableMoney.optional(),
+  cost_minor: nullableMoney.optional(),
+  taxable: z.boolean().optional(),
+};
+
+const compareAtRule = <T extends { price_minor?: number | null; compare_at_minor?: number | null }>(
+  v: T,
+) => v.compare_at_minor == null || v.price_minor == null || v.compare_at_minor > v.price_minor;
+const compareAtIssue = {
+  message: "Compare-at price must be higher than the price",
+  path: ["compare_at_minor"],
+};
+
 const productFields = {
   title: requiredText(TITLE_MAX),
   description_html: z.string().max(DESCRIPTION_MAX, "Description is too long"),
@@ -62,15 +101,20 @@ const productFields = {
   handle: handleSchema,
 };
 
-export const productCreateSchema = z.object({
-  title: productFields.title,
-  description_html: productFields.description_html.default(""),
-  product_type: productFields.product_type.default("simple"),
-  vendor: productFields.vendor.optional(),
-  status: productFields.status.default("draft"),
-  /** Omitted → generated from title (unique within the store). */
-  handle: handleSchema.optional(),
-});
+export const productCreateSchema = z
+  .object({
+    title: productFields.title,
+    description_html: productFields.description_html.default(""),
+    product_type: productFields.product_type.default("simple"),
+    vendor: productFields.vendor.optional(),
+    status: productFields.status.default("draft"),
+    /** Omitted → generated from title (unique within the store). */
+    handle: handleSchema.optional(),
+    ...pricingFields,
+    media: productMediaInputSchema.optional(),
+    primary_media_id: uuidSchema.nullish(),
+  })
+  .refine(compareAtRule, compareAtIssue);
 export type ProductCreateInput = z.input<typeof productCreateSchema>;
 export type ProductCreate = z.output<typeof productCreateSchema>;
 
@@ -82,13 +126,19 @@ export const productUpdateSchema = z
     vendor: productFields.vendor.optional(),
     status: productFields.status.optional(),
     handle: handleSchema.optional(),
+    ...pricingFields,
+    /** Replaces the product's image list (order = display order). */
+    media: productMediaInputSchema.optional(),
+    primary_media_id: uuidSchema.nullish(),
     /** Required to change the handle of a product that is (or was) published. */
     confirm_handle_change: z.boolean().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).some((k) => k !== "confirm_handle_change"), {
     message: "Provide at least one field to update",
-  });
+  })
+  // Checked here when both arrive together; the server re-checks against stored values.
+  .refine(compareAtRule, compareAtIssue);
 export type ProductUpdateInput = z.input<typeof productUpdateSchema>;
 export type ProductUpdate = z.output<typeof productUpdateSchema>;
 

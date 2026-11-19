@@ -23,6 +23,13 @@ async function createProduct(
   await page.getByRole("button", { name: "Save product" }).click();
 }
 
+/** After "Product created" the app redirects to the product page; wait for it before editing. */
+async function waitForProductPage(page: Page) {
+  await expect(page.getByText("Product created")).toBeVisible();
+  await page.waitForURL(/\/admin\/products\/[0-9a-f-]{36}$/);
+  await expect(page.getByLabel("Title")).toBeEnabled();
+}
+
 test.describe("Products — Sprint 1 exit gate", () => {
   test("create a draft, find it, open it, edit it, and changes persist after refresh", async ({
     page,
@@ -47,7 +54,7 @@ test.describe("Products — Sprint 1 exit gate", () => {
     await page.getByLabel("Vendor / brand").fill("Northwind Workshop");
     await page.getByRole("button", { name: "Save product" }).click();
 
-    await expect(page.getByText("Product created")).toBeVisible();
+    await waitForProductPage(page);
     await expect(page).toHaveURL(/\/admin\/products\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
     await expect(page.getByText("Draft", { exact: true }).first()).toBeVisible();
@@ -87,7 +94,7 @@ test.describe("Products — Sprint 1 exit gate", () => {
   test("shows field errors for a duplicate handle and invalid title", async ({ page }) => {
     await signIn(page, "catalog@cartforge.test");
     await createProduct(page, `Handle Owner ${RUN}`, { handle: `dup-${RUN.toLowerCase()}` });
-    await expect(page.getByText("Product created")).toBeVisible();
+    await waitForProductPage(page);
 
     await page.goto("/admin/products/new");
     await page.getByLabel("Title").fill("   ");
@@ -112,7 +119,8 @@ test.describe("Products — Sprint 1 exit gate", () => {
   }) => {
     await signIn(page, "catalog@cartforge.test");
     await createProduct(page, `Publish Me ${RUN}`);
-    await expect(page.getByText("Product created")).toBeVisible();
+    await waitForProductPage(page);
+    await page.getByLabel("Price", { exact: true }).fill("15");
     await page.getByLabel("Product status").selectOption("active");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Product saved")).toBeVisible();
@@ -133,7 +141,7 @@ test.describe("Products — Sprint 1 exit gate", () => {
   test("warns before leaving with unsaved changes", async ({ page }) => {
     await signIn(page, "catalog@cartforge.test");
     await createProduct(page, `Guarded ${RUN}`);
-    await expect(page.getByText("Product created")).toBeVisible();
+    await waitForProductPage(page);
     await page.getByLabel("Title").fill("Changed but not saved");
 
     page.once("dialog", (d) => d.dismiss());
@@ -156,7 +164,7 @@ test.describe("Products — Sprint 1 exit gate", () => {
     const title = `Doomed ${RUN}`;
     await signIn(page, "catalog@cartforge.test");
     await createProduct(page, title);
-    await expect(page.getByText("Product created")).toBeVisible();
+    await waitForProductPage(page);
 
     await page.goto(`/admin/products?q=${encodeURIComponent(title)}`);
     await page.getByRole("button", { name: `Actions for ${title}` }).click();
@@ -174,7 +182,7 @@ test.describe("Products — list states and permissions", () => {
     const title = `Shortcut ${RUN}`;
     await signIn(page, "catalog@cartforge.test");
     await createProduct(page, title);
-    await expect(page.getByText("Product created")).toBeVisible();
+    await waitForProductPage(page);
 
     await page.goto(`/admin/products?q=${encodeURIComponent(title)}`);
     await page
