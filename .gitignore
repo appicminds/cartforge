@@ -12,3 +12,4 @@ test-results
 storage/
 .DS_Store
 .vercel
+dump.rdb
