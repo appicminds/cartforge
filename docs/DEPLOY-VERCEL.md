@@ -9,6 +9,11 @@ Browser ──► cartforge-admin (Next.js)  ──/api/v1/* rewrite──►  c
                                                                    └─► Upstash Redis
 ```
 
+**One public URL.** People only use the admin project's domain. In the current demo that's
+`https://cartforge-app.vercel.app` (`/admin` for the app, `/api/v1` and `/api/docs` for the API,
+proxied to the API project). `cartforge.vercel.app` was already taken on Vercel; a custom
+domain can be added to `cartforge-admin` at any time (also add it to the API's `ADMIN_ORIGIN`).
+
 Both projects deploy from the same GitHub repo (`appicminds/cartforge`). The browser
 only talks to the admin domain, so session cookies stay first-party.
 
