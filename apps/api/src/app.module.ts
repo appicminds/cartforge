@@ -9,6 +9,7 @@ import { ConfigModule } from "./config/config.module";
 import { API_ENV, type ApiEnv } from "./config/env";
 import { HealthModule } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.service";
+import { ProductsModule } from "./products/products.module";
 import { RedisModule } from "./redis/redis.service";
 import { StoresModule } from "./stores/stores.module";
 
@@ -25,6 +26,7 @@ import { StoresModule } from "./stores/stores.module";
     AuthModule,
     HealthModule,
     StoresModule,
+    ProductsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],
 })

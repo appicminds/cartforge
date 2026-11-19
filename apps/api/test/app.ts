@@ -43,3 +43,19 @@ export async function login(
     csrf: csrfCookie.split(";")[0]!.split("=")[1]!,
   };
 }
+
+/** Tiny request helper bound to a session + store scope. */
+export function api(app: INestApplication, s: Session, storeId: string) {
+  const srv = () => request(app.getHttpServer());
+  const scoped = (r: request.Test) => r.set("Cookie", s.cookies).set("X-Store-Id", storeId);
+  const unsafe = (r: request.Test) => scoped(r).set("X-CSRF-Token", s.csrf);
+  return {
+    get: (path: string) => scoped(srv().get(`/api/v1${path}`)),
+    post: (path: string, body?: object) => unsafe(srv().post(`/api/v1${path}`)).send(body ?? {}),
+    patch: (path: string, body: object) => unsafe(srv().patch(`/api/v1${path}`)).send(body),
+    delete: (path: string) => unsafe(srv().delete(`/api/v1${path}`)),
+  };
+}
+
+/** Unique tag per test run so tests never depend on an empty database. */
+export const RUN = `t${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;

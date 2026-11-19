@@ -1,0 +1,134 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from "@nestjs/common";
+import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
+import {
+  PERMISSIONS,
+  type DetailResponse,
+  type ListResponse,
+  type ProductDetail,
+  type ProductListItem,
+} from "@cartforge/types";
+import {
+  productCreateSchema,
+  productListQuerySchema,
+  productUpdateSchema,
+  type ProductCreate,
+  type ProductListQuery,
+  type ProductUpdate,
+} from "@cartforge/validation";
+import { CurrentAuth, CurrentStore, RequirePermissions } from "../auth/decorators";
+import { AppException } from "../common/app-exception";
+import type { AuthContext, StoreContext } from "../common/request-context";
+import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { ProductsService, type ActorContext } from "./products.service";
+
+/** Non-UUID ids are simply "not found" — never a 500 or a validation leak. */
+const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Product") });
+
+@ApiTags("products")
+@ApiCookieAuth()
+@ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
+@Controller("products")
+export class ProductsController {
+  constructor(private readonly products: ProductsService) {}
+
+  private ctx(auth: AuthContext, store: StoreContext, req: Request): ActorContext {
+    return {
+      store_id: store.store_id,
+      user_id: auth.user_id,
+      can_publish: store.permissions.has(PERMISSIONS.PRODUCTS_PUBLISH),
+      request_id: String(req.id),
+      ip: req.ip,
+    };
+  }
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.PRODUCTS_READ)
+  @ApiOperation({
+    summary: "List products",
+    description:
+      "Query: page, page_size (≤100), q (title/handle/vendor/SKU/barcode), status (csv), product_type (csv), " +
+      "sort (title|created_at|updated_at|status), order (asc|desc).",
+  })
+  async list(
+    @CurrentStore() store: StoreContext,
+    @Query(new ZodValidationPipe(productListQuerySchema)) query: ProductListQuery,
+    @Req() req: Request,
+  ): Promise<ListResponse<ProductListItem>> {
+    return { ...(await this.products.list(store.store_id, query)), request_id: String(req.id) };
+  }
+
+  @Post()
+  @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
+  @ApiOperation({
+    summary: "Create a product (defaults to Draft; handle generated from title when omitted)",
+  })
+  async create(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Body(new ZodValidationPipe(productCreateSchema)) body: ProductCreate,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    return {
+      data: await this.products.create(body, this.ctx(auth, store, req)),
+      request_id: String(req.id),
+    };
+  }
+
+  @Get(":id")
+  @RequirePermissions(PERMISSIONS.PRODUCTS_READ)
+  @ApiOperation({ summary: "Get product detail" })
+  async get(
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    return { data: await this.products.get(store.store_id, id), request_id: String(req.id) };
+  }
+
+  @Patch(":id")
+  @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
+  @ApiOperation({
+    summary: "Update product fields",
+    description:
+      "Status changes also require products.publish. Changing a published product's handle requires confirm_handle_change.",
+  })
+  async update(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Body(new ZodValidationPipe(productUpdateSchema)) body: ProductUpdate,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    return {
+      data: await this.products.update(id, body, this.ctx(auth, store, req)),
+      request_id: String(req.id),
+    };
+  }
+
+  @Delete(":id")
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRODUCTS_DELETE)
+  @ApiOperation({ summary: "Soft-delete a product" })
+  async remove(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Req() req: Request,
+  ): Promise<{ data: { id: string; deleted: true }; request_id: string }> {
+    await this.products.remove(id, this.ctx(auth, store, req));
+    return { data: { id, deleted: true }, request_id: String(req.id) };
+  }
+}

@@ -1,5 +1,5 @@
-import { Home, type LucideIcon } from "lucide-react";
-import type { Permission } from "@cartforge/types";
+import { Home, Package, type LucideIcon } from "lucide-react";
+import { PERMISSIONS, type Permission } from "@cartforge/types";
 
 export interface NavItem {
   label: string;
@@ -18,7 +18,19 @@ export interface NavSection {
  * Admin navigation (Appendix A). Only routes that exist are listed — modules are
  * added here as they ship (Products in Sprint 1), never as dead links.
  */
-export const NAV: NavSection[] = [{ items: [{ label: "Home", href: "/admin", icon: Home }] }];
+export const NAV: NavSection[] = [
+  {
+    items: [
+      { label: "Home", href: "/admin", icon: Home },
+      {
+        label: "Products",
+        href: "/admin/products",
+        icon: Package,
+        permission: PERMISSIONS.PRODUCTS_READ,
+      },
+    ],
+  },
+];
 
 export function findNavItem(pathname: string): NavItem | undefined {
   const all = NAV.flatMap((s) => s.items);

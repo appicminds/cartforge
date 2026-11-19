@@ -5,18 +5,20 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LogOut, Menu, Store } from "lucide-react";
 import { Breadcrumb, IconButton, cn, type BreadcrumbItem } from "@cartforge/ui";
+import { useBreadcrumbTitleValue } from "@/lib/breadcrumbs";
 import { useSession } from "@/lib/session";
 import { findNavItem } from "./nav";
 
 function useBreadcrumbs(): BreadcrumbItem[] {
   const pathname = usePathname();
   const item = findNavItem(pathname);
+  const pageTitle = useBreadcrumbTitleValue();
   if (!item || item.href === "/admin") return [{ label: "Home" }];
   const crumbs: BreadcrumbItem[] = [
     { label: "Home", href: "/admin" },
     { label: item.label, href: item.href },
   ];
-  if (pathname !== item.href) crumbs.push({ label: "Details" });
+  if (pathname !== item.href) crumbs.push({ label: pageTitle ?? "Details" });
   return crumbs;
 }
 

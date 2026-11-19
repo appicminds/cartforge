@@ -62,7 +62,31 @@ Known follow-ups carried into Sprint 1:
 | S1-10 | Tests: product rules unit tests; API authz + cross-store isolation; E2E create→list→edit→refresh                                                                          |
 | S1-11 | Audit log entries for product create/update                                                                                                                               |
 
-**Exit gate:** PRD §27.2.
+**Exit gate:** PRD §27.2 — create a simple draft, see it in the list, search it, open it,
+edit it, and retrieve persisted changes after refresh.
+
+**Status: ☑ all tasks done, exit gate passed (2026-11-19).** Evidence:
+`apps/api/test/products.e2e.test.ts` (25 API cases incl. authz + cross-store isolation),
+`apps/admin/e2e/products.spec.ts` (10 browser cases). Totals: 91 unit/integration + 17 E2E, green.
+
+Delivered beyond the task list (pulled forward because they were cheap and safe):
+
+- `DELETE /api/v1/products/:id` (soft delete, frees the handle) + row-menu and detail delete with confirmation.
+- Status changes require `products.publish`; a minimal publish rule set (`publish-rules.ts`) that Sprint 2/3 extend.
+- Changing a published product's handle requires explicit confirmation (`HANDLE_CHANGE_REQUIRES_CONFIRMATION`).
+- Partial unique indexes so soft-deleted rows don't block handle/SKU reuse; `pg_trgm` indexes for search.
+- UI kit additions: Select, Textarea, Table/SortableTh, Pagination, Dialog/ConfirmDialog (native `<dialog>`), Menu, Toast.
+
+Notes / follow-ups:
+
+- Bugs found and fixed during E2E: rich-text editor could drop keystrokes typed right after a toolbar
+  click, and re-applied stale values mid-typing; the form's blank-vendor transform would have nulled
+  vendor on every partial update (caught by unit tests before shipping).
+- Unsaved-changes guard covers reload/close and in-app links; browser Back is not intercepted
+  (App Router offers no cancelable navigation event).
+- Link insertion uses `window.prompt` — replace with an inline popover (Sprint 4 polish).
+- List columns for inventory, category and price arrive with Sprints 2–4; thumbnails with Sprint 2.
+- Optimistic concurrency (stale-edit detection) not yet implemented; row locks serialize writes.
 
 ## Sprint 2 — Media & pricing
 

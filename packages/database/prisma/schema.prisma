@@ -75,6 +75,8 @@ model Store {
   roles       Role[]
   memberships StoreMembership[]
   audit_logs  AuditLog[]
+  products    Product[]
+  variants    ProductVariant[]
 
   @@map("stores")
 }
@@ -143,4 +145,75 @@ model AuditLog {
   @@index([store_id, created_at])
   @@index([resource_type, resource_id])
   @@map("audit_logs")
+}
+
+// ───────────────────────────── Catalog ─────────────────────────────
+// Uniqueness that must ignore soft-deleted rows is enforced by partial unique
+// indexes created in SQL migrations (Prisma can't express them):
+//   products_store_handle_live_key  (store_id, handle) WHERE deleted_at IS NULL
+//   product_variants_store_sku_live_key (store_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL
+
+enum ProductStatus {
+  draft
+  active
+  archived
+}
+
+enum ProductType {
+  simple
+  variable
+}
+
+model Product {
+  id                String        @id @default(uuid()) @db.Uuid
+  store_id          String        @db.Uuid
+  title             String        @db.VarChar(200)
+  /// Sanitized HTML. Never render unsanitized input.
+  description_html  String        @default("")
+  handle            String        @db.VarChar(255)
+  product_type      ProductType   @default(simple)
+  /// Free text in the initial release (PLAN.md §3).
+  vendor            String?       @db.VarChar(120)
+  status            ProductStatus @default(draft)
+  taxable           Boolean       @default(true)
+  requires_shipping Boolean       @default(true)
+  seo_title         String?       @db.VarChar(255)
+  seo_description   String?       @db.VarChar(500)
+  published_at      DateTime?     @db.Timestamptz(3)
+  created_by        String?       @db.Uuid
+  updated_by        String?       @db.Uuid
+  created_at        DateTime      @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime      @updatedAt @db.Timestamptz(3)
+  deleted_at        DateTime?     @db.Timestamptz(3)
+
+  store    Store            @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  variants ProductVariant[]
+
+  @@index([store_id, status, updated_at])
+  @@index([store_id, updated_at])
+  @@index([store_id, created_at])
+  @@index([store_id, title])
+  @@map("products")
+}
+
+/// Every product has ≥1 variant; simple products have exactly one "default" variant.
+/// Pricing (Sprint 2) and options/inventory (Sprint 3) extend this table.
+model ProductVariant {
+  id         String    @id @default(uuid()) @db.Uuid
+  store_id   String    @db.Uuid
+  product_id String    @db.Uuid
+  title      String    @default("Default") @db.VarChar(255)
+  sku        String?   @db.VarChar(100)
+  barcode    String?   @db.VarChar(100)
+  position   Int       @default(0)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at DateTime? @db.Timestamptz(3)
+
+  store   Store   @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id, position])
+  @@index([store_id, barcode])
+  @@map("product_variants")
 }

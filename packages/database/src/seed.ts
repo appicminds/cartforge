@@ -15,6 +15,8 @@ export const SEED_STORES = {
     name: "Harbor Outfitters",
     currency: "EUR",
   },
+  /** Kept free of catalog data so first-use empty states can be tested. Never add products here in tests. */
+  empty: { id: "00000000-0000-4000-8000-000000000003", name: "Quiet Pines", currency: "USD" },
 } as const;
 
 export const SEED_USERS = [
@@ -24,6 +26,7 @@ export const SEED_USERS = [
     memberships: [
       ["main", "owner"],
       ["second", "owner"],
+      ["empty", "owner"],
     ],
   },
   { email: "admin@cartforge.test", name: "Adam Admin", memberships: [["main", "admin"]] },

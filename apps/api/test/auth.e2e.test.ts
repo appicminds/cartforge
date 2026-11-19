@@ -44,7 +44,7 @@ describe("auth", () => {
     expect(session).toMatch(/SameSite=Lax/i);
     expect(csrf).not.toMatch(/HttpOnly/i);
     expect(res.body.data.email).toBe("owner@cartforge.test");
-    expect(res.body.data.stores).toHaveLength(2);
+    expect(res.body.data.stores).toHaveLength(3);
     expect(JSON.stringify(res.body)).not.toContain("password");
   });
 
