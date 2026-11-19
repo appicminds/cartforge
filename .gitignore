@@ -9,7 +9,9 @@ coverage
 !.env.example
 playwright-report
 test-results
-storage/
+# Local media uploads (STORAGE_DRIVER=local); not source code.
+/storage/
+/apps/*/storage/
 .DS_Store
 .vercel
 dump.rdb
