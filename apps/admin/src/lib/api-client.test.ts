@@ -19,6 +19,21 @@ describe("normalizeError", () => {
     expect(err.fields).toHaveLength(1);
   });
 
+  it("does not surface hosting/proxy error messages as API errors", async () => {
+    const res = new Response(
+      JSON.stringify({
+        error: {
+          code: "DEPLOYMENT_NOT_FOUND",
+          message: "The deployment could not be found on Vercel.",
+        },
+      }),
+      { status: 404 },
+    );
+    const err = await normalizeError(res, "req_local");
+    expect(err.code).toBe("SERVICE_UNAVAILABLE");
+    expect(err.message).not.toContain("Vercel");
+  });
+
   it("handles non-JSON gateway errors without leaking bodies", async () => {
     const err = await normalizeError(
       new Response("<html>502</html>", { status: 502 }),

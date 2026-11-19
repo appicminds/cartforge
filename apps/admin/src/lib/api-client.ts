@@ -59,7 +59,9 @@ export async function normalizeError(res: Response, requestId: string): Promise<
     // Non-JSON error (proxy, gateway). Fall through to a generic message.
   }
   const rid = body?.request_id ?? res.headers.get("x-request-id") ?? requestId;
-  if (body?.error?.code) {
+  // Only trust CartForge's own envelope (always carries request_id). Errors from
+  // proxies/hosting (e.g. Vercel "deployment not found") get a neutral message.
+  if (body?.error?.code && typeof body.request_id === "string") {
     return new ApiError(
       res.status,
       body.error.code,
@@ -68,16 +70,23 @@ export async function normalizeError(res: Response, requestId: string): Promise<
       body.error.fields ?? [],
     );
   }
-  const message =
-    res.status >= 500
-      ? "The server had a problem handling this request. Please try again."
-      : `Request failed (${res.status}).`;
-  return new ApiError(
-    res.status,
-    res.status >= 500 ? ERROR_CODES.INTERNAL_ERROR : "HTTP_ERROR",
-    message,
-    rid,
-  );
+  if (res.status >= 500) {
+    return new ApiError(
+      res.status,
+      ERROR_CODES.INTERNAL_ERROR,
+      "The server had a problem handling this request. Please try again.",
+      rid,
+    );
+  }
+  if (res.status === 404 && !body?.request_id) {
+    return new ApiError(
+      res.status,
+      "SERVICE_UNAVAILABLE",
+      "CartForge's API isn't reachable right now. Please try again shortly, or contact your administrator.",
+      rid,
+    );
+  }
+  return new ApiError(res.status, "HTTP_ERROR", `Request failed (${res.status}).`, rid);
 }
 
 export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Promise<T> {
