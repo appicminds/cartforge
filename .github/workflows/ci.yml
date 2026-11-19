@@ -48,6 +48,8 @@ jobs:
       - run: pnpm build
       - run: pnpm lint
       - run: pnpm typecheck
+      # Vercel's Node runtime can't require() ES modules; fail here, not in production.
+      - run: pnpm --filter @cartforge/api check:cjs
       - name: Migrate and seed
         run: pnpm db:migrate && pnpm db:seed
       - name: Unit + API integration tests

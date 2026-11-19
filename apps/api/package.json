@@ -8,7 +8,8 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src test",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:cjs": "node --no-experimental-require-module -e \"require('./dist/serverless.js')\""
   },
   "dependencies": {
     "@cartforge/config": "workspace:*",
@@ -28,7 +29,7 @@
     "pino-http": "10.5.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "sanitize-html": "2.18.1",
+    "sanitize-html": "2.17.0",
     "zod": "4.1.12"
   },
   "devDependencies": {
