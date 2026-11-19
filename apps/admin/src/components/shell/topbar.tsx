@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LogOut, Menu, Store } from "lucide-react";
-import { Breadcrumb, IconButton, cn, type BreadcrumbItem } from "@cartforge/ui";
+import { Breadcrumb, IconButton, Select, cn, type BreadcrumbItem } from "@cartforge/ui";
 import { useBreadcrumbTitleValue } from "@/lib/breadcrumbs";
 import { useSession } from "@/lib/session";
 import { findNavItem } from "./nav";
@@ -36,17 +36,17 @@ function StoreSwitcher() {
     <label className="flex items-center gap-2 text-sm">
       <Store aria-hidden className="size-4 text-fg-muted" />
       <span className="sr-only">Active store</span>
-      <select
+      <Select
         value={store?.store_id ?? ""}
         onChange={(e) => setStoreId(e.target.value)}
-        className="h-8 max-w-44 rounded-md border border-border-strong bg-surface px-2 text-sm"
+        className="w-44 max-w-[40vw]"
       >
         {user.stores.map((s) => (
           <option key={s.store_id} value={s.store_id}>
             {s.store_name}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

@@ -8,7 +8,10 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { ArrowLeft } from "lucide-react";
 import { CATALOG_ERROR_CODES, PERMISSIONS, type ProductDetail } from "@cartforge/types";
+import { AdjustStockDialog } from "@/components/inventory/adjust-stock-dialog";
+import { MovementsDialog } from "@/components/inventory/movements-dialog";
 import { MediaGallery, type GalleryValue } from "./media-gallery";
+import { VariantsCard } from "./variants-card";
 import {
   Alert,
   Badge,
@@ -84,6 +87,18 @@ const makeSchema = (currency: string) =>
       cost: moneyField(currency),
       taxable: z.boolean(),
       gallery: z.custom<GalleryValue>(),
+      sku: z.string().trim().max(100, "Must be 100 characters or fewer"),
+      barcode: z.string().trim().max(100, "Must be 100 characters or fewer"),
+      inventory_tracking: z.boolean(),
+      continue_selling: z.boolean(),
+      threshold: z
+        .string()
+        .trim()
+        .refine((v) => v === "" || /^\d{1,7}$/.test(v), "Enter a whole number, or leave blank"),
+      quantity: z
+        .string()
+        .trim()
+        .refine((v) => v === "" || /^\d{1,7}$/.test(v), "Enter a whole number"),
     })
     .superRefine((v, ctx) => {
       const price = parseMoneyToMinor(v.price, currency);
@@ -115,6 +130,10 @@ const FIELDS = [
   "compare_at",
   "cost",
   "gallery",
+  "sku",
+  "barcode",
+  "threshold",
+  "quantity",
 ] as const;
 
 /** Server field paths → form field names. */
@@ -124,6 +143,8 @@ const SERVER_FIELD: Record<string, (typeof FIELDS)[number]> = {
   cost_minor: "cost",
   media: "gallery",
   primary_media_id: "gallery",
+  low_stock_threshold: "threshold",
+  inventory_quantity: "quantity",
 };
 function mapServerError(err: unknown): unknown {
   if (!(err instanceof ApiError) || !err.fields.length) return err;
@@ -148,6 +169,12 @@ export function toFormValues(p: ProductDetail | undefined, currency: string): Pr
     compare_at: minorToDecimalString(p?.compare_at_minor, currency),
     cost: minorToDecimalString(p?.cost_minor, currency),
     taxable: p?.taxable ?? true,
+    sku: (p?.product_type === "simple" && p.variants[0]?.sku) || "",
+    barcode: (p?.product_type === "simple" && p.variants[0]?.barcode) || "",
+    inventory_tracking: p?.variants[0]?.inventory_tracking ?? true,
+    continue_selling: p?.variants[0]?.continue_selling ?? false,
+    threshold: p?.variants[0]?.inventory.low_stock_threshold?.toString() ?? "",
+    quantity: "",
     // Primary first: the UI treats the first image as primary.
     gallery: {
       items: [...(p?.media ?? [])]
@@ -229,6 +256,18 @@ function ProductFormInner({
   const title = form.watch("title");
 
   useUnsavedChangesGuard(isDirty && !isSubmitting);
+  const canAdjust = can(PERMISSIONS.INVENTORY_ADJUST);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Variant/option/stock changes update the product outside this form. Refresh the
+  // form from the server when there are no unsaved edits to lose.
+  const updatedAt = product?.updated_at;
+  const stockKey = product?.variants.map((v) => `${v.id}:${v.inventory.on_hand}`).join(",");
+  useEffect(() => {
+    if (product && !form.formState.isDirty) form.reset(toFormValues(product, currency));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to server-side changes only
+  }, [updatedAt, stockKey, product?.product_type]);
 
   const handleResult = (res: SubmitResult) => {
     if (res.ok) {
@@ -267,6 +306,16 @@ function ProductFormInner({
         handle: v.handle || undefined,
         taxable: v.taxable,
         ...(simple && {
+          sku: v.sku || null,
+          barcode: v.barcode || null,
+          inventory_tracking: v.inventory_tracking,
+          continue_selling: v.continue_selling,
+          low_stock_threshold: v.threshold ? Number(v.threshold) : null,
+          ...(canAdjust &&
+            v.inventory_tracking &&
+            v.quantity && { inventory_quantity: Number(v.quantity) }),
+        }),
+        ...(simple && {
           price_minor: toMinor(v.price),
           compare_at_minor: toMinor(v.compare_at),
           cost_minor: toMinor(v.cost),
@@ -282,7 +331,6 @@ function ProductFormInner({
     const body: ProductUpdateInput = {};
     if (dirtyFields.title) body.title = v.title;
     if (dirtyFields.description_html) body.description_html = v.description_html;
-    if (dirtyFields.product_type) body.product_type = v.product_type;
     if (dirtyFields.vendor) body.vendor = v.vendor || null;
     if (dirtyFields.status) body.status = v.status;
     if (dirtyFields.taxable) body.taxable = v.taxable;
@@ -290,6 +338,12 @@ function ProductFormInner({
       if (dirtyFields.price) body.price_minor = toMinor(v.price);
       if (dirtyFields.compare_at) body.compare_at_minor = toMinor(v.compare_at);
       if (dirtyFields.cost) body.cost_minor = toMinor(v.cost);
+      if (dirtyFields.sku) body.sku = v.sku || null;
+      if (dirtyFields.barcode) body.barcode = v.barcode || null;
+      if (dirtyFields.inventory_tracking) body.inventory_tracking = v.inventory_tracking;
+      if (dirtyFields.continue_selling) body.continue_selling = v.continue_selling;
+      if (dirtyFields.threshold)
+        body.low_stock_threshold = v.threshold ? Number(v.threshold) : null;
     }
     if (dirtyFields.gallery) {
       body.media = media;
@@ -448,10 +502,19 @@ function ProductFormInner({
             <CardHeader title="Pricing" />
             <CardBody>
               {productType === "variable" ? (
-                <p className="text-sm text-fg-muted">
-                  Variable products are priced per variant. Variant editing arrives with inventory
-                  (next sprint).
-                </p>
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm text-fg-muted">
+                    This product is priced per variant. Edit prices in the Variants table below.
+                  </p>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      {...form.register("taxable")}
+                    />
+                    Charge tax on this product
+                  </label>
+                </div>
               ) : (
                 <div className="flex flex-col gap-4">
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -495,6 +558,141 @@ function ProductFormInner({
               )}
             </CardBody>
           </Card>
+
+          {productType === "simple" && (
+            <Card>
+              <CardHeader title="Inventory" />
+              <CardBody className="flex flex-col gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="SKU (stock keeping unit)" error={errors.sku?.message}>
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        {...form.register("sku")}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Barcode (ISBN, UPC, GTIN…)" error={errors.barcode?.message}>
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        {...form.register("barcode")}
+                      />
+                    )}
+                  </Field>
+                </div>
+                <div className="flex flex-col gap-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      {...form.register("inventory_tracking")}
+                    />
+                    Track quantity
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      {...form.register("continue_selling")}
+                    />
+                    Continue selling when out of stock
+                  </label>
+                </div>
+                {form.watch("inventory_tracking") && (
+                  <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                    {isNew ? (
+                      canAdjust ? (
+                        <Field
+                          label="Quantity"
+                          error={errors.quantity?.message}
+                          hint="Starting stock at your main location."
+                        >
+                          {({ id, describedBy, invalid }) => (
+                            <Input
+                              id={id}
+                              inputMode="numeric"
+                              placeholder="0"
+                              aria-describedby={describedBy}
+                              invalid={invalid}
+                              {...form.register("quantity")}
+                            />
+                          )}
+                        </Field>
+                      ) : (
+                        <p className="text-sm text-fg-muted">
+                          Someone with inventory access can add stock after saving.
+                        </p>
+                      )
+                    ) : (
+                      <div className="flex flex-col gap-1 text-sm">
+                        <span className="text-fg">Quantity</span>
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="text-lg font-semibold tabular-nums"
+                            data-testid="stock-on-hand"
+                          >
+                            {product.variants[0]?.inventory.on_hand ?? 0}
+                          </span>
+                          <span className="text-xs text-fg-muted">
+                            on hand · {product.variants[0]?.inventory.available ?? 0} available
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          {canAdjust && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setAdjustOpen(true)}
+                              disabled={isDirty}
+                              title={isDirty ? "Save your changes first" : undefined}
+                            >
+                              Adjust stock
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => setHistoryOpen(true)}>
+                            History
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <Field
+                      label="Low-stock alert at"
+                      error={errors.threshold?.message}
+                      hint="Leave blank for no alert."
+                    >
+                      {({ id, describedBy, invalid }) => (
+                        <Input
+                          id={id}
+                          inputMode="numeric"
+                          aria-describedby={describedBy}
+                          invalid={invalid}
+                          {...form.register("threshold")}
+                        />
+                      )}
+                    </Field>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
+          {product ? (
+            <VariantsCard product={product} formDirty={isDirty} />
+          ) : (
+            <Card>
+              <CardHeader title="Variants" />
+              <CardBody>
+                <p className="text-sm text-fg-muted">
+                  Save the product first, then add options like size or color.
+                </p>
+              </CardBody>
+            </Card>
+          )}
 
           <Card>
             <CardHeader
@@ -566,23 +764,17 @@ function ProductFormInner({
           <Card>
             <CardHeader title="Organization" />
             <CardBody className="flex flex-col gap-5">
-              <Field
-                label="Product type"
-                error={errors.product_type?.message}
-                hint="Variable products have options like size or color (variant editing arrives with inventory)."
-              >
-                {({ id, describedBy, invalid }) => (
-                  <Select
-                    id={id}
-                    aria-describedby={describedBy}
-                    invalid={invalid}
-                    {...form.register("product_type")}
-                  >
-                    <option value="simple">Simple</option>
-                    <option value="variable">Variable</option>
-                  </Select>
-                )}
-              </Field>
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="text-fg">Product type</span>
+                <span className="text-fg-muted">
+                  {productType === "variable"
+                    ? "Variable — has options"
+                    : "Simple — single variant"}
+                </span>
+                <span className="text-xs text-fg-subtle">
+                  Set by adding or removing options under Variants.
+                </span>
+              </div>
               <Field label="Vendor / brand" error={errors.vendor?.message}>
                 {({ id, describedBy, invalid }) => (
                   <Input
@@ -653,6 +845,31 @@ function ProductFormInner({
             {isNew ? "Save product" : "Save"}
           </Button>
         </div>
+      )}
+
+      {product && (
+        <>
+          <AdjustStockDialog
+            target={
+              adjustOpen && product.variants[0]
+                ? {
+                    variant_id: product.variants[0].id,
+                    label: product.title,
+                    on_hand: product.variants[0].inventory.on_hand,
+                  }
+                : null
+            }
+            onClose={() => setAdjustOpen(false)}
+          />
+          <MovementsDialog
+            target={
+              historyOpen && product.variants[0]
+                ? { variant_id: product.variants[0].id, label: product.title }
+                : null
+            }
+            onClose={() => setHistoryOpen(false)}
+          />
+        </>
       )}
 
       <ConfirmDialog

@@ -53,6 +53,7 @@ export function api(app: INestApplication, s: Session, storeId: string) {
     get: (path: string) => scoped(srv().get(`/api/v1${path}`)),
     post: (path: string, body?: object) => unsafe(srv().post(`/api/v1${path}`)).send(body ?? {}),
     patch: (path: string, body: object) => unsafe(srv().patch(`/api/v1${path}`)).send(body),
+    put: (path: string, body: object) => unsafe(srv().put(`/api/v1${path}`)).send(body),
     delete: (path: string) => unsafe(srv().delete(`/api/v1${path}`)),
   };
 }

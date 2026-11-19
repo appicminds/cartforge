@@ -78,6 +78,15 @@ export async function seed(databaseUrl?: string): Promise<void> {
         update: { name: store.name, currency: store.currency },
         create: { ...store, contact_email: "hello@cartforge.test" },
       });
+      // Every store has one default inventory location (PRD §8.4 D).
+      const location = await prisma.inventoryLocation.findFirst({
+        where: { store_id: store.id, is_default: true },
+      });
+      if (!location) {
+        await prisma.inventoryLocation.create({
+          data: { store_id: store.id, name: "Main location", is_default: true },
+        });
+      }
       for (const [key, role] of Object.entries(SYSTEM_ROLES)) {
         await prisma.role.upsert({
           where: { store_id_key: { store_id: store.id, key } },

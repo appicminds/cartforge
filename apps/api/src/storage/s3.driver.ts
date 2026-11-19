@@ -27,7 +27,13 @@ export class S3StorageDriver implements StorageDriver {
 
   async put(key: string, body: Buffer, contentType: string): Promise<StoredObject> {
     await this.client.send(
-      new PutObjectCommand({ Bucket: this.cfg.bucket, Key: key, Body: body, ContentType: contentType, CacheControl: IMMUTABLE_CACHE }),
+      new PutObjectCommand({
+        Bucket: this.cfg.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: IMMUTABLE_CACHE,
+      }),
     );
     return { key, url: `${this.cfg.publicBaseUrl.replace(/\/+$/, "")}/${key}` };
   }
@@ -35,7 +41,10 @@ export class S3StorageDriver implements StorageDriver {
   async delete(objects: StoredObject[]): Promise<void> {
     if (!objects.length) return;
     await this.client.send(
-      new DeleteObjectsCommand({ Bucket: this.cfg.bucket, Delete: { Objects: objects.map((o) => ({ Key: o.key })), Quiet: true } }),
+      new DeleteObjectsCommand({
+        Bucket: this.cfg.bucket,
+        Delete: { Objects: objects.map((o) => ({ Key: o.key })), Quiet: true },
+      }),
     );
   }
 }

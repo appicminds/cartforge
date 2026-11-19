@@ -60,9 +60,10 @@ export function Dialog({
             {description}
           </p>
         )}
-        {children && <div className="mt-4">{children}</div>}
+        {/* Content mounts only while open: no hidden forms or duplicate labels in the page. */}
+        {open && children && <div className="mt-4">{children}</div>}
       </div>
-      {footer && (
+      {open && footer && (
         <div className="flex justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>
       )}
     </dialog>

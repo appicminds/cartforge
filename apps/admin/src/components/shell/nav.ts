@@ -1,4 +1,4 @@
-import { Home, Package, type LucideIcon } from "lucide-react";
+import { Boxes, Home, Package, type LucideIcon } from "lucide-react";
 import { PERMISSIONS, type Permission } from "@cartforge/types";
 
 export interface NavItem {
@@ -27,6 +27,12 @@ export const NAV: NavSection[] = [
         href: "/admin/products",
         icon: Package,
         permission: PERMISSIONS.PRODUCTS_READ,
+      },
+      {
+        label: "Inventory",
+        href: "/admin/inventory",
+        icon: Boxes,
+        permission: PERMISSIONS.INVENTORY_READ,
       },
     ],
   },

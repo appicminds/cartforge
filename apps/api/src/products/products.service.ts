@@ -18,15 +18,19 @@ import {
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { sanitizeRichText } from "../common/sanitize-html";
+import { InventoryService } from "../inventory/inventory.service";
 import { MEDIA_RESOURCE, MediaService } from "../media/media.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { toDetail, toListItem } from "./product.mapper";
+import { toDetail, toListItem, type ListAggregates } from "./product.mapper";
+import { VariantsService, isSkuViolation, skuTaken } from "./variants.service";
 import { publishErrors, type PublishCandidate } from "./publish-rules";
 
 export interface ActorContext {
   store_id: string;
   user_id: string;
   can_publish: boolean;
+  /** Required to set initial stock on create (inventory.adjust). */
+  can_adjust_inventory?: boolean;
   request_id?: string;
   ip?: string;
 }
@@ -46,6 +50,19 @@ const MEDIA_INCLUDE = {
   orderBy: { position: "asc" },
   include: { asset: { include: { derivatives: true } } },
 } as const satisfies Prisma.Product$mediaArgs;
+
+const VARIANT_INCLUDE = {
+  option_values: { include: { option_value: { include: { option: true } } } },
+  inventory: true,
+} as const satisfies Prisma.ProductVariantInclude;
+
+const INVENTORY_FIELDS = [
+  "sku",
+  "barcode",
+  "inventory_tracking",
+  "continue_selling",
+  "low_stock_threshold",
+] as const;
 
 const big = (v: number | null | undefined) => (v === null || v === undefined ? null : BigInt(v));
 const num = (v: bigint | null) => (v === null ? null : Number(v));
@@ -71,6 +88,8 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly media: MediaService,
+    private readonly variants: VariantsService,
+    private readonly inventory: InventoryService,
   ) {}
 
   // ───────────── Queries ─────────────
@@ -126,8 +145,9 @@ export class ProductsService {
       this.storeCurrency(this.prisma, storeId),
     ]);
 
+    const aggs = await this.listAggregates(rows.map((r) => r.id));
     return {
-      data: rows.map((r) => toListItem(r, currency)),
+      data: rows.map((r) => toListItem(r, currency, aggs.get(r.id))),
       meta: {
         page: q.page,
         page_size: q.page_size,
@@ -140,15 +160,20 @@ export class ProductsService {
   async get(storeId: string, id: string): Promise<ProductDetail> {
     const product = await this.prisma.product.findFirst({
       where: storeScoped(storeId, { id, ...LIVE }),
-      include: { variants: { where: LIVE, orderBy: { position: "asc" } }, media: MEDIA_INCLUDE },
+      include: {
+        variants: { where: LIVE, orderBy: { position: "asc" }, include: VARIANT_INCLUDE },
+        media: MEDIA_INCLUDE,
+        options: { include: { values: true } },
+      },
     });
     // Same 404 for "other store" and "missing" so IDs can't be probed (BE-012).
     if (!product) throw AppException.notFound("Product");
-    const [currency, actors] = await Promise.all([
+    const [currency, actors, location] = await Promise.all([
       this.storeCurrency(this.prisma, storeId),
       this.actors([product.created_by, product.updated_by]),
+      this.inventory.defaultLocation(this.prisma, storeId),
     ]);
-    return toDetail(product, currency, actors);
+    return toDetail(product, currency, location.id, actors);
   }
 
   // ───────────── Commands ─────────────
@@ -156,6 +181,28 @@ export class ProductsService {
   async create(input: ProductCreate, ctx: ActorContext): Promise<ProductDetail> {
     if (input.status !== "draft" && !ctx.can_publish) throw this.publishForbidden();
     this.assertPricingAllowed(input.product_type, input);
+    this.assertInventoryFieldsAllowed(input.product_type, input);
+    if (input.inventory_quantity && !ctx.can_adjust_inventory) {
+      throw new AppException(
+        ERROR_CODES.FORBIDDEN,
+        "You don't have permission to set stock quantities.",
+        HttpStatus.FORBIDDEN,
+        [
+          {
+            path: "inventory_quantity",
+            message: "Requires the inventory adjust permission.",
+            code: "forbidden",
+          },
+        ],
+      );
+    }
+    if (input.sku) {
+      const clash = await this.prisma.productVariant.findFirst({
+        where: storeScoped(ctx.store_id, { sku: input.sku, ...LIVE }),
+        select: { id: true },
+      });
+      if (clash) throw skuTaken(input.sku);
+    }
 
     try {
       const id = await this.prisma.$transaction(async (tx) => {
@@ -197,10 +244,37 @@ export class ProductsService {
                 price_minor: big(input.price_minor),
                 compare_at_minor: big(input.compare_at_minor),
                 cost_minor: big(input.cost_minor),
+                sku: input.sku ?? null,
+                barcode: input.barcode ?? null,
+                inventory_tracking: input.inventory_tracking ?? true,
+                continue_selling: input.continue_selling ?? false,
               },
             },
           },
+          include: { variants: true },
         });
+
+        // Stock level at the default location (+ initial stock as an immutable movement).
+        const variant = product.variants[0]!;
+        await this.inventory.setThreshold(
+          tx,
+          ctx.store_id,
+          variant.id,
+          input.low_stock_threshold ?? null,
+        );
+        if (input.inventory_quantity && (input.inventory_tracking ?? true)) {
+          await this.inventory.applyInTx(tx, {
+            store_id: ctx.store_id,
+            variant_id: variant.id,
+            mode: "set",
+            quantity: input.inventory_quantity,
+            type: "initial",
+            reason: "Initial stock",
+            reference: { type: "product", id: product.id },
+            actor_id: ctx.user_id,
+            request_id: ctx.request_id,
+          });
+        }
 
         if (input.media?.length) {
           await this.syncMedia(
@@ -234,6 +308,7 @@ export class ProductsService {
       return this.get(ctx.store_id, id);
     } catch (err) {
       if (input.handle && isHandleViolation(err)) throw handleTaken(input.handle);
+      if (input.sku && isSkuViolation(err)) throw skuTaken(input.sku);
       throw err;
     }
   }
@@ -311,6 +386,21 @@ export class ProductsService {
         const nextType =
           (data.product_type as Product["product_type"] | undefined) ?? current.product_type;
         this.assertPricingAllowed(nextType, input);
+        this.assertInventoryFieldsAllowed(nextType, input);
+        if (
+          defaultVariant &&
+          nextType === "simple" &&
+          INVENTORY_FIELDS.some((f) => input[f] !== undefined)
+        ) {
+          const invChanged = await this.variants.applyFields(tx, ctx.store_id, defaultVariant, {
+            sku: input.sku,
+            barcode: input.barcode,
+            inventory_tracking: input.inventory_tracking,
+            continue_selling: input.continue_selling,
+            low_stock_threshold: input.low_stock_threshold,
+          });
+          for (const f of invChanged) changed.add(f);
+        }
 
         // ── Pricing on the default variant (compare-at checked against merged values) ──
         const priceBefore = defaultVariant ? this.priceSnapshot(defaultVariant) : null;
@@ -362,6 +452,9 @@ export class ProductsService {
               product_type: nextType,
               variant_count: variantCount,
               price_minor: priceAfter?.price_minor ?? null,
+              unpriced_variants: current.variants
+                .filter((v) => v.price_minor === null)
+                .map((v) => v.title),
             });
             if (!current.published_at) data.published_at = new Date();
           }
@@ -489,6 +582,53 @@ export class ProductsService {
       });
     }
     return items.map((m) => [m.media_asset_id, m.alt_text ?? null, m.media_asset_id === primary]);
+  }
+
+  /** Variable products set SKU/stock settings per variant. */
+  private assertInventoryFieldsAllowed(
+    type: "simple" | "variable",
+    input: Partial<Record<(typeof INVENTORY_FIELDS)[number], unknown>>,
+  ): void {
+    const given = INVENTORY_FIELDS.filter((f) => input[f] !== undefined && input[f] !== null);
+    if (type === "variable" && given.length) {
+      throw AppException.validation(
+        given.map((f) => ({
+          path: f,
+          message: "Set this on each variant instead.",
+          code: "variant_field",
+        })),
+        "Variable products manage SKU and stock per variant.",
+      );
+    }
+  }
+
+  /** Price range and available stock per product for list rows. */
+  private async listAggregates(ids: string[]): Promise<Map<string, ListAggregates>> {
+    if (!ids.length) return new Map();
+    const rows = await this.prisma.$queryRaw<
+      {
+        product_id: string;
+        price_min: bigint | null;
+        price_max: bigint | null;
+        available: bigint | null;
+      }[]
+    >`
+      SELECT v.product_id,
+             MIN(v.price_minor) AS price_min,
+             MAX(v.price_minor) AS price_max,
+             SUM(CASE WHEN v.inventory_tracking THEN COALESCE(l.on_hand, 0) - COALESCE(l.reserved, 0) END) AS available
+      FROM product_variants v
+      JOIN inventory_locations loc ON loc.store_id = v.store_id AND loc.is_default
+      LEFT JOIN inventory_levels l ON l.variant_id = v.id AND l.location_id = loc.id
+      WHERE v.deleted_at IS NULL AND v.product_id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
+      GROUP BY v.product_id`;
+    const n = (v: bigint | null) => (v === null ? null : Number(v));
+    return new Map(
+      rows.map((r) => [
+        r.product_id,
+        { price_min: n(r.price_min), price_max: n(r.price_max), available: n(r.available) },
+      ]),
+    );
   }
 
   /** Variable products are priced per variant (Sprint 3). */

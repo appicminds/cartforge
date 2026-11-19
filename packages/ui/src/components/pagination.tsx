@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../cn";
 import { IconButton } from "./button";
+import { Select } from "./select";
 
 export function Pagination({
   page,
@@ -39,17 +40,17 @@ export function Pagination({
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-2">
           <span>Rows per page</span>
-          <select
+          <Select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-8 rounded-md border border-border-strong bg-surface px-2 text-sm text-fg"
+            className="w-20"
           >
             {pageSizes.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <span className="tabular-nums">
           Page {Math.min(page, Math.max(totalPages, 1))} of {Math.max(totalPages, 1)}

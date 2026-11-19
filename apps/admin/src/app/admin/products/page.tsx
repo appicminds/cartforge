@@ -318,7 +318,7 @@ function ProductsPageInner() {
                         Status
                       </SortableTh>
                       <Th>SKU / Variants</Th>
-                      <Th>Type</Th>
+                      <Th>Inventory</Th>
                       <Th className="text-right">Price</Th>
                       <SortableTh
                         active={params.sort === "updated_at"}
@@ -404,10 +404,29 @@ function ProductsPageInner() {
                                 ? `${p.variant_count} variant${p.variant_count === 1 ? "" : "s"}`
                                 : (p.sku ?? "—")}
                             </Td>
-                            <Td className="capitalize text-fg-muted">{p.product_type}</Td>
+                            <Td className="whitespace-nowrap">
+                              {p.inventory_available === null ? (
+                                <span className="text-fg-subtle">Not tracked</span>
+                              ) : (
+                                <span
+                                  className={
+                                    p.inventory_available <= 0 ? "text-danger" : "text-fg-muted"
+                                  }
+                                >
+                                  {p.inventory_available} in stock
+                                  {p.product_type === "variable" &&
+                                    ` · ${p.variant_count} variants`}
+                                </span>
+                              )}
+                            </Td>
                             <Td className="whitespace-nowrap text-right tabular-nums">
                               {p.price_minor !== null ? (
-                                formatMoney(p.price_minor, p.currency)
+                                p.price_max_minor !== null &&
+                                p.price_max_minor !== p.price_minor ? (
+                                  `${formatMoney(p.price_minor, p.currency)} – ${formatMoney(p.price_max_minor, p.currency)}`
+                                ) : (
+                                  formatMoney(p.price_minor, p.currency)
+                                )
                               ) : (
                                 <span className="text-fg-subtle">
                                   {p.product_type === "variable" ? "Varies" : "—"}

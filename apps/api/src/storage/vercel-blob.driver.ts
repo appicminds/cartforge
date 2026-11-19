@@ -20,6 +20,10 @@ export class VercelBlobStorageDriver implements StorageDriver {
   }
 
   async delete(objects: StoredObject[]): Promise<void> {
-    if (objects.length) await del(objects.map((o) => o.url), { token: this.token });
+    if (objects.length)
+      await del(
+        objects.map((o) => o.url),
+        { token: this.token },
+      );
   }
 }

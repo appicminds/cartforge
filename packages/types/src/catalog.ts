@@ -20,11 +20,33 @@ export interface ProductListItem {
   sku: string | null;
   /** Primary image thumbnail, or null. */
   thumbnail_url: string | null;
-  /** Default-variant price for simple products (minor units); null if unset or variable. */
+  /** Simple: the price. Variable: the lowest variant price. Null if no prices set. */
   price_minor: number | null;
+  /** Variable products: highest variant price (equal to price_minor when uniform). */
+  price_max_minor: number | null;
   currency: string;
+  /** Sum of available stock over tracked variants; null when nothing is tracked. */
+  inventory_available: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface InventorySnapshot {
+  location_id: string;
+  on_hand: number;
+  reserved: number;
+  /** on_hand − reserved (PRD §9.3). */
+  available: number;
+  low_stock_threshold: number | null;
+  /** "in_stock" | "low" | "out" | "untracked" */
+  state: StockState;
+}
+
+export type StockState = "in_stock" | "low" | "out" | "untracked";
+
+export interface VariantOptionValue {
+  option: string;
+  value: string;
 }
 
 export interface ProductVariantSummary {
@@ -38,6 +60,59 @@ export interface ProductVariantSummary {
   /** Internal; admin endpoints only. */
   cost_minor: number | null;
   currency: string;
+  option_values: VariantOptionValue[];
+  inventory_tracking: boolean;
+  continue_selling: boolean;
+  media_asset_id: string | null;
+  inventory: InventorySnapshot;
+}
+
+export interface ProductOptionSummary {
+  id: string;
+  name: string;
+  position: number;
+  values: { id: string; value: string; position: number }[];
+}
+
+/** Result of reconciling options against existing variants (PRD §8.4 F). */
+export interface VariantPlan {
+  keep: { variant_id: string; from_title: string; title: string }[];
+  create: { title: string }[];
+  remove: { variant_id: string; title: string; sku: string | null; on_hand: number }[];
+  total_after: number;
+}
+
+export interface InventoryRow {
+  variant_id: string;
+  product_id: string;
+  product_title: string;
+  variant_title: string;
+  product_type: ProductType;
+  sku: string | null;
+  thumbnail_url: string | null;
+  inventory_tracking: boolean;
+  location_id: string;
+  location_name: string;
+  on_hand: number;
+  reserved: number;
+  available: number;
+  low_stock_threshold: number | null;
+  state: StockState;
+  updated_at: string;
+}
+
+export interface StockMovementSummary {
+  id: string;
+  movement_type: string;
+  quantity_delta: number;
+  quantity_before: number;
+  quantity_after: number;
+  reason: string | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  actor: ActorSummary | null;
+  location_name: string;
+  created_at: string;
 }
 
 export interface MediaUrls {
@@ -90,6 +165,7 @@ export interface ProductDetail {
   compare_at_minor: number | null;
   cost_minor: number | null;
   media: ProductMediaItem[];
+  options: ProductOptionSummary[];
   variants: ProductVariantSummary[];
   created_at: string;
   updated_at: string;
@@ -107,4 +183,9 @@ export const CATALOG_ERROR_CODES = {
   MEDIA_IN_USE: "MEDIA_IN_USE",
   MEDIA_INVALID_FILE: "MEDIA_INVALID_FILE",
   MEDIA_TOO_LARGE: "MEDIA_TOO_LARGE",
+  SKU_TAKEN: "SKU_TAKEN",
+  VARIANT_REMOVAL_REQUIRES_CONFIRMATION: "VARIANT_REMOVAL_REQUIRES_CONFIRMATION",
+  VARIANT_NOT_FOUND: "VARIANT_NOT_FOUND",
+  INVENTORY_NOT_TRACKED: "INVENTORY_NOT_TRACKED",
+  INVENTORY_NO_CHANGE: "INVENTORY_NO_CHANGE",
 } as const;

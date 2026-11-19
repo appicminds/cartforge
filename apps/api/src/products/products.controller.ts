@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from "@nestjs/common";
@@ -19,20 +20,27 @@ import {
   type ListResponse,
   type ProductDetail,
   type ProductListItem,
+  type VariantPlan,
 } from "@cartforge/types";
 import {
   productCreateSchema,
   productListQuerySchema,
+  productOptionsApplySchema,
+  productOptionsPreviewSchema,
   productUpdateSchema,
+  variantBulkUpdateSchema,
   type ProductCreate,
   type ProductListQuery,
+  type ProductOptionsApply,
   type ProductUpdate,
+  type VariantBulkUpdate,
 } from "@cartforge/validation";
 import { CurrentAuth, CurrentStore, RequirePermissions } from "../auth/decorators";
 import { AppException } from "../common/app-exception";
 import type { AuthContext, StoreContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { ProductsService, type ActorContext } from "./products.service";
+import { VariantsService } from "./variants.service";
 
 /** Non-UUID ids are simply "not found" — never a 500 or a validation leak. */
 const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Product") });
@@ -42,13 +50,17 @@ const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFo
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
 @Controller("products")
 export class ProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(
+    private readonly products: ProductsService,
+    private readonly variants: VariantsService,
+  ) {}
 
   private ctx(auth: AuthContext, store: StoreContext, req: Request): ActorContext {
     return {
       store_id: store.store_id,
       user_id: auth.user_id,
       can_publish: store.permissions.has(PERMISSIONS.PRODUCTS_PUBLISH),
+      can_adjust_inventory: store.permissions.has(PERMISSIONS.INVENTORY_ADJUST),
       request_id: String(req.id),
       ip: req.ip,
     };
@@ -130,5 +142,64 @@ export class ProductsController {
   ): Promise<{ data: { id: string; deleted: true }; request_id: string }> {
     await this.products.remove(id, this.ctx(auth, store, req));
     return { data: { id, deleted: true }, request_id: String(req.id) };
+  }
+
+  @Post(":id/options/preview")
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRODUCTS_READ)
+  @ApiOperation({
+    summary: "Preview which variants options would keep, create and remove (no changes made)",
+  })
+  async previewOptions(
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Body(new ZodValidationPipe(productOptionsPreviewSchema))
+    body: { options: ProductOptionsApply["options"] },
+    @Req() req: Request,
+  ): Promise<DetailResponse<VariantPlan>> {
+    return {
+      data: await this.variants.preview(store.store_id, id, body.options),
+      request_id: String(req.id),
+    };
+  }
+
+  @Put(":id/options")
+  @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
+  @ApiOperation({
+    summary: "Set options and reconcile variants",
+    description:
+      "Existing variants keep their data. Removals require confirm_removals=true (409 otherwise).",
+  })
+  async applyOptions(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Body(new ZodValidationPipe(productOptionsApplySchema)) body: ProductOptionsApply,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail> & { plan: VariantPlan }> {
+    const plan = await this.variants.apply(id, body, {
+      store_id: store.store_id,
+      user_id: auth.user_id,
+      request_id: String(req.id),
+    });
+    return { data: await this.products.get(store.store_id, id), plan, request_id: String(req.id) };
+  }
+
+  @Patch(":id/variants")
+  @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
+  @ApiOperation({ summary: "Bulk-edit selected variants (prices, tracking, continue selling)" })
+  async bulkVariants(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Body(new ZodValidationPipe(variantBulkUpdateSchema)) body: VariantBulkUpdate,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    await this.variants.bulkUpdate(id, body, {
+      store_id: store.store_id,
+      user_id: auth.user_id,
+      request_id: String(req.id),
+    });
+    return { data: await this.products.get(store.store_id, id), request_id: String(req.id) };
   }
 }

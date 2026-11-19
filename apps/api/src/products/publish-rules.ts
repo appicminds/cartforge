@@ -5,13 +5,14 @@ export interface PublishCandidate {
   handle: string;
   product_type: "simple" | "variable";
   variant_count: number;
-  /** Default-variant price for simple products. */
+  /** Simple products: default-variant price. */
   price_minor: number | bigint | null;
+  /** Variable products: titles of variants that have no price. */
+  unpriced_variants?: string[];
 }
 
 /**
  * Rules a product must satisfy to become Active (PRD §8.4 I, §8.8 rule 6).
- * Sprint 3 adds per-variant pricing/option checks for variable products.
  * Returns actionable field errors; empty array = publishable.
  */
 export function publishErrors(p: PublishCandidate): FieldError[] {
@@ -26,6 +27,15 @@ export function publishErrors(p: PublishCandidate): FieldError[] {
   }
   if (p.product_type === "simple" && (p.price_minor === null || p.price_minor === undefined)) {
     errors.push({ path: "price_minor", message: "Set a price before publishing." });
+  }
+  if (p.product_type === "variable" && p.unpriced_variants?.length) {
+    const list = p.unpriced_variants.slice(0, 5).join(", ");
+    const more =
+      p.unpriced_variants.length > 5 ? ` and ${p.unpriced_variants.length - 5} more` : "";
+    errors.push({
+      path: "variants",
+      message: `Set a price for every variant before publishing (missing: ${list}${more}).`,
+    });
   }
   return errors;
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { paginationQuerySchema, requiredText, uuidSchema } from "./common.js";
 import { moneyMinorSchema } from "./money.js";
+import { MAX_STOCK, thresholdSchema } from "./variants.js";
 
 export const PRODUCT_STATUSES = ["draft", "active", "archived"] as const;
 export const PRODUCT_TYPES = ["simple", "variable"] as const;
@@ -84,6 +85,25 @@ const pricingFields = {
   taxable: z.boolean().optional(),
 };
 
+/** Default-variant inventory fields for simple products (PRD §8.4 D). */
+const inventoryFields = {
+  sku: z
+    .string()
+    .trim()
+    .max(100)
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null)),
+  barcode: z
+    .string()
+    .trim()
+    .max(100)
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null)),
+  inventory_tracking: z.boolean().optional(),
+  continue_selling: z.boolean().optional(),
+  low_stock_threshold: thresholdSchema.nullable().optional(),
+};
+
 const compareAtRule = <T extends { price_minor?: number | null; compare_at_minor?: number | null }>(
   v: T,
 ) => v.compare_at_minor == null || v.price_minor == null || v.compare_at_minor > v.price_minor;
@@ -111,6 +131,9 @@ export const productCreateSchema = z
     /** Omitted → generated from title (unique within the store). */
     handle: handleSchema.optional(),
     ...pricingFields,
+    ...inventoryFields,
+    /** Starting stock at the default location; recorded as an "initial" movement. */
+    inventory_quantity: z.number().int().min(0).max(MAX_STOCK).optional(),
     media: productMediaInputSchema.optional(),
     primary_media_id: uuidSchema.nullish(),
   })
@@ -127,6 +150,7 @@ export const productUpdateSchema = z
     status: productFields.status.optional(),
     handle: handleSchema.optional(),
     ...pricingFields,
+    ...inventoryFields,
     /** Replaces the product's image list (order = display order). */
     media: productMediaInputSchema.optional(),
     primary_media_id: uuidSchema.nullish(),

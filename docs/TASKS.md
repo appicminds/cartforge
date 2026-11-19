@@ -137,6 +137,33 @@ Decisions and deviations:
 | S3-07 | Admin: inventory overview + adjustment dialog, low-stock badges                                                                               |
 | S3-08 | Tests: generation, SKU conflicts, concurrent adjustments                                                                                      |
 
+**Exit gate:** PRD §27.4 — a variable product with options can be created, each variant can be
+edited, and inventory movements are recorded correctly.
+
+**Status: ☑ all tasks done, exit gate passed (2026-11-19).** Evidence:
+`apps/api/src/products/variant-plan.test.ts` (9 reconciliation cases),
+`apps/api/test/variants-inventory.e2e.test.ts` (20 cases incl. 20 concurrent adjustments and DB-level
+ledger immutability), `apps/admin/e2e/variants-inventory.spec.ts`. Totals: 171 unit/integration + 27 E2E.
+
+Design notes:
+
+- **Reconciliation, not regeneration:** variants are matched by option values (case-insensitive), so
+  SKU/price/stock survive edits. Simple → variable keeps the default variant as the first combination;
+  new variants copy the first variant's pricing and settings. Removals need `confirm_removals` and are
+  previewed first (with stock that would be lost).
+- **Uniqueness in the DB:** `option_signature` + partial unique index per product; option names and
+  values unique case-insensitively.
+- **Stock is a ledger:** `stock_movements` has a CHECK (`after = before + delta`) and a trigger that
+  rejects UPDATE/DELETE. Adjustments lock the level row (`SELECT … FOR UPDATE`); a 20-way concurrent
+  test proves no lost updates.
+- **Permissions:** Catalog Manager reads inventory but can't adjust it (PRD §3 "limited inventory
+  permissions"); setting initial stock on create needs `inventory.adjust` too.
+- Single default location per store (backfilled by migration, created by seed; future store
+  creation must create one — `InventoryService.defaultLocation` also self-heals).
+- Reservations (`reserved`) exist in the schema; reserve/release logic arrives with checkout (Next 4).
+- Weight and package dimensions (PRD §8.4 E) are not in Sprint 3 scope; planned with shipping.
+- Shared `Dialog` now mounts its content only while open (no hidden duplicate forms in the page).
+
 ## Sprint 4 — Organization, SEO & publishing
 
 | ID    | Task                                                                                        |
