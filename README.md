@@ -5,6 +5,7 @@ Self-hosted commerce platform — _Build commerce. Own everything._
 - Product requirements: CartForge Master PRD v1.0
 - Engineering plan & decisions: [`docs/PLAN.md`](docs/PLAN.md)
 - Task breakdown & status: [`docs/TASKS.md`](docs/TASKS.md)
+- Hosted demo on Vercel: [`docs/DEPLOY-VERCEL.md`](docs/DEPLOY-VERCEL.md)
 
 ## Repository layout
 

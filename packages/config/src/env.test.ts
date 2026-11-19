@@ -31,6 +31,22 @@ describe("loadApiEnv", () => {
     }
   });
 
+  it("accepts a comma-separated list of admin origins", () => {
+    const env = loadApiEnv({
+      ...valid,
+      ADMIN_ORIGIN: "https://a.example.com/, https://b.example.com",
+    });
+    expect(env.ADMIN_ORIGIN).toEqual(["https://a.example.com", "https://b.example.com"]);
+    expect(() => loadApiEnv({ ...valid, ADMIN_ORIGIN: "not a url" })).toThrow(EnvValidationError);
+  });
+
+  it("falls back to KV_URL for Redis", () => {
+    const { REDIS_URL: _omit, ...rest } = valid;
+    expect(
+      loadApiEnv({ ...rest, KV_URL: "rediss://default:x@host.upstash.io:6379" }).REDIS_URL,
+    ).toBe("rediss://default:x@host.upstash.io:6379");
+  });
+
   it("rejects a wrong-length encryption key", () => {
     expect(() => loadApiEnv({ ...valid, APP_ENCRYPTION_KEY: "abc" })).toThrow(EnvValidationError);
   });

@@ -23,7 +23,8 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "reset": "prisma migrate reset --force",
-    "seed": "node dist/seed.js"
+    "seed": "node dist/seed.js",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "node dist/seed.js"

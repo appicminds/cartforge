@@ -65,7 +65,7 @@ export class CsrfGuard implements CanActivate {
     if (!UNSAFE_METHODS.has(req.method)) return true;
 
     const origin = req.get("origin");
-    if (origin && origin !== this.env.ADMIN_ORIGIN) throw this.reject();
+    if (origin && !this.env.ADMIN_ORIGIN.includes(origin)) throw this.reject();
 
     if (req.sessionToken) {
       const header = req.get(HEADERS.CSRF);

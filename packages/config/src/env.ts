@@ -8,7 +8,23 @@ export const apiEnvSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  ADMIN_ORIGIN: z.string().url(),
+  /**
+   * Origin(s) the admin is served from, comma-separated (e.g. production and a
+   * staging domain). Used for CORS and the CSRF Origin check. No trailing slash.
+   */
+  ADMIN_ORIGIN: z
+    .string()
+    .transform((v) =>
+      v
+        .split(",")
+        .map((o) => o.trim().replace(/\/+$/, ""))
+        .filter(Boolean),
+    )
+    .pipe(
+      z
+        .array(z.string().url("ADMIN_ORIGIN entries must be URLs like https://admin.example.com"))
+        .min(1),
+    ),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
   SESSION_TTL_HOURS: z.coerce
     .number()
@@ -52,11 +68,19 @@ function parse<T extends z.ZodTypeAny>(schema: T, source: NodeJS.ProcessEnv): z.
   return result.data;
 }
 
+/**
+ * Hosted Redis integrations (e.g. Upstash via the Vercel Marketplace) expose the
+ * connection string as KV_URL; accept it when REDIS_URL isn't set.
+ */
+function withRedisFallback(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return source.REDIS_URL || !source.KV_URL ? source : { ...source, REDIS_URL: source.KV_URL };
+}
+
 export function loadApiEnv(source: NodeJS.ProcessEnv = process.env): ApiEnv {
-  const env = parse(apiEnvSchema, source);
+  const env = parse(apiEnvSchema, withRedisFallback(source));
   return { ...env, COOKIE_SECURE: env.COOKIE_SECURE ?? env.NODE_ENV === "production" };
 }
 
 export function loadWorkerEnv(source: NodeJS.ProcessEnv = process.env): WorkerEnv {
-  return parse(workerEnvSchema, source);
+  return parse(workerEnvSchema, withRedisFallback(source));
 }
