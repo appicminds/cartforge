@@ -1,0 +1,41 @@
+{
+  "name": "@cartforge/database",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./seed": {
+      "types": "./dist/seed.d.ts",
+      "default": "./dist/seed.js"
+    }
+  },
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "reset": "prisma migrate reset --force",
+    "seed": "node dist/seed.js"
+  },
+  "prisma": {
+    "seed": "node dist/seed.js"
+  },
+  "dependencies": {
+    "@cartforge/types": "workspace:*",
+    "@prisma/client": "6.19.0",
+    "argon2": "0.44.0"
+  },
+  "devDependencies": {
+    "prisma": "6.19.0",
+    "vitest": "3.2.4",
+    "@types/node": "22.19.1"
+  }
+}

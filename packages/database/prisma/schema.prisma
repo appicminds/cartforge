@@ -1,0 +1,146 @@
+// CartForge database schema.
+// Conventions (PRD §25.4): UUID PKs, store_id on every store-owned row,
+// snake_case columns, created_at/updated_at everywhere, money as *_minor BIGINT.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+enum UserStatus {
+  active
+  disabled
+}
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique // stored lower-cased
+  name          String
+  password_hash String
+  status        UserStatus @default(active)
+  last_login_at DateTime?  @db.Timestamptz(3)
+  created_at    DateTime   @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime   @updatedAt @db.Timestamptz(3)
+
+  sessions    Session[]
+  memberships StoreMembership[]
+
+  @@map("users")
+}
+
+model Session {
+  id           String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  /// SHA-256 of the opaque session token; the raw token only lives in the cookie.
+  token_hash   String    @unique
+  ip           String?
+  user_agent   String?
+  created_at   DateTime  @default(now()) @db.Timestamptz(3)
+  last_seen_at DateTime  @default(now()) @db.Timestamptz(3)
+  expires_at   DateTime  @db.Timestamptz(3)
+  revoked_at   DateTime? @db.Timestamptz(3)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+  @@map("sessions")
+}
+
+// ───────────────────────────── Store ─────────────────────────────
+
+enum StoreStatus {
+  active
+  suspended
+}
+
+model Store {
+  id            String      @id @default(uuid()) @db.Uuid
+  name          String
+  /// ISO 4217 code; single store currency in initial release.
+  currency      String      @db.Char(3)
+  locale        String      @default("en-US")
+  timezone      String      @default("UTC")
+  contact_email String?
+  status        StoreStatus @default(active)
+  created_at    DateTime    @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime    @updatedAt @db.Timestamptz(3)
+
+  roles       Role[]
+  memberships StoreMembership[]
+  audit_logs  AuditLog[]
+
+  @@map("stores")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  store_id    String   @db.Uuid
+  /// Stable key, e.g. "owner", "catalog_manager".
+  key         String
+  name        String
+  is_system   Boolean  @default(false)
+  /// Permission strings from @cartforge/types PERMISSIONS.
+  permissions String[]
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+
+  store       Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  memberships StoreMembership[]
+
+  @@unique([store_id, key])
+  @@map("roles")
+}
+
+enum MembershipStatus {
+  active
+  invited
+  disabled
+}
+
+model StoreMembership {
+  id         String           @id @default(uuid()) @db.Uuid
+  store_id   String           @db.Uuid
+  user_id    String           @db.Uuid
+  role_id    String           @db.Uuid
+  status     MembershipStatus @default(active)
+  created_at DateTime         @default(now()) @db.Timestamptz(3)
+  updated_at DateTime         @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role  Role  @relation(fields: [role_id], references: [id], onDelete: Restrict)
+
+  @@unique([store_id, user_id])
+  @@index([user_id])
+  @@map("store_memberships")
+}
+
+// ───────────────────────────── Audit ─────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// Null for installation-level events (e.g. login).
+  store_id      String?  @db.Uuid
+  actor_user_id String?  @db.Uuid
+  action        String
+  resource_type String
+  resource_id   String?
+  /// Before/after and other context. Never store secrets or raw PII here.
+  metadata      Json     @default("{}")
+  ip            String?
+  request_id    String?
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+
+  store Store? @relation(fields: [store_id], references: [id], onDelete: SetNull)
+
+  @@index([store_id, created_at])
+  @@index([resource_type, resource_id])
+  @@map("audit_logs")
+}

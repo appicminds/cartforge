@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cartforge
+          POSTGRES_PASSWORD: cartforge
+          POSTGRES_DB: cartforge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cartforge" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://cartforge:cartforge@localhost:5432/cartforge?schema=public
+      REDIS_URL: redis://localhost:6379
+      API_PORT: "4000"
+      API_URL: http://localhost:4000
+      ADMIN_ORIGIN: http://localhost:3000
+      SESSION_SECRET: ci-only-session-secret-0123456789abcdefghij
+      APP_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm build
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Migrate and seed
+        run: pnpm db:migrate && pnpm db:seed
+      - name: Unit + API integration tests
+        run: pnpm test
+        env:
+          NODE_ENV: test
+      - name: Install Playwright browser
+        run: pnpm --filter @cartforge/admin exec playwright install --with-deps chromium
+      - name: E2E (Sprint 0 exit gate)
+        run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/admin/playwright-report
+          retention-days: 7

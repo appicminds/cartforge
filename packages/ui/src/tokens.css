@@ -1,0 +1,122 @@
+/*
+ * CartForge design tokens (PRD §5.2): color, typography, spacing, radius,
+ * shadow, breakpoints, z-index. Raw values live on :root as CSS variables;
+ * @theme exposes them to Tailwind utilities (bg-surface, text-fg-muted, …).
+ * Import once from the app's global stylesheet after `@import "tailwindcss"`.
+ */
+:root {
+  /* Neutrals */
+  --cf-color-bg: #f6f7f9;
+  --cf-color-surface: #ffffff;
+  --cf-color-surface-raised: #ffffff;
+  --cf-color-surface-sunken: #eef0f3;
+  --cf-color-border: #dfe3e8;
+  --cf-color-border-strong: #c4cbd4;
+  --cf-color-fg: #111827;
+  --cf-color-fg-muted: #4b5563;
+  --cf-color-fg-subtle: #6b7280;
+  --cf-color-fg-inverse: #ffffff;
+
+  /* Brand — forge ember */
+  --cf-color-primary: #c2410c;
+  --cf-color-primary-hover: #9a3412;
+  --cf-color-primary-subtle: #fff1e9;
+  --cf-color-primary-fg: #ffffff;
+  --cf-color-focus: #2563eb;
+
+  /* Sidebar */
+  --cf-color-nav-bg: #14161a;
+  --cf-color-nav-fg: #c9ced6;
+  --cf-color-nav-fg-active: #ffffff;
+  --cf-color-nav-item-active: #262a31;
+  --cf-color-nav-item-hover: #1d2026;
+
+  /* Status (text-labelled badges must not rely on color alone) */
+  --cf-color-success: #15803d;
+  --cf-color-success-subtle: #e9f8ee;
+  --cf-color-warning: #a16207;
+  --cf-color-warning-subtle: #fdf6e3;
+  --cf-color-danger: #b91c1c;
+  --cf-color-danger-hover: #991b1b;
+  --cf-color-danger-subtle: #fdecec;
+  --cf-color-info: #1d4ed8;
+  --cf-color-info-subtle: #eaf1fe;
+
+  /* Typography */
+  --cf-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --cf-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Radius */
+  --cf-radius-sm: 4px;
+  --cf-radius-md: 6px;
+  --cf-radius-lg: 10px;
+  --cf-radius-xl: 14px;
+
+  /* Shadow */
+  --cf-shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
+  --cf-shadow-md: 0 2px 6px rgb(16 24 40 / 0.08), 0 1px 2px rgb(16 24 40 / 0.04);
+  --cf-shadow-lg: 0 12px 32px rgb(16 24 40 / 0.14);
+
+  /* Z-index scale */
+  --cf-z-sticky: 20;
+  --cf-z-drawer: 40;
+  --cf-z-dropdown: 50;
+  --cf-z-dialog: 60;
+  --cf-z-toast: 70;
+
+  /* Layout */
+  --cf-sidebar-width: 15rem;
+  --cf-sidebar-width-collapsed: 4rem;
+  --cf-topbar-height: 3.5rem;
+  --cf-content-max: 75rem;
+}
+
+@theme inline {
+  --color-bg: var(--cf-color-bg);
+  --color-surface: var(--cf-color-surface);
+  --color-surface-raised: var(--cf-color-surface-raised);
+  --color-surface-sunken: var(--cf-color-surface-sunken);
+  --color-border: var(--cf-color-border);
+  --color-border-strong: var(--cf-color-border-strong);
+  --color-fg: var(--cf-color-fg);
+  --color-fg-muted: var(--cf-color-fg-muted);
+  --color-fg-subtle: var(--cf-color-fg-subtle);
+  --color-fg-inverse: var(--cf-color-fg-inverse);
+  --color-primary: var(--cf-color-primary);
+  --color-primary-hover: var(--cf-color-primary-hover);
+  --color-primary-subtle: var(--cf-color-primary-subtle);
+  --color-primary-fg: var(--cf-color-primary-fg);
+  --color-focus: var(--cf-color-focus);
+  --color-nav-bg: var(--cf-color-nav-bg);
+  --color-nav-fg: var(--cf-color-nav-fg);
+  --color-nav-fg-active: var(--cf-color-nav-fg-active);
+  --color-nav-item-active: var(--cf-color-nav-item-active);
+  --color-nav-item-hover: var(--cf-color-nav-item-hover);
+  --color-success: var(--cf-color-success);
+  --color-success-subtle: var(--cf-color-success-subtle);
+  --color-warning: var(--cf-color-warning);
+  --color-warning-subtle: var(--cf-color-warning-subtle);
+  --color-danger: var(--cf-color-danger);
+  --color-danger-hover: var(--cf-color-danger-hover);
+  --color-danger-subtle: var(--cf-color-danger-subtle);
+  --color-info: var(--cf-color-info);
+  --color-info-subtle: var(--cf-color-info-subtle);
+
+  --font-sans: var(--cf-font-sans);
+  --font-mono: var(--cf-font-mono);
+
+  --radius-sm: var(--cf-radius-sm);
+  --radius-md: var(--cf-radius-md);
+  --radius-lg: var(--cf-radius-lg);
+  --radius-xl: var(--cf-radius-xl);
+
+  --shadow-sm: var(--cf-shadow-sm);
+  --shadow-md: var(--cf-shadow-md);
+  --shadow-lg: var(--cf-shadow-lg);
+
+  /* Breakpoints (FE-010): mobile < 640, tablet 640–1023, desktop ≥ 1024 */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+}

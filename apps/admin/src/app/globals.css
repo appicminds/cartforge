@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "@cartforge/ui/tokens.css";
+@source "../../../../packages/ui/src";
+
+@layer base {
+  html {
+    background: var(--cf-color-bg);
+    color: var(--cf-color-fg);
+    font-family: var(--cf-font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--cf-color-focus);
+    outline-offset: 2px;
+  }
+}

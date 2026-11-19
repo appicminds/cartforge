@@ -1,0 +1,24 @@
+{
+  "name": "@cartforge/worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc-watch -p tsconfig.build.json --onSuccess \"node --env-file-if-exists=../../.env dist/main.js\"",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cartforge/config": "workspace:*",
+    "bullmq": "5.63.0",
+    "ioredis": "5.8.2",
+    "pino": "9.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.1",
+    "tsc-watch": "7.2.0",
+    "vitest": "3.2.4"
+  }
+}
