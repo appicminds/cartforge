@@ -39,3 +39,14 @@ export interface StoreSummary {
   timezone: string;
   contact_email: string | null;
 }
+
+/** One signed-in browser or device (Your account → Signed-in devices). */
+export interface SessionView {
+  id: string;
+  /** e.g. "Chrome on macOS". */
+  device: string;
+  ip: string | null;
+  created_at: string;
+  last_seen_at: string;
+  current: boolean;
+}

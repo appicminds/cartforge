@@ -52,6 +52,7 @@ describe("platform", () => {
     const noBody = new Set([
       "post /api/v1/auth/logout",
       "post /api/v1/auth/email/resend",
+      "post /api/v1/auth/sessions/sign-out-others",
       "post /api/v1/products/{id}/publish",
       "post /api/v1/products/{id}/archive",
       "post /api/v1/products/{id}/preview-link",

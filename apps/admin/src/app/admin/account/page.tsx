@@ -21,6 +21,7 @@ import { NewPasswordFields } from "@/components/new-password-fields";
 import { apiRequest } from "@/lib/api-client";
 import { applyServerErrors } from "@/lib/forms";
 import { useSession } from "@/lib/session";
+import { DevicesCard } from "./devices-card";
 
 const schema = z
   .object({
@@ -100,6 +101,7 @@ export default function AccountPage() {
           </form>
         </CardBody>
       </Card>
+      <DevicesCard />
     </div>
   );
 }

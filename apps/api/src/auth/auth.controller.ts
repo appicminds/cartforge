@@ -1,8 +1,20 @@
 import { ApiZodBody } from "../common/openapi";
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  Res,
+} from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
-import { COOKIES, type CurrentUser, type DetailResponse } from "@cartforge/types";
+import { COOKIES, type CurrentUser, type DetailResponse, type SessionView } from "@cartforge/types";
 import {
   loginSchema,
   passwordChangeSchema,
@@ -18,6 +30,9 @@ import {
   type Signup,
 } from "@cartforge/validation";
 import { AccountService } from "./account.service";
+import { SessionService } from "./session.service";
+import { AuditService } from "../audit/audit.service";
+import { AppException } from "../common/app-exception";
 import { API_ENV, type ApiEnv } from "../config/env";
 import type { AuthContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -31,6 +46,8 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly account: AccountService,
+    private readonly sessions: SessionService,
+    private readonly audit: AuditService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -194,5 +211,61 @@ export class AuthController {
       data: await this.account.resendVerification(auth.user_id),
       request_id: String(req.id),
     };
+  }
+
+  @Get("sessions")
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Your signed-in browsers and devices" })
+  async listSessions(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+  ): Promise<{ data: SessionView[]; request_id: string }> {
+    return {
+      data: await this.sessions.listForUser(auth.user_id, auth.session_id),
+      request_id: String(req.id),
+    };
+  }
+
+  @Delete("sessions/:id")
+  @HttpCode(204)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Sign out one of your other devices (use logout for this one)" })
+  async revokeSession(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+    @Param("id", new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Session") }))
+    id: string,
+  ): Promise<void> {
+    if (id === auth.session_id || !(await this.sessions.revokeOwn(auth.user_id, id)))
+      throw AppException.notFound("Session");
+    await this.audit.record({
+      action: "auth.session_revoked",
+      resource_type: "session",
+      resource_id: id,
+      actor_user_id: auth.user_id,
+      ip: req.ip,
+      request_id: String(req.id),
+    });
+  }
+
+  @Post("sessions/sign-out-others")
+  @HttpCode(200)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Sign out everywhere except this browser" })
+  async revokeOthers(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+  ): Promise<{ data: { signed_out: number }; request_id: string }> {
+    const n = await this.sessions.revokeOthers(auth.user_id, auth.session_id);
+    await this.audit.record({
+      action: "auth.sessions_revoked",
+      resource_type: "user",
+      resource_id: auth.user_id,
+      actor_user_id: auth.user_id,
+      metadata: { count: String(n) },
+      ip: req.ip,
+      request_id: String(req.id),
+    });
+    return { data: { signed_out: n }, request_id: String(req.id) };
   }
 }

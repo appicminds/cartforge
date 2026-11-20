@@ -102,6 +102,31 @@ test("a platform admin hands a merchant a reset link", async ({ page, browser })
   await ctx.close();
 });
 
+test("a merchant signs out a device they don't use", async ({ page, browser }) => {
+  // After the previous test Pat's password is third-Password-3.
+  const ctx = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1",
+  });
+  const phone = await ctx.newPage();
+  await signIn(phone, EMAIL, "third-Password-3");
+
+  await signIn(page, EMAIL, "third-Password-3");
+  await page.goto("/admin/account");
+  const devices = page.getByRole("list", { name: "Signed-in devices" });
+  await expect(devices.getByText("This device")).toBeVisible();
+  const iphone = devices.getByRole("listitem").filter({ hasText: "Safari on iOS" });
+  await expect(iphone).toHaveCount(1);
+  await scan(page, "devices");
+  await iphone.getByRole("button", { name: /^Sign out Safari on iOS/ }).click();
+  await expect(page.getByText("Signed out of that device")).toBeVisible();
+  await expect(iphone).toHaveCount(0);
+
+  await phone.goto("/admin");
+  await expect(phone).toHaveURL(/\/login/);
+  await ctx.close();
+});
+
 test("a broken or used confirmation link explains what to do", async ({ page }) => {
   await page.goto(`/verify-email?token=${"x".repeat(43)}`);
   await expect(page.getByText("We couldn't confirm your email")).toBeVisible();

@@ -136,7 +136,8 @@ describe("account: change and reset password", () => {
       token: tokenFrom(link.url),
       new_password: "admin-Given-6",
     }).expect(204);
-    await login(app, email, "admin-Given-6");
+    password = "admin-Given-6";
+    await login(app, email, password);
   });
 
   describe("email verification", () => {
@@ -233,6 +234,71 @@ describe("account: change and reset password", () => {
       expect(
         (await prisma.user.findUniqueOrThrow({ where: { email: a } })).email_verified_at,
       ).not.toBe(null);
+    });
+  });
+
+  describe("signed-in devices", () => {
+    const signInAs = async (ua: string) => {
+      const res = await http()
+        .post("/api/v1/auth/login")
+        .set("User-Agent", ua)
+        .send({ email, password })
+        .expect(200);
+      const cookies = ([] as string[]).concat(res.headers["set-cookie"] ?? []);
+      return {
+        cookies: cookies.map((c) => c.split(";")[0]!),
+        csrf: cookies
+          .find((c) => c.startsWith("cf_csrf="))!
+          .split(";")[0]!
+          .split("=")[1]!,
+      } as Session;
+    };
+    const list = (s: Session) =>
+      http().get("/api/v1/auth/sessions").set("Cookie", s.cookies).expect(200);
+    const del = (s: Session, id: string) =>
+      http()
+        .delete(`/api/v1/auth/sessions/${id}`)
+        .set("Cookie", s.cookies)
+        .set("X-CSRF-Token", s.csrf);
+
+    it("lists your devices and signs out one, or all the others", async () => {
+      await post("/auth/sessions/sign-out-others", {}, await login(app, email, password)).expect(
+        200,
+      );
+      const mac = await signInAs(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0 Safari/537.36",
+      );
+      const phone = await signInAs(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1",
+      );
+      const third = await signInAs(
+        "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0",
+      );
+
+      const rows = (await list(mac)).body.data as {
+        id: string;
+        device: string;
+        current: boolean;
+      }[];
+      expect(rows.map((r) => r.device).sort()).toEqual(
+        expect.arrayContaining(["Chrome on macOS", "Firefox on Linux", "Safari on iOS"]),
+      );
+      expect(rows.filter((r) => r.current).map((r) => r.device)).toEqual(["Chrome on macOS"]);
+
+      const phoneRow = rows.find((r) => r.device === "Safari on iOS")!;
+      await del(mac, phoneRow.id).expect(204);
+      await me(phone).expect(401);
+      // Not this one (that's "sign out"), and not someone else's.
+      await del(mac, rows.find((r) => r.current)!.id).expect(404);
+      const stranger = await login(app, "catalog@cartforge.test");
+      await del(stranger, rows.find((r) => r.device === "Firefox on Linux")!.id).expect(404);
+      await me(third).expect(200);
+
+      const res = await post("/auth/sessions/sign-out-others", {}, mac).expect(200);
+      expect(res.body.data.signed_out).toBeGreaterThanOrEqual(1);
+      await me(third).expect(401);
+      await me(mac).expect(200);
+      expect((await list(mac)).body.data).toHaveLength(1);
     });
   });
 });
