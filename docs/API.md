@@ -173,6 +173,43 @@ The checkout view lists what is still `missing` (`email`, `shipping_address`, `s
 | `GET /shipping-methods`                                                                 | store.read           | Flat-rate methods                                                           |
 | `POST /shipping-methods`, `PATCH /shipping-methods/:id`, `DELETE /shipping-methods/:id` | store.settings.write | Manage methods (`countries` empty = everywhere; optional `free_over_minor`) |
 
+## Account security (Next 1)
+
+| Method & path                         | Auth           | Purpose                                                                                                                                              |
+| ------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/login`                    | public         | With two-factor on, answers `{ mfa_required: true, mfa_token }` (5 minutes) and sets no cookies                                                      |
+| `POST /auth/login/mfa`                | public         | `{ mfa_token, code }` — 6-digit app code or a recovery code (`abcd-efgh`) → signed in. Wrong → `422 INVALID_MFA_CODE`; 10 tries / 15 min per account |
+| `GET /auth/mfa`                       | signed in      | `{ enabled, recovery_codes_left }`                                                                                                                   |
+| `POST /auth/mfa/setup`                | signed in      | `{ secret, otpauth_url }` (secret stored encrypted until confirmed)                                                                                  |
+| `POST /auth/mfa/enable`               | signed in      | `{ code }` → `{ recovery_codes }` (10, shown once)                                                                                                   |
+| `POST /auth/mfa/disable`              | signed in      | `{ password, code }`                                                                                                                                 |
+| `POST /auth/mfa/recovery-codes`       | signed in      | `{ code }` → new `recovery_codes`; the old ones stop working                                                                                         |
+| `POST /platform/users/mfa-reset`      | platform admin | `{ email }` — turn off someone's two-factor sign-in (audited)                                                                                        |
+| `GET /auth/sessions`                  | signed in      | Your devices: `device` ("Chrome on macOS"), `ip`, `last_seen_at`, `current`                                                                          |
+| `DELETE /auth/sessions/:id`           | signed in      | Sign out one of your other devices                                                                                                                   |
+| `POST /auth/sessions/sign-out-others` | signed in      | Sign out everywhere but here → `{ signed_out }`                                                                                                      |
+| `POST /auth/email/verify`             | public         | `{ token }` from the confirmation email (3 days). Used/expired → `400`                                                                               |
+| `POST /auth/email/resend`             | signed in      | Send the confirmation link again (3 per hour) → `{ emailed }`                                                                                        |
+
+`GET /auth/me` adds `email_verified` and `mfa_enabled`; `GET /platform/config` adds `email`
+(`sent` · `logged` · `off`).
+
+### Team and invitations
+
+| Method & path                   | Auth / permission | Purpose                                                                                                                                                                               |
+| ------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /staff`                    | staff.read        | `{ members, invitations, roles }`; each role says whether you may give it (`assignable`)                                                                                              |
+| `POST /staff/invitations`       | staff.write       | `{ email, role_id }` → invitation with its `url` (7 days) and whether it was `emailed`. `409 ALREADY_MEMBER`; `422 ROLE_NOT_ALLOWED`; `403 EMAIL_NOT_VERIFIED` (when emails are sent) |
+| `DELETE /staff/invitations/:id` | staff.write       | Cancel                                                                                                                                                                                |
+| `PATCH /staff/members/:id`      | staff.write       | `{ role_id }` → team. Never the owner (`403 OWNER_PROTECTED`) or yourself                                                                                                             |
+| `DELETE /staff/members/:id`     | staff.write       | Remove access (same rules)                                                                                                                                                            |
+| `POST /invitations/preview`     | public            | `{ token }` → store, email, role, inviter, `account_exists`                                                                                                                           |
+| `POST /invitations/accept`      | signed in         | `{ token }` — the invitation's email must be yours (`403 INVITATION_EMAIL_MISMATCH`)                                                                                                  |
+| `POST /invitations/accept-new`  | public            | `{ token, name, password }` → account + membership, signed in. `409 ACCOUNT_EXISTS` → sign in instead                                                                                 |
+
+Rule: you can give (or change, or remove) a role only if you hold every permission in it, and
+nobody can grant "owner". Tokens travel in request bodies, never URLs of API calls.
+
 ## Passwords
 
 | Method & path                     | Auth           | Purpose                                                                                                        |

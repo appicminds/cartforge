@@ -72,7 +72,9 @@ describe("two-factor sign-in", () => {
     const fresh = code(1);
     const ok = await post("/auth/login/mfa", { mfa_token: token, code: fresh }).expect(200);
     expect(ok.body.data.email).toBe(email);
-    expect(([] as string[]).concat(ok.headers["set-cookie"] ?? []).join(";")).toContain("cf_session=");
+    expect(([] as string[]).concat(ok.headers["set-cookie"] ?? []).join(";")).toContain(
+      "cf_session=",
+    );
     // The challenge is used up, and the same code can't sign in again.
     await post("/auth/login/mfa", { mfa_token: token, code: fresh }).expect(401);
     const again = (await passwordStep()).body.data.mfa_token;

@@ -334,3 +334,31 @@ Goal: run CartForge as a hosted service like Shopify, while keeping the self-hos
   active domain can't.
 - Suspended stores disappear from their storefront (404) and from the merchant's picker (shown as
   suspended), but no data is deleted.
+
+## Next 1 — Auth hardening
+
+Goal (PRD §27.7, §23): account security for a hosted platform with many merchants. Password
+change/reset shipped earlier (SA-12).
+
+| ID    | Task                                                                                                                                                | Status | Evidence                                 |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------- |
+| AU-01 | Team page: members, roles, open invitations; change role, remove access; owner protected; no granting more access than you have                     | ✅     | `staff.e2e`, admin `team.spec`           |
+| AU-02 | Invitations by email (7 days, link also shown to the inviter), accept with the invited account or by creating one                                   | ✅     | `staff.e2e`, admin `team.spec`           |
+| AU-03 | Email verification: link on sign-up (3 days), banner + resend; invitation and emailed reset also confirm; unconfirmed can't invite when email is on | ✅     | `account.e2e`, admin `account.spec`      |
+| AU-04 | Signed-in devices: list, sign out one, sign out everywhere else                                                                                     | ✅     | `account.e2e`, admin `account.spec`      |
+| AU-05 | Two-factor sign-in (TOTP): QR setup, recovery codes, two-step login, no code reuse, encrypted secrets, turn off, platform admin reset               | ✅     | `mfa.e2e`, `totp.test`, admin `mfa.spec` |
+
+**Deliberately later**
+
+- Transferring store ownership (needs a deliberate two-sided flow) → with billing.
+- Custom roles editor (roles beyond the system ones) → when a merchant asks; the permission
+  model already supports them.
+- Requiring two-factor for everyone on a store or platform → a setting on top of AU-05.
+- Passkeys / WebAuthn → later.
+
+**Decisions**
+
+- Invitations are "possession of the link": anyone holding it can join as the invited email, so
+  the inviter is told to share it only with that person. Accepting proves the mailbox.
+- When no email service is configured (live demo today), nothing blocks on email: invitation and
+  reset links are shown to the person creating them, and the verification banner is hidden.

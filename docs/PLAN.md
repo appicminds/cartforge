@@ -21,7 +21,8 @@ No work on later modules starts before Products Management is accepted.
 
 **Status:** Products Management accepted 2026-11-20. At the product owner's request the storefront
 (Next 2) runs next, ahead of auth hardening (Next 1), followed by cart and checkout (Next 4),
-then the SaaS platform (P1: sign-up, separate stores, domains, platform admin); see `TASKS.md`.
+then the SaaS platform (P1: sign-up, separate stores, domains, platform admin) and auth hardening
+(Next 1: team and invitations, email verification, devices, two-factor sign-in); see `TASKS.md`.
 
 ## 2. Technical decisions (where the PRD is open)
 
