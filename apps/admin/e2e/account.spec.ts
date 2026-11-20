@@ -37,6 +37,10 @@ test("a merchant changes their password", async ({ page }) => {
   await page.getByLabel("Store name").fill(STORE);
   await page.getByRole("button", { name: "Create store" }).click();
   await expect(page).toHaveURL(/\/admin$/);
+  // New accounts are asked to confirm their email.
+  await expect(page.getByText("Confirm your email address")).toBeVisible();
+  await page.getByRole("button", { name: "Send again" }).click();
+  await expect(page.getByRole("button", { name: "Sent" })).toBeDisabled();
 
   await page.getByRole("button", { name: "Account menu for Pat Prints" }).click();
   await page.getByRole("menuitem", { name: "Change password" }).click();
@@ -96,4 +100,11 @@ test("a platform admin hands a merchant a reset link", async ({ page, browser })
   await signIn(merchant, EMAIL, "third-Password-3");
   await expect(merchant).toHaveURL(/\/admin$/);
   await ctx.close();
+});
+
+test("a broken or used confirmation link explains what to do", async ({ page }) => {
+  await page.goto(`/verify-email?token=${"x".repeat(43)}`);
+  await expect(page.getByText("We couldn't confirm your email")).toBeVisible();
+  await scan(page, "verify-email");
+  await expect(page.getByRole("link", { name: "Go to the admin" })).toBeVisible();
 });

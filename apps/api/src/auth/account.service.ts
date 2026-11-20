@@ -12,6 +12,8 @@ import { generateToken, sha256 } from "./tokens";
 
 /** Reset links work once, for one hour. */
 export const RESET_TTL_MS = 60 * 60 * 1000;
+/** "Verify your email" links work for 3 days. */
+export const VERIFY_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 interface Meta {
   ip?: string;
@@ -124,13 +126,26 @@ export class AccountService {
     const hash = await this.passwords.hash(input.new_password);
     await this.prisma.$transaction(async (tx) => {
       const [link] = await tx.$queryRaw<
-        { id: string; user_id: string; expires_at: Date; used_at: Date | null }[]
-      >`SELECT id, user_id, expires_at, used_at FROM password_reset_tokens
+        {
+          id: string;
+          user_id: string;
+          expires_at: Date;
+          used_at: Date | null;
+          created_by: string | null;
+        }[]
+      >`SELECT id, user_id, expires_at, used_at, created_by FROM password_reset_tokens
         WHERE token_hash = ${sha256(input.token)} FOR UPDATE`;
       if (!link || link.used_at || link.expires_at <= new Date()) throw invalidLink();
       const user = await tx.user.findUnique({ where: { id: link.user_id } });
       if (!user || user.status !== "active") throw invalidLink();
-      await tx.user.update({ where: { id: user.id }, data: { password_hash: hash } });
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          password_hash: hash,
+          // A link that arrived by email proves the person reads that mailbox.
+          ...(!link.created_by && !user.email_verified_at ? { email_verified_at: new Date() } : {}),
+        },
+      });
       await tx.passwordResetToken.updateMany({
         where: { user_id: user.id, used_at: null },
         data: { used_at: new Date() },
@@ -177,6 +192,71 @@ export class AccountService {
       request_id: meta.requestId,
     });
     return { email: user.email, url, expires_at: expires.toISOString(), emailed: false };
+  }
+
+  // ───────────── Email verification ─────────────
+
+  /** Emails a "verify your email" link (3 days). Returns whether an email went out. */
+  async sendVerification(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.email_verified_at) return false;
+    const token = generateToken(32);
+    await this.prisma.emailVerificationToken.create({
+      data: {
+        user_id: user.id,
+        email: user.email,
+        token_hash: sha256(token),
+        expires_at: new Date(Date.now() + VERIFY_TTL_MS),
+      },
+    });
+    const url = `${this.adminUrl}/verify-email?token=${token}`;
+    return this.mailer.send({
+      to: user.email,
+      subject: "Confirm your email for CartForge",
+      text: `Hi ${user.name},\n\nConfirm this is your email address:\n\n${url}\n\nThe link works for 3 days.`,
+      html:
+        `<p>Hi ${escapeHtml(user.name)},</p><p>Confirm this is your email address:</p>` +
+        `<p><a href="${escapeHtml(url)}">Confirm my email</a></p><p>The link works for 3 days.</p>`,
+    });
+  }
+
+  async resendVerification(userId: string): Promise<{ emailed: boolean }> {
+    await this.rateLimit.hit(`verify-resend:${userId}`, 3, 60 * 60);
+    return { emailed: await this.sendVerification(userId) };
+  }
+
+  async verifyEmail(token: string, meta: Meta): Promise<void> {
+    await this.rateLimit.hit(`verify:${meta.ip ?? "unknown"}`, 30, 15 * 60);
+    await this.prisma.$transaction(async (tx) => {
+      const link = await tx.emailVerificationToken.findUnique({
+        where: { token_hash: sha256(token) },
+        include: { user: true },
+      });
+      // The address must still be the account's: a link for an old email proves nothing now.
+      if (!link || link.used_at || link.expires_at <= new Date() || link.email !== link.user.email)
+        throw new AppException(
+          ERROR_CODES.RESET_LINK_INVALID,
+          "This confirmation link is invalid or has expired. Send a new one from the admin.",
+          HttpStatus.BAD_REQUEST,
+        );
+      await tx.emailVerificationToken.updateMany({
+        where: { user_id: link.user_id, used_at: null },
+        data: { used_at: new Date() },
+      });
+      if (!link.user.email_verified_at)
+        await tx.user.update({
+          where: { id: link.user_id },
+          data: { email_verified_at: new Date() },
+        });
+      await this.audit.recordIn(tx, {
+        action: "auth.email_verified",
+        resource_type: "user",
+        resource_id: link.user_id,
+        actor_user_id: link.user_id,
+        ip: meta.ip,
+        request_id: meta.requestId,
+      });
+    });
   }
 
   private async createLink(userId: string, createdBy: string | null) {

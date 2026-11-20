@@ -1,6 +1,7 @@
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "@cartforge/database";
 import {
+  PLATFORM_ERROR_CODES,
   STAFF_ERROR_CODES,
   type CreatedInvitation,
   type InvitationPreview,
@@ -114,6 +115,15 @@ export class StaffService {
 
   async invite(input: InvitationCreate, actor: StaffActor): Promise<CreatedInvitation> {
     await this.rateLimit.hit(`invite:${actor.store_id}`, 50, 60 * 60);
+    if (this.mailer.enabled) {
+      const me = await this.prisma.user.findUniqueOrThrow({ where: { id: actor.user_id } });
+      if (!me.email_verified_at)
+        throw new AppException(
+          PLATFORM_ERROR_CODES.EMAIL_NOT_VERIFIED,
+          "Confirm your email address before inviting people.",
+          HttpStatus.FORBIDDEN,
+        );
+    }
     const role = await this.assignableRole(input.role_id, actor);
     const existing = await this.prisma.storeMembership.findFirst({
       where: { store_id: actor.store_id, status: "active", user: { email: input.email } },
@@ -276,7 +286,13 @@ export class StaffService {
           HttpStatus.CONFLICT,
         );
       const user = await tx.user.create({
-        data: { email: invite.email, name: input.name, password_hash: hash },
+        // The invitation link proves they can read this mailbox.
+        data: {
+          email: invite.email,
+          name: input.name,
+          password_hash: hash,
+          email_verified_at: new Date(),
+        },
       });
       await this.join(tx, invite, user.id, meta);
       return { userId: user.id, storeId: invite.store_id };

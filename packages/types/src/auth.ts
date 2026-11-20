@@ -24,6 +24,8 @@ export interface CurrentUser {
   name: string;
   /** Operates the whole installation / platform. */
   is_platform_admin: boolean;
+  /** False until the person confirms they own the address (link in the welcome email). */
+  email_verified: boolean;
   /** May create another store from "Your stores". */
   can_create_stores: boolean;
   stores: StoreMembershipSummary[];

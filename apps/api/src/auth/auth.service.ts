@@ -10,6 +10,7 @@ import type { LoginInput, Signup } from "@cartforge/validation";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { StoreProvisioningService } from "../platform/provisioning.service";
 import { DomainsService } from "../platform/domains.service";
+import { AccountService } from "./account.service";
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { PrismaService } from "../prisma/prisma.service";
@@ -34,6 +35,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly provisioning: StoreProvisioningService,
     private readonly domains: DomainsService,
+    private readonly account: AccountService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -98,6 +100,7 @@ export class AuthService {
       }
       throw err;
     }
+    await this.account.sendVerification(userId);
     const { token, session } = await this.sessions.create(userId, meta);
     await this.prisma.user.update({ where: { id: userId }, data: { last_login_at: new Date() } });
     return { token, expiresAt: session.expires_at, user: await this.currentUser(userId) };
@@ -174,6 +177,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       is_platform_admin: user.is_platform_admin,
+      email_verified: user.email_verified_at !== null,
       can_create_stores: this.provisioning.canCreate(user),
       stores: user.memberships.map((m) => ({
         store_id: m.store_id,

@@ -43,3 +43,6 @@ export const resetLinkSchema = z
   .object({ email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254) })
   .strict();
 export type ResetLinkInput = z.infer<typeof resetLinkSchema>;
+
+export const emailVerifySchema = z.object({ token: z.string().min(20).max(200) }).strict();
+export type EmailVerify = z.infer<typeof emailVerifySchema>;

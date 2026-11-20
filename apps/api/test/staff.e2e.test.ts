@@ -195,7 +195,12 @@ describe("staff: team and invitations", () => {
       },
     });
     const user = await prisma.user.create({
-      data: { email: mail("lead"), name: "Lee", password_hash: await argon2.hash(SEED_PASSWORD) },
+      data: {
+        email: mail("lead"),
+        name: "Lee",
+        password_hash: await argon2.hash(SEED_PASSWORD),
+        email_verified_at: new Date(),
+      },
     });
     await prisma.storeMembership.create({
       data: { store_id: MAIN, user_id: user.id, role_id: lead.id },

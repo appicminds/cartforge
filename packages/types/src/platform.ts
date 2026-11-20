@@ -12,6 +12,7 @@ export const PLATFORM_ERROR_CODES = {
   PLATFORM_ADMIN_REQUIRED: "PLATFORM_ADMIN_REQUIRED",
   PRICE_RATE_REQUIRED: "PRICE_RATE_REQUIRED",
   SAME_STORE: "SAME_STORE",
+  EMAIL_NOT_VERIFIED: "EMAIL_NOT_VERIFIED",
 } as const;
 
 export type Edition = "saas" | "self_hosted";
@@ -22,6 +23,11 @@ export interface PlatformConfig {
   signup_enabled: boolean;
   /** "myshops.com" → stores live at <handle>.myshops.com. */
   platform_domain: string | null;
+  /**
+   * How account emails are delivered: "sent" (email provider configured), "logged"
+   * (development: links are printed in the API log) or "off" (nothing is sent).
+   */
+  email: "sent" | "logged" | "off";
 }
 
 export interface StoreDomainView {

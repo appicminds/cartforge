@@ -69,6 +69,7 @@ describe("platform / SaaS edition (P1)", () => {
       edition: "saas",
       signup_enabled: true,
       platform_domain: PLATFORM,
+      email: "logged", // no email provider in tests: links go to the log
     });
   });
 

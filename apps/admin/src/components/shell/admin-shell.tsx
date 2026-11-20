@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { BreadcrumbTitleProvider } from "@/lib/breadcrumbs";
 import { DesktopSidebar, MobileSidebar } from "./sidebar";
+import { VerifyEmailBanner } from "./verify-email-banner";
 import { Topbar } from "./topbar";
 
 const COLLAPSE_KEY = "cf:sidebar-collapsed";
@@ -58,6 +59,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             tabIndex={-1}
             className="mx-auto w-full max-w-(--cf-content-max) flex-1 px-4 py-6 sm:px-6 lg:py-8"
           >
+            <VerifyEmailBanner />
             {children}
           </main>
         </div>

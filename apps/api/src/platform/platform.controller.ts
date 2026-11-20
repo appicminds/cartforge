@@ -44,6 +44,7 @@ import type { AuthContext, StoreContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
+import { Mailer } from "../mail/mailer";
 import { InvalidatesStorefront } from "../storefront/revalidation";
 import { DomainsService, type DomainActor } from "./domains.service";
 import { PlatformAdminService } from "./platform-admin.service";
@@ -67,6 +68,7 @@ export class PlatformPublicController {
   constructor(
     @Inject(API_ENV) private readonly env: ApiEnv,
     private readonly domains: DomainsService,
+    private readonly mailer: Mailer,
   ) {}
 
   @Get("platform/config")
@@ -77,6 +79,7 @@ export class PlatformPublicController {
         edition: this.env.CARTFORGE_EDITION,
         signup_enabled: this.env.SIGNUP_ENABLED,
         platform_domain: this.env.PLATFORM_DOMAIN ?? null,
+        email: this.mailer.mode,
       },
       request_id: String(req.id),
     };

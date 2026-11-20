@@ -51,6 +51,7 @@ describe("platform", () => {
     // Endpoints that intentionally take no body.
     const noBody = new Set([
       "post /api/v1/auth/logout",
+      "post /api/v1/auth/email/resend",
       "post /api/v1/products/{id}/publish",
       "post /api/v1/products/{id}/archive",
       "post /api/v1/products/{id}/preview-link",

@@ -26,13 +26,16 @@ model User {
   status            UserStatus @default(active)
   /// Operates the whole installation / SaaS platform (sees and suspends all stores).
   is_platform_admin Boolean    @default(false)
+  /// Set once the person proves they own the address (link, invitation or emailed reset).
+  email_verified_at DateTime?  @db.Timestamptz(3)
   last_login_at     DateTime?  @db.Timestamptz(3)
   created_at        DateTime   @default(now()) @db.Timestamptz(3)
   updated_at        DateTime   @updatedAt @db.Timestamptz(3)
 
-  sessions        Session[]
-  memberships     StoreMembership[]
-  password_resets PasswordResetToken[]
+  sessions            Session[]
+  memberships         StoreMembership[]
+  password_resets     PasswordResetToken[]
+  email_verifications EmailVerificationToken[]
 
   @@map("users")
 }
@@ -52,6 +55,23 @@ model PasswordResetToken {
 
   @@index([user_id])
   @@map("password_reset_tokens")
+}
+
+/// One-time "verify your email" link. Only the hash is stored.
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  /// The address being verified (the account's email when the link was sent).
+  email      String
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz(3)
+  used_at    DateTime? @db.Timestamptz(3)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("email_verification_tokens")
 }
 
 model Session {

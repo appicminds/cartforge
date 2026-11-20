@@ -8,11 +8,13 @@ import {
   passwordChangeSchema,
   passwordForgotSchema,
   passwordResetSchema,
+  emailVerifySchema,
   signupSchema,
   type LoginInput,
   type PasswordChange,
   type PasswordForgot,
   type PasswordReset,
+  type EmailVerify,
   type Signup,
 } from "@cartforge/validation";
 import { AccountService } from "./account.service";
@@ -166,5 +168,31 @@ export class AuthController {
     @Body(new ZodValidationPipe(passwordResetSchema)) body: PasswordReset,
   ): Promise<void> {
     await this.account.resetPassword(body, { ip: req.ip, requestId: String(req.id) });
+  }
+
+  @Public()
+  @Post("email/verify")
+  @HttpCode(204)
+  @ApiZodBody(emailVerifySchema)
+  @ApiOperation({ summary: "Confirm your email address from the emailed link" })
+  async verifyEmail(
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(emailVerifySchema)) body: EmailVerify,
+  ): Promise<void> {
+    await this.account.verifyEmail(body.token, { ip: req.ip, requestId: String(req.id) });
+  }
+
+  @Post("email/resend")
+  @HttpCode(200)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Send the email confirmation link again (3 per hour)" })
+  async resendVerification(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+  ): Promise<{ data: { emailed: boolean }; request_id: string }> {
+    return {
+      data: await this.account.resendVerification(auth.user_id),
+      request_id: String(req.id),
+    };
   }
 }

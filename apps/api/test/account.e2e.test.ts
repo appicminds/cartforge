@@ -26,6 +26,7 @@ describe("account: change and reset password", () => {
   const tokenFrom = (text: string) => /reset-password\?token=([\w-]+)/.exec(text)?.[1];
 
   beforeAll(async () => {
+    process.env.CARTFORGE_EDITION = "saas"; // sign-up on, for the verification tests
     app = await createTestApp([{ provide: Mailer, useValue: fakeMailer }]);
     await prisma.user.create({
       data: { email, name: "Pat", password_hash: await argon2.hash(password) },
@@ -136,5 +137,102 @@ describe("account: change and reset password", () => {
       new_password: "admin-Given-6",
     }).expect(204);
     await login(app, email, "admin-Given-6");
+  });
+
+  describe("email verification", () => {
+    const vEmail = `verify-${RUN}@example.com`.toLowerCase();
+    const verifyToken = (text: string) => /verify-email\?token=([\w-]+)/.exec(text)?.[1];
+    let session: Session;
+
+    it("sends a link on sign-up, and blocks inviting people until confirmed", async () => {
+      sent.length = 0;
+      const res = await post("/auth/signup", {
+        name: "Vera",
+        email: vEmail,
+        password: "verify-Me-please-1",
+        store_name: `Vera Goods ${RUN}`,
+        currency: "USD",
+      }).expect(201);
+      const cookies = ([] as string[]).concat(res.headers["set-cookie"] ?? []);
+      session = {
+        cookies: cookies.map((c) => c.split(";")[0]!),
+        csrf: cookies
+          .find((c) => c.startsWith("cf_csrf="))!
+          .split(";")[0]!
+          .split("=")[1]!,
+      };
+      expect(res.body.data.email_verified).toBe(false);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.to).toBe(vEmail);
+
+      const storeId = res.body.data.stores[0].store_id;
+      const roles = (
+        await http().get("/api/v1/staff").set("Cookie", session.cookies).set("X-Store-Id", storeId)
+      ).body.data.roles;
+      const blocked = await http()
+        .post("/api/v1/staff/invitations")
+        .set("Cookie", session.cookies)
+        .set("X-CSRF-Token", session.csrf)
+        .set("X-Store-Id", storeId)
+        .send({ email: `helper-${RUN}@example.com`, role_id: roles[0].id })
+        .expect(403);
+      expect(blocked.body.error.code).toBe("EMAIL_NOT_VERIFIED");
+
+      const token = verifyToken(sent[0]!.text)!;
+      await post("/auth/email/verify", { token }).expect(204);
+      expect((await me(session).expect(200)).body.data.email_verified).toBe(true);
+      await post("/auth/email/verify", { token }).expect(400);
+      await http()
+        .post("/api/v1/staff/invitations")
+        .set("Cookie", session.cookies)
+        .set("X-CSRF-Token", session.csrf)
+        .set("X-Store-Id", storeId)
+        .send({ email: `helper-${RUN}@example.com`, role_id: roles[0].id })
+        .expect(201);
+    });
+
+    it("resends a few times only, and nothing once verified", async () => {
+      const u = `resend-${RUN}@example.com`.toLowerCase();
+      await prisma.user.create({
+        data: { email: u, name: "Res", password_hash: await argon2.hash("resend-Me-please-1") },
+      });
+      const s = await login(app, u, "resend-Me-please-1");
+      sent.length = 0;
+      for (let i = 0; i < 3; i++)
+        expect((await post("/auth/email/resend", {}, s).expect(200)).body.data.emailed).toBe(true);
+      await post("/auth/email/resend", {}, s).expect(429);
+      expect(sent).toHaveLength(3);
+      // Already verified (Vera above): nothing to send.
+      expect((await post("/auth/email/resend", {}, session).expect(200)).body.data.emailed).toBe(
+        false,
+      );
+    });
+
+    it("an emailed reset link also confirms the address; an admin-made one doesn't", async () => {
+      const a = `reset-verify-${RUN}@example.com`.toLowerCase();
+      await prisma.user.create({
+        data: { email: a, name: "Rae", password_hash: await argon2.hash("whatever-Pass-1") },
+      });
+      const admin = await login(app, "platform@cartforge.test");
+      const link = (await post("/platform/users/reset-link", { email: a }, admin).expect(200)).body
+        .data;
+      await post("/auth/password/reset", {
+        token: tokenFrom(link.url),
+        new_password: "admin-Made-link-1",
+      }).expect(204);
+      expect((await prisma.user.findUniqueOrThrow({ where: { email: a } })).email_verified_at).toBe(
+        null,
+      );
+
+      sent.length = 0;
+      await post("/auth/password/forgot", { email: a }).expect(202);
+      await post("/auth/password/reset", {
+        token: tokenFrom(sent[0]!.text),
+        new_password: "emailed-Link-ok-1",
+      }).expect(204);
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { email: a } })).email_verified_at,
+      ).not.toBe(null);
+    });
   });
 });

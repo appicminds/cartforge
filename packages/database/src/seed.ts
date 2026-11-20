@@ -152,6 +152,7 @@ export async function seed(databaseUrl?: string): Promise<void> {
           name: u.name,
           password_hash: passwordHash,
           is_platform_admin: "platform_admin" in u,
+          email_verified_at: new Date(),
         },
       });
       for (const [storeKey, roleKey] of u.memberships) {

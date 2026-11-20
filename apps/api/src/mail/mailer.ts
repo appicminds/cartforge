@@ -24,6 +24,12 @@ export class Mailer {
     return this.env.EMAIL_PROVIDER === "resend";
   }
 
+  /** "sent": really delivered · "logged": development log · "off": nothing happens. */
+  get mode(): "sent" | "logged" | "off" {
+    if (this.enabled) return "sent";
+    return this.env.NODE_ENV === "production" ? "off" : "logged";
+  }
+
   async send(email: Email): Promise<boolean> {
     if (this.env.EMAIL_PROVIDER === "log") {
       if (this.env.NODE_ENV === "production")
