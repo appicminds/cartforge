@@ -1,3 +1,5 @@
+import { StoreTransferController } from "./store-transfer.controller";
+import { StoreTransferService } from "./store-transfer.service";
 import { Module } from "@nestjs/common";
 import { CatalogModule } from "../catalog/catalog.module";
 import { InventoryModule } from "../inventory/inventory.module";
@@ -10,7 +12,7 @@ import { ProductActivityService } from "./activity.service";
 
 @Module({
   imports: [MediaModule, InventoryModule, CatalogModule],
-  controllers: [ProductsController, VariantsController],
-  providers: [ProductsService, VariantsService, ProductActivityService],
+  controllers: [ProductsController, VariantsController, StoreTransferController],
+  providers: [ProductsService, VariantsService, ProductActivityService, StoreTransferService],
 })
 export class ProductsModule {}

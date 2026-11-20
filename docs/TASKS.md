@@ -313,6 +313,7 @@ Goal: run CartForge as a hosted service like Shopify, while keeping the self-hos
 | SA-07 | Custom domains: add, DNS TXT verification, primary domain, remove; Vercel adapter; TLS-check endpoint for on-demand certificates                                          | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
 | SA-08 | Platform admin: all stores with owner, domain and counts; suspend (reason required) and reactivate, audited; staff can't reach it                                         | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
 | SA-10 | Store preview without a domain: `?store=<handle>` on the shared address (cookie, preview bar, noindex, fresh cart); admin "Preview store" links and draft previews use it | ✅     | storefront `hosts.spec`, `platform-saas.e2e` |
+| SA-11 | Platform admin: move or copy all products between stores (Platform → All stores → Move products); script `apps/api/scripts/move-products.mjs` for the same over the API   | ✅     | `store-transfer.e2e`, admin `transfer.spec`  |
 | SA-09 | Accessibility of sign-up, Your stores, Domains and platform pages                                                                                                         | ✅     | admin `saas.spec` (axe)                      |
 
 **Deliberately later**

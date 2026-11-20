@@ -92,13 +92,13 @@ bucket; database rows reference files by key, so restore both to the same point 
 
 ## Routine tasks
 
-| Task                                   | How                                                                                                   |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Reset a user's password (demo)         | Change `SEED_PASSWORD`, redeploy (seed updates demo users)                                            |
-| Revoke all sessions                    | Rotate `SESSION_SECRET`                                                                               |
-| Check performance after schema changes | `RUN_PERF=1 pnpm --filter @cartforge/api exec vitest run test/perf` (see `PERFORMANCE.md`)            |
-| Move or copy products between stores   | `apps/api/scripts/move-products.mjs` (instructions at the top; asks for passwords, `DRY_RUN=1` first) |
-| Orphaned media                         | Media not attached to any product stays in the library; delete via admin or `DELETE /media/:id`       |
+| Task                                   | How                                                                                                              |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Reset a user's password (demo)         | Change `SEED_PASSWORD`, redeploy (seed updates demo users)                                                       |
+| Revoke all sessions                    | Rotate `SESSION_SECRET`                                                                                          |
+| Check performance after schema changes | `RUN_PERF=1 pnpm --filter @cartforge/api exec vitest run test/perf` (see `PERFORMANCE.md`)                       |
+| Move or copy products between stores   | Platform admin: **All stores → Move products**. Or `apps/api/scripts/move-products.mjs` with both stores' logins |
+| Orphaned media                         | Media not attached to any product stays in the library; delete via admin or `DELETE /media/:id`                  |
 
 ## Security checklist before a real launch
 

@@ -10,6 +10,8 @@ export const PLATFORM_ERROR_CODES = {
   DOMAIN_NOT_VERIFIED: "DOMAIN_NOT_VERIFIED",
   DOMAIN_RESERVED: "DOMAIN_RESERVED",
   PLATFORM_ADMIN_REQUIRED: "PLATFORM_ADMIN_REQUIRED",
+  PRICE_RATE_REQUIRED: "PRICE_RATE_REQUIRED",
+  SAME_STORE: "SAME_STORE",
 } as const;
 
 export type Edition = "saas" | "self_hosted";
@@ -63,4 +65,16 @@ export interface ResolvedStore {
   name: string;
   /** https://<primary domain>, used for canonical links and sitemaps. */
   url: string | null;
+}
+
+/** One batch of a platform admin product transfer (POST /platform/stores/:id/transfer-products). */
+export interface StoreTransferResult {
+  from: { id: string; name: string; currency: string };
+  to: { id: string; name: string; currency: string };
+  mode: "move" | "copy";
+  /** Products handled in this batch. */
+  done: { title: string; result: "copied" | "already_there" }[];
+  failed: { title: string; message: string }[];
+  /** Products still to do; call again until 0. */
+  remaining: number;
 }

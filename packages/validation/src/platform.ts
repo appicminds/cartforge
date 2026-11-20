@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { emailSchema } from "@cartforge/checkout-engine";
-import { paginationQuerySchema } from "./common.js";
+import { paginationQuerySchema, uuidSchema } from "./common.js";
 
 /** Subdomain labels that would collide with platform services. */
 export const RESERVED_HANDLES = new Set([
@@ -140,3 +140,19 @@ export const platformStoreUpdateSchema = z
     path: ["reason"],
   });
 export type PlatformStoreUpdate = z.output<typeof platformStoreUpdateSchema>;
+
+/** Platform admin: move or copy every draft/active product of one store into another. */
+export const storeTransferSchema = z
+  .object({
+    to_store_id: uuidSchema,
+    /** move: copy, then archive the originals · copy: leave the originals. */
+    mode: z.enum(["move", "copy"]).default("move"),
+    /**
+     * Multiplier for every price when the stores' currencies differ (1 = same numbers).
+     * Required in that case, ignored otherwise.
+     */
+    price_rate: z.number().positive().max(100_000).optional(),
+  })
+  .strict();
+export type StoreTransferInput = z.input<typeof storeTransferSchema>;
+export type StoreTransfer = z.output<typeof storeTransferSchema>;

@@ -34,6 +34,7 @@ import {
 } from "@/lib/platform";
 import { useSession } from "@/lib/session";
 import { useDebounced } from "@/lib/use-debounced";
+import { TransferDialog } from "./transfer-dialog";
 
 type Tab = "all" | "active" | "suspended";
 
@@ -130,6 +131,7 @@ export default function PlatformStoresPage() {
   const update = useUpdatePlatformStore();
   const toast = useToast();
   const [suspending, setSuspending] = useState<PlatformStoreRow | null>(null);
+  const [moving, setMoving] = useState<PlatformStoreRow | null>(null);
 
   if (!user.is_platform_admin) {
     return (
@@ -253,7 +255,18 @@ export default function PlatformStoresPage() {
                               </span>
                             )}
                           </Td>
-                          <Td className="text-right">
+                          <Td className="whitespace-nowrap text-right">
+                            {s.product_count > 0 && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="mr-2"
+                                onClick={() => setMoving(s)}
+                                aria-label={`Move products from ${s.name}`}
+                              >
+                                Move products
+                              </Button>
+                            )}
                             {s.status === "active" ? (
                               <Button
                                 size="sm"
@@ -306,6 +319,7 @@ export default function PlatformStoresPage() {
         </div>
       </Card>
       <SuspendDialog store={suspending} onClose={() => setSuspending(null)} />
+      <TransferDialog store={moving} onClose={() => setMoving(null)} />
     </div>
   );
 }
