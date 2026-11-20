@@ -67,8 +67,7 @@ test.describe("storefront catalog", () => {
       brand: { name: "Lumen" },
       offers: { price: "129.00", priceCurrency: "USD", availability: "https://schema.org/InStock" },
     });
-    // Ordering isn't open yet; the button says so instead of pretending.
-    await expect(page.getByRole("button", { name: "Add to cart" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Add to cart" })).toBeEnabled();
   });
 
   test("drafts and archived products are not on the storefront", async ({ page }) => {

@@ -72,12 +72,12 @@ model Store {
   created_at    DateTime    @default(now()) @db.Timestamptz(3)
   updated_at    DateTime    @updatedAt @db.Timestamptz(3)
 
-  roles       Role[]
-  memberships StoreMembership[]
-  audit_logs  AuditLog[]
-  products    Product[]
-  variants    ProductVariant[]
-  media       MediaAsset[]
+  roles               Role[]
+  memberships         StoreMembership[]
+  audit_logs          AuditLog[]
+  products            Product[]
+  variants            ProductVariant[]
+  media               MediaAsset[]
   inventory_locations InventoryLocation[]
   categories          Category[]
   collections         Collection[]
@@ -191,10 +191,10 @@ model Product {
   updated_at        DateTime      @updatedAt @db.Timestamptz(3)
   deleted_at        DateTime?     @db.Timestamptz(3)
 
-  store    Store            @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  variants ProductVariant[]
-  media    ProductMedia[]
-  options  ProductOption[]
+  store       Store                  @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  variants    ProductVariant[]
+  media       ProductMedia[]
+  options     ProductOption[]
   categories  ProductCategory[]
   collections CollectionProduct[]
   tags        ProductTagAssignment[]
@@ -209,36 +209,38 @@ model Product {
 /// Every product has ≥1 variant; simple products have exactly one "default" variant.
 /// Pricing (Sprint 2) and options/inventory (Sprint 3) extend this table.
 model ProductVariant {
-  id         String    @id @default(uuid()) @db.Uuid
-  store_id   String    @db.Uuid
-  product_id String    @db.Uuid
-  title      String    @default("Default") @db.VarChar(255)
-  sku        String?   @db.VarChar(100)
-  barcode    String?   @db.VarChar(100)
-  position   Int       @default(0)
+  id                 String    @id @default(uuid()) @db.Uuid
+  store_id           String    @db.Uuid
+  product_id         String    @db.Uuid
+  title              String    @default("Default") @db.VarChar(255)
+  sku                String?   @db.VarChar(100)
+  barcode            String?   @db.VarChar(100)
+  position           Int       @default(0)
   /// Money in minor units (cents) of `currency` (always the store currency, BE-005).
-  price_minor      BigInt?
-  compare_at_minor BigInt?
+  price_minor        BigInt?
+  compare_at_minor   BigInt?
   /// Internal only — never returned by storefront/public endpoints.
-  cost_minor       BigInt?
-  currency         String?  @db.Char(3)
+  cost_minor         BigInt?
+  currency           String?   @db.Char(3)
   /// Track stock for this variant (PRD §8.4 D). Untracked variants are always available.
-  inventory_tracking Boolean @default(true)
+  inventory_tracking Boolean   @default(true)
   /// Allow orders when out of stock (PRD §9 INV-007). Off by default.
-  continue_selling   Boolean @default(false)
+  continue_selling   Boolean   @default(false)
   /// Optional image, must be one of the product's images.
-  media_asset_id     String?  @db.Uuid
+  media_asset_id     String?   @db.Uuid
   /// Sorted option-value ids joined by ","; "" for the default variant. Unique per product (live rows).
-  option_signature   String   @default("") @db.VarChar(200)
-  created_at DateTime  @default(now()) @db.Timestamptz(3)
-  updated_at DateTime  @updatedAt @db.Timestamptz(3)
-  deleted_at DateTime? @db.Timestamptz(3)
+  option_signature   String    @default("") @db.VarChar(200)
+  created_at         DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime  @updatedAt @db.Timestamptz(3)
+  deleted_at         DateTime? @db.Timestamptz(3)
 
   store         Store                       @relation(fields: [store_id], references: [id], onDelete: Cascade)
   product       Product                     @relation(fields: [product_id], references: [id], onDelete: Cascade)
   option_values ProductVariantOptionValue[]
   inventory     InventoryLevel[]
   movements     StockMovement[]
+  cart_lines    CartLine[]
+  reservations  InventoryReservation[]
 
   @@index([product_id, position])
   @@index([store_id, barcode])
@@ -397,9 +399,10 @@ model InventoryLocation {
   created_at DateTime                @default(now()) @db.Timestamptz(3)
   updated_at DateTime                @updatedAt @db.Timestamptz(3)
 
-  store     Store            @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  levels    InventoryLevel[]
-  movements StockMovement[]
+  store        Store                  @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  levels       InventoryLevel[]
+  movements    StockMovement[]
+  reservations InventoryReservation[]
 
   @@index([store_id])
   @@map("inventory_locations")
@@ -433,6 +436,8 @@ enum StockMovementType {
   shrinkage
   returned
   other
+  /// Stock leaving with an order (Next 4).
+  sale
 }
 
 /// Immutable ledger (PRD §8.8 rule 8, §9 INV-006). UPDATE/DELETE blocked by trigger.
@@ -636,37 +641,302 @@ model OutboxEvent {
 // Only what PRD §8.8 rule 7 / §29.2 #32 need: order lines are immutable snapshots that
 // never read live product data. The full orders module (Next 6) extends these tables.
 
-model Order {
-  id         String   @id @default(uuid()) @db.Uuid
-  store_id   String   @db.Uuid
-  number     String   @db.VarChar(40)
-  currency   String   @db.Char(3)
-  created_at DateTime @default(now()) @db.Timestamptz(3)
+enum OrderStatus {
+  pending
+  processing
+  on_hold
+  completed
+  canceled
+  refunded
+}
 
-  items OrderItem[]
+enum PaymentStatus {
+  pending
+  authorized
+  paid
+  partially_refunded
+  refunded
+  voided
+  failed
+}
+
+enum FulfillmentStatus {
+  unfulfilled
+  partially_fulfilled
+  fulfilled
+}
+
+/// Financial fields are immutable after insert (trigger); statuses move with payment and fulfillment.
+model Order {
+  id                   String            @id @default(uuid()) @db.Uuid
+  store_id             String            @db.Uuid
+  /// Human-facing number, sequential per store ("1001").
+  number               String            @db.VarChar(40)
+  currency             String            @db.Char(3)
+  status               OrderStatus       @default(pending)
+  payment_status       PaymentStatus     @default(pending)
+  fulfillment_status   FulfillmentStatus @default(unfulfilled)
+  email                String?           @db.VarChar(254)
+  phone                String?           @db.VarChar(30)
+  shipping_address     Json?
+  billing_address      Json?
+  /// {id, name, price_minor} at purchase time.
+  shipping_method      Json?
+  payment_method       String?           @db.VarChar(40)
+  payment_method_label String?           @db.VarChar(80)
+  subtotal_minor       BigInt            @default(0)
+  discount_minor       BigInt            @default(0)
+  shipping_minor       BigInt            @default(0)
+  tax_minor            BigInt            @default(0)
+  total_minor          BigInt            @default(0)
+  prices_include_tax   Boolean           @default(false)
+  tax_rate_bps         Int               @default(0)
+  tax_label            String?           @db.VarChar(40)
+  custom_fields        Json              @default("[]")
+  terms_accepted_at    DateTime?         @db.Timestamptz(3)
+  customer_id          String?           @db.Uuid
+  checkout_id          String?           @unique @db.Uuid
+  /// sha256 of the secret in the customer's order-status link.
+  access_key_hash      String?           @db.Char(64)
+  source               String            @default("storefront") @db.VarChar(20)
+  placed_at            DateTime          @default(now()) @db.Timestamptz(3)
+  created_at           DateTime          @default(now()) @db.Timestamptz(3)
+  updated_at           DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+
+  items    OrderItem[]
+  events   OrderEvent[]
+  payments Payment[]
 
   @@unique([store_id, number])
+  @@index([store_id, placed_at])
+  @@index([store_id, status, placed_at])
+  @@index([store_id, email])
   @@map("orders")
+}
+
+/// Order timeline (PRD §15): placed, payment, status changes, notes.
+model OrderEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  store_id   String   @db.Uuid
+  order_id   String   @db.Uuid
+  type       String   @db.VarChar(60)
+  message    String   @db.VarChar(500)
+  data       Json     @default("{}")
+  actor_id   String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+
+  order Order @relation(fields: [order_id], references: [id], onDelete: Restrict)
+
+  @@index([order_id, created_at])
+  @@map("order_events")
+}
+
+/// One payment attempt per order (Payment Hub, Next 5, adds providers and events).
+model Payment {
+  id                 String        @id @default(uuid()) @db.Uuid
+  store_id           String        @db.Uuid
+  order_id           String        @db.Uuid
+  provider           String        @db.VarChar(40)
+  status             PaymentStatus @default(pending)
+  amount_minor       BigInt
+  currency           String        @db.Char(3)
+  provider_reference String?       @db.VarChar(200)
+  /// Shown to the customer (e.g. bank details) — copied from settings at purchase time.
+  instructions       String?       @db.VarChar(1000)
+  created_at         DateTime      @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime      @updatedAt @db.Timestamptz(3)
+
+  order Order @relation(fields: [order_id], references: [id], onDelete: Restrict)
+
+  @@index([order_id])
+  @@map("payments")
+}
+
+enum CartStatus {
+  active
+  converted
+}
+
+/// Guest carts addressed by a secret token (only its hash is stored). customer_id arrives in Next 7.
+model Cart {
+  id          String     @id @default(uuid()) @db.Uuid
+  store_id    String     @db.Uuid
+  token_hash  String     @unique @db.Char(64)
+  currency    String     @db.Char(3)
+  status      CartStatus @default(active)
+  customer_id String?    @db.Uuid
+  created_at  DateTime   @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime   @updatedAt @db.Timestamptz(3)
+
+  lines    CartLine[]
+  checkout Checkout?
+
+  @@index([store_id, updated_at])
+  @@map("carts")
+}
+
+model CartLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  cart_id          String   @db.Uuid
+  store_id         String   @db.Uuid
+  variant_id       String   @db.Uuid
+  quantity         Int
+  /// Price the shopper last saw; a different current price is flagged, then adopted.
+  seen_price_minor BigInt?
+  created_at       DateTime @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime @updatedAt @db.Timestamptz(3)
+
+  cart    Cart           @relation(fields: [cart_id], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  @@unique([cart_id, variant_id])
+  @@map("cart_lines")
+}
+
+enum CheckoutStatus {
+  open
+  completed
+}
+
+model Checkout {
+  id                 String         @id @default(uuid()) @db.Uuid
+  store_id           String         @db.Uuid
+  cart_id            String         @unique @db.Uuid
+  status             CheckoutStatus @default(open)
+  email              String?        @db.VarChar(254)
+  phone              String?        @db.VarChar(30)
+  shipping_address   Json?
+  /// null = same as shipping.
+  billing_address    Json?
+  shipping_method_id String?        @db.Uuid
+  payment_method     String?        @db.VarChar(40)
+  custom_fields      Json           @default("{}")
+  terms_accepted     Boolean        @default(false)
+  reserved_until     DateTime?      @db.Timestamptz(3)
+  order_id           String?        @unique @db.Uuid
+  created_at         DateTime       @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime       @updatedAt @db.Timestamptz(3)
+
+  cart         Cart                   @relation(fields: [cart_id], references: [id], onDelete: Cascade)
+  reservations InventoryReservation[]
+
+  @@map("checkouts")
+}
+
+enum ReservationStatus {
+  active
+  released
+  consumed
+  expired
+}
+
+/// Stock held for a checkout (PRD INV-003/004). inventory_levels.reserved = Σ active quantities.
+model InventoryReservation {
+  id          String            @id @default(uuid()) @db.Uuid
+  store_id    String            @db.Uuid
+  variant_id  String            @db.Uuid
+  location_id String            @db.Uuid
+  checkout_id String            @db.Uuid
+  quantity    Int
+  status      ReservationStatus @default(active)
+  expires_at  DateTime          @db.Timestamptz(3)
+  created_at  DateTime          @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime          @updatedAt @db.Timestamptz(3)
+
+  variant  ProductVariant    @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+  location InventoryLocation @relation(fields: [location_id], references: [id], onDelete: Restrict)
+  checkout Checkout          @relation(fields: [checkout_id], references: [id], onDelete: Cascade)
+
+  @@index([checkout_id])
+  @@index([store_id, status, expires_at])
+  @@map("inventory_reservations")
+}
+
+/// One row per store; absent = defaults (see @cartforge/checkout-engine).
+model CheckoutSettings {
+  store_id                   String   @id @db.Uuid
+  tax_rate_bps               Int      @default(0)
+  tax_label                  String   @default("Tax") @db.VarChar(40)
+  prices_include_tax         Boolean  @default(false)
+  tax_shipping               Boolean  @default(false)
+  phone                      String   @default("optional") @db.VarChar(10)
+  reservation_minutes        Int      @default(15)
+  terms_required             Boolean  @default(false)
+  terms_label                String   @default("I agree to the terms of service") @db.VarChar(200)
+  terms_url                  String   @default("") @db.VarChar(500)
+  custom_fields              Json     @default("[]")
+  cod_enabled                Boolean  @default(false)
+  cod_instructions           String   @default("") @db.VarChar(1000)
+  bank_transfer_enabled      Boolean  @default(false)
+  bank_transfer_instructions String   @default("") @db.VarChar(1000)
+  updated_by                 String?  @db.Uuid
+  updated_at                 DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("checkout_settings")
+}
+
+model ShippingMethod {
+  id              String   @id @default(uuid()) @db.Uuid
+  store_id        String   @db.Uuid
+  name            String   @db.VarChar(80)
+  description     String?  @db.VarChar(200)
+  price_minor     BigInt
+  free_over_minor BigInt?
+  countries       String[] @default([])
+  active          Boolean  @default(true)
+  position        Int      @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(3)
+  updated_at      DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([store_id, position])
+  @@map("shipping_methods")
+}
+
+/// Retry-safe endpoints (BE-009): the first response for a key is stored and replayed.
+model IdempotencyKey {
+  id           String   @id @default(uuid()) @db.Uuid
+  store_id     String   @db.Uuid
+  scope        String   @db.VarChar(60)
+  key          String   @db.VarChar(200)
+  request_hash String   @db.Char(64)
+  /// null while the first request is still running.
+  status_code  Int?
+  response     Json?
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([store_id, scope, key])
+  @@index([created_at])
+  @@map("idempotency_keys")
+}
+
+/// Per-store counters (order numbers).
+model StoreSequence {
+  store_id String @db.Uuid
+  name     String @db.VarChar(40)
+  value    Int    @default(0)
+
+  @@id([store_id, name])
+  @@map("store_sequences")
 }
 
 /// Snapshot of what was sold. product_id/variant_id are informational links only
 /// (SET NULL if the row is ever hard-deleted); all display/financial data is copied.
 model OrderItem {
-  id             String   @id @default(uuid()) @db.Uuid
-  store_id       String   @db.Uuid
-  order_id       String   @db.Uuid
-  product_id     String?  @db.Uuid
-  variant_id     String?  @db.Uuid
-  product_title  String   @db.VarChar(200)
-  variant_title  String   @db.VarChar(255)
-  sku            String?  @db.VarChar(100)
-  option_values  Json     @default("[]")
-  quantity       Int
+  id               String   @id @default(uuid()) @db.Uuid
+  store_id         String   @db.Uuid
+  order_id         String   @db.Uuid
+  product_id       String?  @db.Uuid
+  variant_id       String?  @db.Uuid
+  product_title    String   @db.VarChar(200)
+  variant_title    String   @db.VarChar(255)
+  sku              String?  @db.VarChar(100)
+  option_values    Json     @default("[]")
+  quantity         Int
   unit_price_minor BigInt
-  tax_minor      BigInt   @default(0)
-  discount_minor BigInt   @default(0)
-  currency       String   @db.Char(3)
-  created_at     DateTime @default(now()) @db.Timestamptz(3)
+  tax_minor        BigInt   @default(0)
+  discount_minor   BigInt   @default(0)
+  currency         String   @db.Char(3)
+  created_at       DateTime @default(now()) @db.Timestamptz(3)
 
   order Order @relation(fields: [order_id], references: [id], onDelete: Restrict)
 

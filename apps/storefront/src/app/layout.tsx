@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Footer } from "@/components/footer";
+import { cookies } from "next/headers";
 import { Header } from "@/components/header";
+import { CART_COUNT_COOKIE } from "@/lib/commerce";
 import { storefront } from "@/lib/api";
 import { config } from "@/lib/config";
 import { getTheme, getThemeCss } from "@/lib/theme";
@@ -27,11 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = { themeColor: getTheme().settings.colors.background };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [store, categories, collections] = await Promise.all([
+  const [store, categories, collections, jar] = await Promise.all([
     storefront.store(),
     storefront.categories(),
     storefront.collections(),
+    cookies(),
   ]);
+  const cartCount = Math.max(0, Number.parseInt(jar.get(CART_COUNT_COOKIE)?.value ?? "0", 10) || 0);
   return (
     <html lang={store.locale}>
       <head>
@@ -45,7 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Skip to content
         </a>
-        <Header store={store} categories={categories} />
+        <Header store={store} categories={categories} cartCount={cartCount} />
         <main id="main" className="flex-1">
           {children}
         </main>

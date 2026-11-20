@@ -445,6 +445,48 @@ async function main() {
     await call("POST", `/products/${created.id}/publish`);
     console.log(`+ ${p.title} (${detail.variants.length} variants)`);
   }
+  // Checkout (Next 4): offline payment methods and flat-rate shipping, only if not set up yet.
+  const methods = await call("GET", "/shipping-methods");
+  if (!methods.length) {
+    for (const m of [
+      {
+        name: "Standard",
+        description: "3–5 business days",
+        price_minor: 600,
+        free_over_minor: 7500,
+        countries: ["US", "CA"],
+      },
+      { name: "Express", description: "1–2 business days", price_minor: 1800, countries: ["US"] },
+      { name: "International", description: "7–14 business days", price_minor: 2500 },
+    ]) {
+      await call("POST", "/shipping-methods", m);
+      console.log(`+ shipping ${m.name}`);
+    }
+  }
+  const settings = await call("GET", "/settings/checkout");
+  if (!settings.cod_enabled && !settings.bank_transfer_enabled) {
+    await call("PUT", "/settings/checkout", {
+      ...settings,
+      tax_rate_bps: 800,
+      tax_label: "Sales tax",
+      cod_enabled: true,
+      cod_instructions: "Please have the exact amount ready for the courier.",
+      bank_transfer_enabled: true,
+      bank_transfer_instructions:
+        "Bank: Northwind Demo Bank\nAccount name: Northwind Goods\nIBAN: DE00 0000 0000 0000 0000 00 (demo — do not pay)",
+      custom_fields: [
+        {
+          key: "gift_message",
+          label: "Gift message",
+          type: "textarea",
+          required: false,
+          options: [],
+          help: "We'll handwrite it on a card.",
+        },
+      ],
+    });
+    console.log("+ checkout settings (demo payments, 8% tax)");
+  }
   console.log("Demo catalog ready.");
 }
 

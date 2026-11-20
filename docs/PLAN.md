@@ -20,7 +20,8 @@ open, and the gaps found while reading it. Task-level breakdown lives in
 No work on later modules starts before Products Management is accepted.
 
 **Status:** Products Management accepted 2026-11-20. At the product owner's request the storefront
-(Next 2) runs next, ahead of auth hardening (Next 1); see `TASKS.md`.
+(Next 2) runs next, ahead of auth hardening (Next 1), followed by cart and checkout (Next 4);
+see `TASKS.md`.
 
 ## 2. Technical decisions (where the PRD is open)
 

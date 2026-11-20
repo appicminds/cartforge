@@ -89,7 +89,8 @@ export class InventoryService {
   }
 
   /** Creates the level row if missing, then locks it for the rest of the transaction. */
-  private async lockLevel(
+  /** Row-locks (creating if needed) the level; used by adjustments and checkout reservations. */
+  async lockLevel(
     tx: Tx,
     storeId: string,
     variantId: string,

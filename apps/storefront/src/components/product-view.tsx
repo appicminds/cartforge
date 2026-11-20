@@ -1,7 +1,10 @@
 "use client";
 
 import type { StorefrontImage, StorefrontProduct } from "@cartforge/types";
-import { useEffect, useId, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { addToCart } from "@/app/actions/cart";
 import { formatMoney } from "@/lib/money";
 import { choose, initialVariant, selectionOf, valueState } from "@/lib/variants";
 
@@ -71,12 +74,24 @@ function Gallery({
   );
 }
 
-export function ProductView({ product, locale }: { product: StorefrontProduct; locale?: string }) {
+export function ProductView({
+  product,
+  locale,
+  canBuy = true,
+}: {
+  product: StorefrontProduct;
+  locale?: string;
+  /** False for previews of products customers can't buy yet. */
+  canBuy?: boolean;
+}) {
   const { variants, options, currency } = product;
   const [variantId, setVariantId] = useState(() => initialVariant(variants)?.id);
   const [imageIndex, setImageIndex] = useState(() => initialVariant(variants)?.image_index ?? 0);
   const [qty, setQty] = useState(1);
   const qtyId = useId();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [added, setAdded] = useState<{ ok: boolean; message: string } | null>(null);
 
   const variant = useMemo(
     () => variants.find((v) => v.id === variantId) ?? variants[0],
@@ -230,15 +245,33 @@ export function ProductView({ product, locale }: { product: StorefrontProduct; l
           <button
             type="button"
             className="sf-button min-w-56 flex-1"
-            disabled
-            aria-describedby="cart-note"
+            disabled={!canBuy || !available || !variant || price === null || pending}
+            aria-busy={pending}
+            onClick={() => {
+              if (!variant) return;
+              setAdded(null);
+              startTransition(async () => {
+                const r = await addToCart(variant.id, qty);
+                setAdded({ ok: r.ok, message: r.message });
+                if (r.ok) router.refresh(); // header count
+              });
+            }}
           >
-            {available ? "Add to cart" : "Sold out"}
+            {!available ? "Sold out" : pending ? "Adding…" : "Add to cart"}
           </button>
         </div>
-        <p id="cart-note" className="-mt-3 text-sm text-muted">
-          Online ordering opens soon.
-        </p>
+        <div aria-live="polite" className="-mt-2 min-h-6 text-sm">
+          {added && (
+            <p className={added.ok ? "flex flex-wrap items-center gap-x-3" : "text-sale"}>
+              <span>{added.message}</span>
+              {added.ok && (
+                <Link href="/cart" className="sf-link font-medium">
+                  View cart and check out
+                </Link>
+              )}
+            </p>
+          )}
+        </div>
 
         {product.description_html && (
           <div

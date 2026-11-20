@@ -1,4 +1,13 @@
-import { Boxes, FolderTree, Home, Layers, Package, type LucideIcon } from "lucide-react";
+import {
+  Boxes,
+  CreditCard,
+  FolderTree,
+  Home,
+  Layers,
+  Package,
+  Receipt,
+  type LucideIcon,
+} from "lucide-react";
 import { PERMISSIONS, type Permission } from "@cartforge/types";
 
 export interface NavItem {
@@ -23,6 +32,12 @@ export const NAV: NavSection[] = [
     items: [
       { label: "Home", href: "/admin", icon: Home },
       {
+        label: "Orders",
+        href: "/admin/orders",
+        icon: Receipt,
+        permission: PERMISSIONS.ORDERS_READ,
+      },
+      {
         label: "Products",
         href: "/admin/products",
         icon: Package,
@@ -45,6 +60,17 @@ export const NAV: NavSection[] = [
         href: "/admin/inventory",
         icon: Boxes,
         permission: PERMISSIONS.INVENTORY_READ,
+      },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      {
+        label: "Checkout",
+        href: "/admin/settings/checkout",
+        icon: CreditCard,
+        permission: PERMISSIONS.STORE_READ,
       },
     ],
   },

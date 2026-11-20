@@ -20,6 +20,6 @@ import { SessionService } from "./session.service";
     { provide: APP_GUARD, useClass: StoreScopeGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [PasswordService],
+  exports: [PasswordService, RateLimitService],
 })
 export class AuthModule {}

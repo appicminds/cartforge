@@ -22,3 +22,24 @@ test.describe("storefront on a phone", () => {
     await expect(page.getByRole("heading", { level: 1, name: "All products" })).toBeVisible();
   });
 });
+
+test("checkout fits a phone screen", async ({ page }) => {
+  const { CatalogApi, RUN } = await import("./catalog-api");
+  const api = await CatalogApi.login();
+  const p = await api.post<{ handle: string }>("/products", {
+    title: `Pocket Knife ${RUN}`,
+    price_minor: 2500,
+    status: "active",
+    inventory_quantity: 5,
+  });
+  await page.goto(`/products/${p.handle}`);
+  await page.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.getByText("Added to your cart.")).toBeVisible();
+  for (const path of ["/cart", "/checkout"]) {
+    await page.goto(path);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, path).toBeLessThanOrEqual(0);
+  }
+});

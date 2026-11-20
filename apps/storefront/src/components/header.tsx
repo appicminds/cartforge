@@ -37,12 +37,49 @@ function SearchForm({ id }: { id: string }) {
   );
 }
 
+function CartLink({ count }: { count: number }) {
+  return (
+    <Link
+      href="/cart"
+      className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface"
+    >
+      <svg
+        aria-hidden
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          d="M5 8h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9L5 8Z"
+          strokeLinejoin="round"
+        />
+        <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+      </svg>
+      <span className="sr-only">Cart, {count === 1 ? "1 item" : `${count} items`}</span>
+      {count > 0 && (
+        <span
+          aria-hidden
+          data-testid="cart-count"
+          className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-on-accent"
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export function Header({
   store,
   categories,
+  cartCount,
 }: {
   store: StorefrontStore;
   categories: StorefrontCategory[];
+  cartCount: number;
 }) {
   const { header } = getTheme().settings;
   const top = categories.filter((c) => c.depth === 0 && c.product_count > 0).slice(0, 5);
@@ -117,8 +154,11 @@ export function Header({
             {store.name}
           </Link>
 
-          <div className="ml-auto hidden md:order-3 md:block md:justify-self-end">
-            <SearchForm id="search-desktop" />
+          <div className="ml-auto flex items-center gap-3 md:order-3 md:justify-self-end">
+            <div className="hidden md:block">
+              <SearchForm id="search-desktop" />
+            </div>
+            <CartLink count={cartCount} />
           </div>
         </div>
       </header>

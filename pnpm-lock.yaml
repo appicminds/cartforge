@@ -105,6 +105,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1160.0
         version: 3.1160.0
+      '@cartforge/checkout-engine':
+        specifier: workspace:*
+        version: link:../../packages/checkout-engine
       '@cartforge/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -283,6 +286,19 @@ importers:
         specifier: 3.2.4
         version: 3.2.4(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.30.2)
 
+  packages/checkout-engine:
+    dependencies:
+      zod:
+        specifier: 4.1.12
+        version: 4.1.12
+    devDependencies:
+      '@types/node':
+        specifier: 22.19.1
+        version: 22.19.1
+      vitest:
+        specifier: 3.2.4
+        version: 3.2.4(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.30.2)
+
   packages/config:
     dependencies:
       zod:
@@ -373,6 +389,9 @@ importers:
 
   packages/validation:
     dependencies:
+      '@cartforge/checkout-engine':
+        specifier: workspace:*
+        version: link:../checkout-engine
       '@cartforge/types':
         specifier: workspace:*
         version: link:../types

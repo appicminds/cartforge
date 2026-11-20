@@ -44,7 +44,12 @@ export default async function Preview({ params, searchParams }: Props) {
           )}
         </div>
       </div>
-      <ProductPage product={p} store={store} structuredData={false} />
+      <ProductPage
+        product={p}
+        store={store}
+        structuredData={false}
+        canBuy={p.status === "active"}
+      />
     </>
   );
 }

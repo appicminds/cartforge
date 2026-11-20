@@ -126,6 +126,53 @@ After any successful write on products, variants, categories, collections, media
 (bounded to 2.5 s; a slow or offline storefront never fails the write). Reads, dry runs and preview
 links don't notify. The storefront also revalidates every 5 minutes as a backstop.
 
+## Cart, checkout and orders (Next 4)
+
+### Storefront (public, server-to-server from the storefront)
+
+Carts are addressed by a secret token returned once by `POST /storefront/cart` and sent as
+**`X-Cart-Token`** (only its SHA-256 is stored). All responses are `Cache-Control: private, no-store`.
+The client never sends prices, discounts, taxes or shipping amounts — only choices.
+
+| Method & path                        | Purpose                                                                                                                                                               |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /storefront/cart`              | New cart → `{ token, cart }`. Optional `X-Shopper-IP` for fair rate limits                                                                                            |
+| `GET /storefront/cart`               | Cart re-validated against the live catalog; `notices` report price changes, reductions, removals, sold-outs                                                           |
+| `POST /storefront/cart/lines`        | `{ variant_id, quantity }` — merges with an existing line; capped at available stock                                                                                  |
+| `PATCH /storefront/cart/lines/:id`   | `{ quantity }` (0 removes)                                                                                                                                            |
+| `DELETE /storefront/cart/lines/:id`  | Remove a line                                                                                                                                                         |
+| `POST /storefront/checkout`          | Start/resume checkout; **holds stock** for the store's reservation window                                                                                             |
+| `PATCH /storefront/checkout`         | Any of `email`, `phone`, `shipping_address`, `billing_same_as_shipping`, `billing_address`, `shipping_method_id`, `payment_method`, `custom_fields`, `terms_accepted` |
+| `POST /storefront/checkout/complete` | Places the order. **`Idempotency-Key` required**; optional `{ expected_total_minor }` → `409 CHECKOUT_CHANGED` if the server total differs                            |
+| `GET /storefront/orders/:id`         | Order status page data; requires **`X-Order-Key`** (secret returned once at completion)                                                                               |
+
+The checkout view lists what is still `missing` (`email`, `shipping_address`, `shipping_method`,
+`payment_method`, `custom_fields`, `terms`, `items`, `stock`…) and the server-computed `totals`.
+
+**Integrity rules (PRD §13.3)**
+
+- Totals are recomputed on every step and again inside the order transaction, from catalog rows
+  locked `FOR SHARE` — a concurrent price edit can't slip between the total and the line snapshots.
+- Idempotency: the first successful response for a key is stored and replayed (header
+  `Idempotent-Replayed: true`); a concurrent duplicate gets `409 REQUEST_IN_PROGRESS`; a key reused
+  with a different body gets `422`. Independently, a checkout can produce at most one order
+  (`orders.checkout_id` is unique; the checkout row is locked during completion).
+- Stock: holds are taken under the inventory row lock in a fixed order (no deadlocks), expire after
+  `reservation_minutes`, and become a `sale` stock movement referencing the order. Expired holds are
+  released before every stock decision.
+- Order money fields, items and timeline are immutable at the database level (triggers).
+
+### Admin
+
+| Method & path                                                                           | Permission           | Purpose                                                                     |
+| --------------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------- |
+| `GET /orders`                                                                           | orders.read          | `q` (number, email, product), `status`, `payment_status`, paging            |
+| `GET /orders/:id`                                                                       | orders.read          | Items, addresses, totals, custom fields, payments, timeline                 |
+| `GET /settings/checkout`                                                                | store.read           | Tax, payment methods, terms, phone, custom fields, reservation time         |
+| `PUT /settings/checkout`                                                                | store.settings.write | Replace those settings (validated; bank transfer needs details)             |
+| `GET /shipping-methods`                                                                 | store.read           | Flat-rate methods                                                           |
+| `POST /shipping-methods`, `PATCH /shipping-methods/:id`, `DELETE /shipping-methods/:id` | store.settings.write | Manage methods (`countries` empty = everywhere; optional `free_over_minor`) |
+
 ## Quick example
 
 ```bash

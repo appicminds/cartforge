@@ -19,6 +19,6 @@ import { StorefrontService } from "./storefront.service";
     },
     { provide: APP_INTERCEPTOR, useClass: StorefrontRevalidationInterceptor },
   ],
-  exports: [PreviewTokens, StorefrontRevalidator],
+  exports: [PreviewTokens, StorefrontRevalidator, StorefrontService],
 })
 export class StorefrontModule {}

@@ -9,10 +9,12 @@ export function ProductPage({
   product,
   store,
   structuredData = true,
+  canBuy = true,
 }: {
   product: StorefrontProduct;
   store: StorefrontStore;
   structuredData?: boolean;
+  canBuy?: boolean;
 }) {
   const url = `${config.siteUrl}/products/${product.handle}`;
   const category = product.categories[0];
@@ -46,7 +48,7 @@ export function ProductPage({
       <div className="mb-6">
         <Breadcrumbs items={crumbs} />
       </div>
-      <ProductView product={product} locale={store.locale} />
+      <ProductView product={product} locale={store.locale} canBuy={canBuy} />
     </div>
   );
 }

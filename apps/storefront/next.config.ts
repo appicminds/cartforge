@@ -28,6 +28,19 @@ const config: NextConfig = {
         ],
       },
       {
+        // Private order links must not leak through the Referer header.
+        source: "/orders/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Cache-Control", value: "private, no-store" },
+        ],
+      },
+      {
+        source: "/(cart|checkout)",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
         source: "/preview/:path*",
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },

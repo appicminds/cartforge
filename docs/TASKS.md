@@ -260,3 +260,39 @@ right after Products acceptance, ahead of Next 1 (auth hardening).
 
 **Follow-ups:** theme editor and versions (Next 3); cart and checkout (Next 4); faceted filters
 (price, availability, vendor); per-product cache tags instead of one catalog tag; image CDN resizing.
+
+## Next 4 — Cart and checkout
+
+Goal (PRD §27.7): end-to-end order creation with server-side totals. Requested by the product owner
+after Next 2.
+
+| ID    | Task                                                                                                                                                                                                                                              | Status | Evidence                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
+| CO-01 | `packages/checkout-engine`: deterministic totals (per-line half-up tax, inclusive/exclusive, discount allocation), flat-rate shipping quotes, addresses, settings and custom-field validation                                                     | ✅     | `engine.test` (14)                                         |
+| CO-02 | Schema: carts, cart lines, checkouts, inventory reservations, checkout settings, shipping methods, full orders, order events, payments, idempotency keys, per-store order numbers; DB triggers for immutable order money and append-only timeline | ✅     | migration `cart_checkout_orders`                           |
+| CO-03 | Guest cart API with re-validation on every read (price changes, sold out, unavailable) (§13.1)                                                                                                                                                    | ✅     | `commerce.e2e` cart block                                  |
+| CO-04 | Checkout API: contact, addresses, shipping by destination, payment method, custom fields, terms; totals recomputed each step (§13.2)                                                                                                              | ✅     | `commerce.e2e` checkout block                              |
+| CO-05 | Stock reservations with expiry and release (INV-003/004); sale movements on order                                                                                                                                                                 | ✅     | "holds the last unit…", "never sells the same unit twice…" |
+| CO-06 | Order completion: idempotency key, one order per checkout, snapshots, payment record, timeline, outbox (§13.3, BE-009)                                                                                                                            | ✅     | "places exactly one order…", replay test                   |
+| CO-07 | Payment adapter interface + offline providers (bank transfer, cash on delivery) (§14.1)                                                                                                                                                           | ✅     | `payments.ts`                                              |
+| CO-08 | Storefront: add to cart, cart page, 3-step checkout (works without JS), order status page with private key                                                                                                                                        | ✅     | `checkout.spec`                                            |
+| CO-09 | Admin: Orders list/detail, Checkout settings (payments, shipping methods, tax, checkout form)                                                                                                                                                     | ✅     | admin `orders.spec`, `a11y.spec`                           |
+| CO-10 | Accessibility and phone layout for cart/checkout                                                                                                                                                                                                  | ✅     | storefront `checkout.spec` (axe), `mobile.spec`            |
+
+**Deliberately later**
+
+- Card/wallet payments, webhooks, reconciliation → **Next 5 (Payment Hub)**, behind the same adapter.
+- Marking paid, fulfillment, cancel/refund, notifications/emails → **Next 6 (Orders)**.
+- Customer accounts, cart merge on login, saved addresses → **Next 7**; carts already have `customer_id`.
+- Zones/weights/carrier rates and regional tax rules → **Next 7**; the engine's quote and tax
+  functions are the extension points.
+- Discount codes → **Next 8**; totals already allocate an order discount across lines.
+
+**Decisions**
+
+- Stock shown to shoppers stays a yes/no, except when a cart asks for more than exists ("Only 3
+  available") — the standard trade-off.
+- Holds expire lazily (swept before every stock decision and at most once a minute on cart reads),
+  so no background worker is needed on serverless hosting.
+- Offline payments leave orders `pending` / payment `pending`; stock is committed at order time.
+- Order numbers are sequential per store starting at 1001.

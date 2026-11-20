@@ -56,6 +56,29 @@ test.describe("Accessibility (WCAG 2.1 AA)", () => {
     await scan(page, "duplicate dialog");
   });
 
+  test("orders, order detail, checkout settings and shipping dialog", async ({ page }) => {
+    await signIn(page, "admin@cartforge.test");
+    await page.goto("/admin/orders");
+    await expect(page.getByRole("heading", { level: 1, name: "Orders" })).toBeVisible();
+    const first = page.getByRole("link", { name: /^#\d+/ }).first();
+    await expect(first.or(page.getByText("No orders yet"))).toBeVisible();
+    if (await first.isVisible()) {
+      await scan(page, "orders list");
+      await first.click();
+      await expect(page.getByRole("heading", { level: 1, name: /^Order #/ })).toBeVisible();
+      await scan(page, "order detail");
+    } else {
+      await expect(page.getByText("No orders yet")).toBeVisible();
+      await scan(page, "orders empty");
+    }
+    await page.goto("/admin/settings/checkout");
+    await expect(page.getByRole("button", { name: "Save settings" })).toBeVisible();
+    await scan(page, "checkout settings");
+    await page.getByRole("button", { name: "Add method" }).click();
+    await expect(page.getByRole("dialog", { name: "Add shipping method" })).toBeVisible();
+    await scan(page, "shipping dialog");
+  });
+
   test("inventory, categories, collections", async ({ page }) => {
     await signIn(page, "admin@cartforge.test");
     await page.goto("/admin/inventory");
