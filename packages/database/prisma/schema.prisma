@@ -19,14 +19,16 @@ enum UserStatus {
 }
 
 model User {
-  id            String     @id @default(uuid()) @db.Uuid
-  email         String     @unique // stored lower-cased
-  name          String
-  password_hash String
-  status        UserStatus @default(active)
-  last_login_at DateTime?  @db.Timestamptz(3)
-  created_at    DateTime   @default(now()) @db.Timestamptz(3)
-  updated_at    DateTime   @updatedAt @db.Timestamptz(3)
+  id                String     @id @default(uuid()) @db.Uuid
+  email             String     @unique // stored lower-cased
+  name              String
+  password_hash     String
+  status            UserStatus @default(active)
+  /// Operates the whole installation / SaaS platform (sees and suspends all stores).
+  is_platform_admin Boolean    @default(false)
+  last_login_at     DateTime?  @db.Timestamptz(3)
+  created_at        DateTime   @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime   @updatedAt @db.Timestamptz(3)
 
   sessions    Session[]
   memberships StoreMembership[]
@@ -61,17 +63,24 @@ enum StoreStatus {
 }
 
 model Store {
-  id            String      @id @default(uuid()) @db.Uuid
-  name          String
+  id                String      @id @default(uuid()) @db.Uuid
+  name              String
   /// ISO 4217 code; single store currency in initial release.
-  currency      String      @db.Char(3)
-  locale        String      @default("en-US")
-  timezone      String      @default("UTC")
-  contact_email String?
-  status        StoreStatus @default(active)
-  created_at    DateTime    @default(now()) @db.Timestamptz(3)
-  updated_at    DateTime    @updatedAt @db.Timestamptz(3)
+  currency          String      @db.Char(3)
+  locale            String      @default("en-US")
+  timezone          String      @default("UTC")
+  contact_email     String?
+  /// URL-safe, unique: the store's subdomain on the platform (e.g. "northwind").
+  handle            String      @unique @db.VarChar(63)
+  status            StoreStatus @default(active)
+  /// Commercial plan; billing arrives later, so new stores start on "trial".
+  plan              String      @default("trial") @db.VarChar(40)
+  suspended_at      DateTime?   @db.Timestamptz(3)
+  suspension_reason String?     @db.VarChar(500)
+  created_at        DateTime    @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime    @updatedAt @db.Timestamptz(3)
 
+  domains             StoreDomain[]
   roles               Role[]
   memberships         StoreMembership[]
   audit_logs          AuditLog[]
@@ -890,6 +899,39 @@ model ShippingMethod {
 
   @@index([store_id, position])
   @@map("shipping_methods")
+}
+
+enum DomainKind {
+  /// <handle>.<PLATFORM_DOMAIN>, created automatically.
+  platform
+  /// Merchant-owned, verified by DNS TXT record.
+  custom
+}
+
+enum DomainStatus {
+  pending
+  active
+}
+
+/// Hostnames that serve a store's storefront. A hostname belongs to at most one store.
+model StoreDomain {
+  id                 String       @id @default(uuid()) @db.Uuid
+  store_id           String       @db.Uuid
+  hostname           String       @unique @db.VarChar(253)
+  kind               DomainKind
+  status             DomainStatus @default(pending)
+  is_primary         Boolean      @default(false)
+  verification_token String       @db.VarChar(64)
+  verified_at        DateTime?    @db.Timestamptz(3)
+  /// Last verification problem shown to the merchant.
+  last_error         String?      @db.VarChar(300)
+  created_at         DateTime     @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime     @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+
+  @@index([store_id])
+  @@map("store_domains")
 }
 
 /// Retry-safe endpoints (BE-009): the first response for a key is stored and replayed.

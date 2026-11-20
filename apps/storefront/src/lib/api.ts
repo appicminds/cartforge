@@ -10,7 +10,7 @@ import type {
   StorefrontStore,
 } from "@cartforge/types";
 import { cache } from "react";
-import { config } from "./config";
+import { config, site } from "./config";
 
 /** Every catalog read is filed under this tag; the API purges it on each write. */
 export const CATALOG_TAG = "catalog";
@@ -28,15 +28,19 @@ export class StorefrontApiError extends Error {
 
 type Result<T> = { kind: "ok"; data: T } | { kind: "not_found" } | { kind: "moved"; to: string };
 
+/** Cache tags: the store's own (purged on its writes) plus the global one. */
+const tagsFor = (storeId: string) => [CATALOG_TAG, `${CATALOG_TAG}:${storeId}`];
+
 async function get<T>(path: string, opts: { fresh?: boolean } = {}): Promise<Result<T>> {
+  const { storeId } = await site();
   const res = await fetch(`${config.apiUrl}/api/v1/storefront${path}`, {
-    headers: { "X-Store-Id": config.storeId, Accept: "application/json" },
+    headers: { "X-Store-Id": storeId, Accept: "application/json" },
     redirect: "manual",
     ...(opts.fresh
       ? { cache: "no-store" as const }
       : {
           cache: "force-cache" as const,
-          next: { tags: [CATALOG_TAG], revalidate: REVALIDATE_SECONDS },
+          next: { tags: tagsFor(storeId), revalidate: REVALIDATE_SECONDS },
         }),
   });
   if (res.status === 404) return { kind: "not_found" };
@@ -51,10 +55,11 @@ async function get<T>(path: string, opts: { fresh?: boolean } = {}): Promise<Res
 }
 
 async function list<T>(path: string): Promise<ListResponse<T>> {
+  const { storeId } = await site();
   const res = await fetch(`${config.apiUrl}/api/v1/storefront${path}`, {
-    headers: { "X-Store-Id": config.storeId, Accept: "application/json" },
+    headers: { "X-Store-Id": storeId, Accept: "application/json" },
     cache: "force-cache",
-    next: { tags: [CATALOG_TAG], revalidate: REVALIDATE_SECONDS },
+    next: { tags: tagsFor(storeId), revalidate: REVALIDATE_SECONDS },
   });
   if (res.status === 404) return { data: [], meta: emptyMeta(), request_id: "" };
   if (!res.ok)

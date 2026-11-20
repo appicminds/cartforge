@@ -13,6 +13,8 @@ describe("revalidation endpoint helpers", () => {
 
   it("only accepts known tags", () => {
     expect(tagsFrom({ tags: ["catalog", "other", 3] })).toEqual(["catalog"]);
+    const store = "00000000-0000-4000-8000-000000000001";
+    expect(tagsFrom({ tags: [`catalog:${store}`, "catalog:../x"] })).toEqual([`catalog:${store}`]);
     expect(tagsFrom(null)).toEqual([]);
     expect(tagsFrom({ tags: "catalog" })).toEqual([]);
   });

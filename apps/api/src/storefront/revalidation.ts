@@ -72,9 +72,16 @@ export class StorefrontRevalidationInterceptor implements NestInterceptor {
     ]);
     if (!on || method === "GET" || method === "HEAD" || !this.revalidator.enabled)
       return next.handle();
+    // Only this store's storefront pages are purged (shared storefront, P1).
+    const req = ctx.switchToHttp().getRequest<Request>();
+    const storeId = req.store?.store_id ?? req.get("x-store-id");
+    const tags =
+      storeId && /^[0-9a-f-]{36}$/i.test(storeId)
+        ? [`${CATALOG_TAG}:${storeId.toLowerCase()}`]
+        : [CATALOG_TAG];
     // Runs only after the handler succeeded (its transaction has committed).
     return next
       .handle()
-      .pipe(mergeMap((value) => from(this.revalidator.notify().then(() => value))));
+      .pipe(mergeMap((value) => from(this.revalidator.notify(tags).then(() => value))));
   }
 }

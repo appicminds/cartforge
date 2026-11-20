@@ -14,3 +14,11 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
 export async function expectStore(page: Page, name: string) {
   await expect(page.getByTestId("store-settings")).toContainText(name);
 }
+
+/** Shopify-style store choice: from "Your stores", open one by name. */
+export async function openStore(page: Page, name: string) {
+  if (!/\/admin\/stores$/.test(page.url())) await page.goto("/admin/stores");
+  await page.getByRole("button", { name: `Open ${name}` }).click();
+  await page.waitForURL(/\/admin$/);
+  await expect(page.getByTestId("current-store")).toHaveText(name);
+}

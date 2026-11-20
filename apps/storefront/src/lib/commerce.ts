@@ -8,7 +8,7 @@ import type {
   PlacedOrder,
 } from "./commerce-types";
 import { cookies, headers } from "next/headers";
-import { config } from "./config";
+import { config, site } from "./config";
 
 export const CART_COOKIE = "cf_cart";
 /** Readable count for the header badge (no secret in it). */
@@ -28,11 +28,12 @@ async function call<T>(
   path: string,
   opts: { token?: string; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<ApiResult<T>> {
+  const { storeId } = await site();
   const res = await fetch(`${config.apiUrl}/api/v1/storefront${path}`, {
     method,
     cache: "no-store",
     headers: {
-      "X-Store-Id": config.storeId,
+      "X-Store-Id": storeId,
       Accept: "application/json",
       ...(opts.body !== undefined && { "Content-Type": "application/json" }),
       ...(opts.token && { "X-Cart-Token": opts.token }),

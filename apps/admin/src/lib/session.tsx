@@ -34,7 +34,10 @@ export function useMeQuery() {
 
 interface SessionValue {
   user: CurrentUser;
+  /** The store this admin session is working in (Shopify-style: one at a time). */
   store: StoreMembershipSummary | null;
+  /** True once the saved choice has been read (avoids redirect flashes). */
+  ready: boolean;
   setStoreId: (id: string) => void;
   can: (p: Permission) => boolean;
   logout: () => Promise<void>;
@@ -54,11 +57,16 @@ export function SessionProvider({ user, children }: { user: CurrentUser; childre
   const router = useRouter();
   const qc = useQueryClient();
   const [storeId, setStoreIdState] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Only active stores can be opened. With exactly one, open it straight away;
+    // otherwise the user picks on "Your stores" (remembered for next time).
+    const usable = user.stores.filter((s) => s.store_status === "active");
     const saved = readStoredStore();
-    const valid = user.stores.find((s) => s.store_id === saved);
-    setStoreIdState(valid?.store_id ?? user.stores[0]?.store_id ?? null);
+    const valid = usable.find((s) => s.store_id === saved);
+    setStoreIdState(valid?.store_id ?? (usable.length === 1 ? usable[0]!.store_id : null));
+    setReady(true);
   }, [user.stores]);
 
   const setStoreId = useCallback(
@@ -75,7 +83,8 @@ export function SessionProvider({ user, children }: { user: CurrentUser; childre
     [qc],
   );
 
-  const store = user.stores.find((s) => s.store_id === storeId) ?? null;
+  const store =
+    user.stores.find((s) => s.store_id === storeId && s.store_status === "active") ?? null;
 
   const logout = useCallback(async () => {
     try {
@@ -93,11 +102,12 @@ export function SessionProvider({ user, children }: { user: CurrentUser; childre
     () => ({
       user,
       store,
+      ready,
       setStoreId,
       can: (p) => store?.permissions.includes(p) ?? false,
       logout,
     }),
-    [user, store, setStoreId, logout],
+    [user, store, ready, setStoreId, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

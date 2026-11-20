@@ -23,13 +23,17 @@ function Brand({ collapsed }: { collapsed: boolean }) {
 
 function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { can } = useSession();
+  const { can, user, store } = useSession();
   const active = findNavItem(pathname);
 
   return (
     <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
       {NAV.map((section, si) => {
-        const items = section.items.filter((i) => !i.permission || can(i.permission));
+        const items = section.items.filter((i) =>
+          i.platformOnly
+            ? user.is_platform_admin
+            : i.href === "/admin" || (store !== null && (!i.permission || can(i.permission))),
+        );
         if (!items.length) return null;
         return (
           <div key={section.label ?? si} className="mb-4">

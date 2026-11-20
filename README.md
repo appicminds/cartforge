@@ -46,13 +46,19 @@ Open http://localhost:3000/admin and sign in with a seeded account (the storefro
 http://localhost:3100; `node apps/api/scripts/demo-catalog.mjs` with `DEMO_PASSWORD` fills it). All seeded users
 share the dev-only password `CartForge!dev1`:
 
-| Email                  | Role(s)                                            |
-| ---------------------- | -------------------------------------------------- |
-| owner@cartforge.test   | Owner of _Northwind Goods_ and _Harbor Outfitters_ |
-| admin@cartforge.test   | Administrator, Northwind Goods                     |
-| catalog@cartforge.test | Catalog Manager, Northwind Goods                   |
-| orders@cartforge.test  | Order Manager, Northwind Goods                     |
-| other@cartforge.test   | Owner of Harbor Outfitters only (isolation tests)  |
+| Email                   | Role(s)                                            |
+| ----------------------- | -------------------------------------------------- |
+| owner@cartforge.test    | Owner of _Northwind Goods_ and _Harbor Outfitters_ |
+| admin@cartforge.test    | Administrator, Northwind Goods                     |
+| catalog@cartforge.test  | Catalog Manager, Northwind Goods                   |
+| orders@cartforge.test   | Order Manager, Northwind Goods                     |
+| other@cartforge.test    | Owner of Harbor Outfitters only (isolation tests)  |
+| platform@cartforge.test | Platform admin — sees every store                  |
+
+**SaaS mode locally:** set `CARTFORGE_EDITION=saas` and `PLATFORM_DOMAIN=shops.localhost` in
+`.env`. Sign up at http://localhost:3000/signup; each store is served at
+`http://<handle>.shops.localhost:3100` (browsers resolve `*.localhost` to your machine), e.g.
+http://northwind.shops.localhost:3100 and http://harbor.shops.localhost:3100.
 
 API docs: http://localhost:3000/api/docs (proxied to the API).
 

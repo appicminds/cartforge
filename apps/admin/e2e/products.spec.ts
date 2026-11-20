@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { signIn } from "./helpers";
+import { openStore, signIn } from "./helpers";
 
 const RUN = `e2e${Date.now().toString(36)}`;
 
@@ -214,7 +214,7 @@ test.describe("Products — list states and permissions", () => {
 
   test("first-use empty state in a store with no products", async ({ page }) => {
     await signIn(page, "owner@cartforge.test");
-    await page.getByLabel("Active store").selectOption({ label: "Quiet Pines" });
+    await openStore(page, "Quiet Pines");
     await openProducts(page);
     await expect(page.getByRole("heading", { name: "Add your first product" })).toBeVisible();
     await expect(page.getByRole("searchbox")).toHaveCount(0);

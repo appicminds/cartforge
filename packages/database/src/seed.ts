@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 /**
  * Development/test seed (S0-17). Idempotent: safe to run repeatedly.
  *
@@ -13,14 +14,25 @@ import { createPrismaClient } from "./client.js";
 export const SEED_PASSWORD = "CartForge!dev1";
 
 export const SEED_STORES = {
-  main: { id: "00000000-0000-4000-8000-000000000001", name: "Northwind Goods", currency: "USD" },
+  main: {
+    id: "00000000-0000-4000-8000-000000000001",
+    name: "Northwind Goods",
+    handle: "northwind",
+    currency: "USD",
+  },
   second: {
     id: "00000000-0000-4000-8000-000000000002",
     name: "Harbor Outfitters",
+    handle: "harbor",
     currency: "EUR",
   },
   /** Kept free of catalog data so first-use empty states can be tested. Never add products here in tests. */
-  empty: { id: "00000000-0000-4000-8000-000000000003", name: "Quiet Pines", currency: "USD" },
+  empty: {
+    id: "00000000-0000-4000-8000-000000000003",
+    name: "Quiet Pines",
+    handle: "quiet-pines",
+    currency: "USD",
+  },
 } as const;
 
 export const SEED_USERS = [
@@ -41,10 +53,13 @@ export const SEED_USERS = [
   },
   { email: "orders@cartforge.test", name: "Omar Orders", memberships: [["main", "order_manager"]] },
   { email: "other@cartforge.test", name: "Sam Second", memberships: [["second", "owner"]] },
+  /** Operates the platform (all stores); belongs to no store. */
+  { email: "platform@cartforge.test", name: "Pat Platform", memberships: [], platform_admin: true },
 ] as const satisfies ReadonlyArray<{
   email: string;
   name: string;
   memberships: ReadonlyArray<readonly [keyof typeof SEED_STORES, SystemRoleKey]>;
+  platform_admin?: boolean;
 }>;
 
 export function resolveSeedPassword(env: NodeJS.ProcessEnv): string {
@@ -75,9 +90,30 @@ export async function seed(databaseUrl?: string): Promise<void> {
     for (const store of Object.values(SEED_STORES)) {
       await prisma.store.upsert({
         where: { id: store.id },
-        update: { name: store.name, currency: store.currency },
+        update: { name: store.name, currency: store.currency, handle: store.handle },
         create: { ...store, contact_email: "hello@cartforge.test" },
       });
+      // SaaS edition: each store's automatic <handle>.<PLATFORM_DOMAIN> address.
+      const platformDomain = process.env.PLATFORM_DOMAIN?.toLowerCase();
+      if (platformDomain) {
+        const hostname = `${store.handle}.${platformDomain}`;
+        const hasPrimary = await prisma.storeDomain.count({
+          where: { store_id: store.id, is_primary: true },
+        });
+        await prisma.storeDomain.upsert({
+          where: { hostname },
+          update: {},
+          create: {
+            store_id: store.id,
+            hostname,
+            kind: "platform",
+            status: "active",
+            is_primary: hasPrimary === 0,
+            verification_token: randomBytes(16).toString("hex"),
+            verified_at: new Date(),
+          },
+        });
+      }
       // Every store has one default inventory location (PRD §8.4 D).
       const location = await prisma.inventoryLocation.findFirst({
         where: { store_id: store.id, is_default: true },
@@ -105,8 +141,18 @@ export async function seed(databaseUrl?: string): Promise<void> {
     for (const u of SEED_USERS) {
       const user = await prisma.user.upsert({
         where: { email: u.email },
-        update: { name: u.name, password_hash: passwordHash, status: "active" },
-        create: { email: u.email, name: u.name, password_hash: passwordHash },
+        update: {
+          name: u.name,
+          password_hash: passwordHash,
+          status: "active",
+          is_platform_admin: "platform_admin" in u,
+        },
+        create: {
+          email: u.email,
+          name: u.name,
+          password_hash: passwordHash,
+          is_platform_admin: "platform_admin" in u,
+        },
       });
       for (const [storeKey, roleKey] of u.memberships) {
         const storeId = SEED_STORES[storeKey].id;

@@ -1,7 +1,9 @@
 import {
   Boxes,
+  Building2,
   CreditCard,
   FolderTree,
+  Globe,
   Home,
   Layers,
   Package,
@@ -16,6 +18,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Hidden unless the user has this permission in the active store. */
   permission?: Permission;
+  /** Only for platform administrators (works without an open store). */
+  platformOnly?: boolean;
 }
 
 export interface NavSection {
@@ -72,6 +76,18 @@ export const NAV: NavSection[] = [
         icon: CreditCard,
         permission: PERMISSIONS.STORE_READ,
       },
+      {
+        label: "Domains",
+        href: "/admin/settings/domains",
+        icon: Globe,
+        permission: PERMISSIONS.STORE_READ,
+      },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      { label: "All stores", href: "/admin/platform/stores", icon: Building2, platformOnly: true },
     ],
   },
 ];

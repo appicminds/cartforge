@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
-/** Tags the API may purge. Anything else is ignored. */
-export const ALLOWED_TAGS = new Set(["catalog"]);
+/** Tags the API may purge: the global catalog or one store's ("catalog:<uuid>"). */
+const ALLOWED = /^catalog(:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/;
 
 export function secretMatches(given: string | null, expected: string): boolean {
   if (!expected || !given) return false;
@@ -12,5 +12,7 @@ export function secretMatches(given: string | null, expected: string): boolean {
 
 export function tagsFrom(body: unknown): string[] {
   const tags = (body as { tags?: unknown } | null)?.tags;
-  return Array.isArray(tags) ? tags.filter((t): t is string => ALLOWED_TAGS.has(t as string)) : [];
+  return Array.isArray(tags)
+    ? tags.filter((t): t is string => typeof t === "string" && ALLOWED.test(t))
+    : [];
 }

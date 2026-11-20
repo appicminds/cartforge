@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoginForm } from "./login-form";
+import { SignupLink } from "./signup-link";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -19,11 +20,12 @@ export default function LoginPage() {
         </div>
         <div className="rounded-xl border border-border bg-surface p-6 shadow-md sm:p-8">
           <h1 className="text-xl font-semibold">Sign in to your store</h1>
-          <p className="mt-1 text-sm text-fg-muted">Use your staff account to manage your store.</p>
+          <p className="mt-1 text-sm text-fg-muted">Use your account to manage your stores.</p>
           <Suspense>
             <LoginForm />
           </Suspense>
         </div>
+        <SignupLink />
       </div>
     </main>
   );

@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
-import { config } from "@/lib/config";
+import { site } from "@/lib/config";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const { siteUrl } = await site();
   return {
     rules: [
       {
@@ -10,6 +11,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/search", "/preview/", "/api/", "/cart", "/checkout", "/orders/"],
       },
     ],
-    sitemap: `${config.siteUrl}/sitemap.xml`,
+    sitemap: `${siteUrl}/sitemap.xml`,
   };
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectStore, signIn } from "./helpers";
+import { expectStore, openStore, signIn } from "./helpers";
 
 test.describe("Sprint 0 exit gate", () => {
   test("unauthenticated visitors are sent to login", async ({ page }) => {
@@ -30,23 +30,26 @@ test.describe("Sprint 0 exit gate", () => {
     ).toBeVisible();
   });
 
-  test("seeded user logs in, sees store-scoped API data, switches store, signs out", async ({
-    page,
-  }) => {
+  test("multi-store owner picks a store (Shopify-style), switches, signs out", async ({ page }) => {
     await signIn(page, "owner@cartforge.test");
-    await expect(page).toHaveURL(/\/admin$/);
+    // Several stores and no earlier choice → "Your stores".
+    await expect(page).toHaveURL(/\/admin\/stores$/);
+    await expect(page.getByRole("heading", { name: "Your stores" })).toBeVisible();
+    await expect(page.getByTestId("current-store")).toHaveCount(0);
+
+    await openStore(page, "Harbor Outfitters");
     await expect(page.getByRole("heading", { name: "Welcome, Olivia" })).toBeVisible();
-    // Multi-store owner: stores are listed alphabetically; the first is the default.
     await expectStore(page, "Harbor Outfitters");
     await expectStore(page, "EUR");
 
-    await page.getByLabel("Active store").selectOption({ label: "Northwind Goods" });
-    await expectStore(page, "Northwind Goods");
+    await page.getByRole("link", { name: "Switch store" }).click();
+    await expect(page.getByText("You're working in Harbor Outfitters.")).toBeVisible();
+    await openStore(page, "Northwind Goods");
     await expectStore(page, "USD");
 
-    // Selection persists across reloads.
+    // The choice is remembered.
     await page.reload();
-    await expectStore(page, "Northwind Goods");
+    await expect(page.getByTestId("current-store")).toHaveText("Northwind Goods");
 
     await page.getByRole("button", { name: /Account menu/ }).click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();

@@ -29,11 +29,42 @@ For the Vercel deployment specifically, see `DEPLOY-VERCEL.md`. This page is the
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_FORCE_PATH_STYLE`, `S3_PUBLIC_BASE_URL` | s3          | Public base URL is what image URLs are built from (CDN in front of the bucket)         |
 | `BLOB_READ_WRITE_TOKEN`                                                                                                | vercel-blob | Added automatically when a Blob store is connected to the project                      |
 | `MEDIA_MAX_BYTES`                                                                                                      | no          | Upload cap. Default 10 MB; **4 MB on Vercel** (serverless request body limit ≈ 4.5 MB) |
+| `CARTFORGE_EDITION`                                                                                                    | no          | `self_hosted` (default) or `saas`. See `PLAN.md` §2a                                   |
+| `SIGNUP_ENABLED`                                                                                                       | no          | Public merchant sign-up. Defaults to `true` for `saas`, `false` for `self_hosted`      |
+| `PLATFORM_DOMAIN`                                                                                                      | no          | e.g. `myshops.com` → stores at `<handle>.myshops.com`. Needs wildcard DNS (below)      |
+| `PLATFORM_CNAME_TARGET`                                                                                                | no          | Host merchants point custom domains at (shown in the Domains page)                     |
+| `DOMAIN_PROVIDER`                                                                                                      | no          | `none` (default; your proxy issues certificates) or `vercel`                           |
+| `VERCEL_API_TOKEN`, `VERCEL_STOREFRONT_PROJECT`, `VERCEL_TEAM_ID`                                                      | vercel      | Attaches verified custom domains to the storefront project. Token is a secret          |
 | `CARTFORGE_DEMO_SEED`, `SEED_PASSWORD`                                                                                 | demo only   | Seeds demo stores and users. Password ≥ 12 chars. Never set on a real store            |
 
 Admin: `API_URL` (where `/api/*` is forwarded).
 
 The API validates its environment on boot and exits with a list of what is wrong.
+
+## Hosting many stores (SaaS)
+
+1. **DNS:** point `*.PLATFORM_DOMAIN` (wildcard) and `PLATFORM_CNAME_TARGET` at the storefront.
+2. **Certificates:** a wildcard certificate covers store subdomains. For custom domains use
+   on-demand TLS and let the API approve each host — with Caddy:
+
+   ```
+   {
+     on_demand_tls {
+       ask https://ADMIN_HOST/api/v1/platform/domains/tls-check
+     }
+   }
+   https:// {
+     tls { on_demand }
+     reverse_proxy storefront:3100
+   }
+   ```
+
+   Only verified domains and existing store subdomains get a certificate.
+
+3. **Storefront:** leave `STOREFRONT_STORE_ID` unset (or keep it as the fallback for hosts outside
+   `PLATFORM_DOMAIN`, e.g. a self-hosted single store) and set the same `PLATFORM_DOMAIN`.
+4. **Platform admins:** set `users.is_platform_admin = true` for operator staff (the demo seed
+   creates `platform@cartforge.test`). They see **Platform → All stores** and can suspend stores.
 
 ## Database
 

@@ -11,6 +11,7 @@ import { HealthModule } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.service";
 import { CatalogModule } from "./catalog/catalog.module";
 import { CommerceModule } from "./commerce/commerce.module";
+import { PlatformModule } from "./platform/platform.module";
 import { OutboxModule } from "./common/outbox.service";
 import { InventoryModule } from "./inventory/inventory.module";
 import { OrdersModule } from "./orders/order-snapshot.service";
@@ -31,6 +32,7 @@ import { StoresModule } from "./stores/stores.module";
     PrismaModule,
     RedisModule,
     AuditModule,
+    PlatformModule,
     AuthModule,
     HealthModule,
     StoresModule,

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Menu, Store } from "lucide-react";
-import { Breadcrumb, IconButton, Select, cn, type BreadcrumbItem } from "@cartforge/ui";
+import { ExternalLink, LogOut, Menu, Store } from "lucide-react";
+import { Breadcrumb, IconButton, cn, type BreadcrumbItem } from "@cartforge/ui";
 import { useBreadcrumbTitleValue } from "@/lib/breadcrumbs";
 import { useSession } from "@/lib/session";
 import { findNavItem } from "./nav";
@@ -22,32 +22,35 @@ function useBreadcrumbs(): BreadcrumbItem[] {
   return crumbs;
 }
 
-function StoreSwitcher() {
-  const { user, store, setStoreId } = useSession();
-  if (user.stores.length <= 1) {
-    return (
-      <span className="hidden items-center gap-2 text-sm text-fg-muted sm:flex">
-        <Store aria-hidden className="size-4" />
-        {store?.store_name}
-      </span>
-    );
-  }
+/** The open store (Shopify-style: one at a time), its storefront, and a way back to "Your stores". */
+function StoreBadge() {
+  const { user, store } = useSession();
+  const canSwitch = user.stores.length > 1 || user.can_create_stores;
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <Store aria-hidden className="size-4 text-fg-muted" />
-      <span className="sr-only">Active store</span>
-      <Select
-        value={store?.store_id ?? ""}
-        onChange={(e) => setStoreId(e.target.value)}
-        className="w-44 max-w-[40vw]"
-      >
-        {user.stores.map((s) => (
-          <option key={s.store_id} value={s.store_id}>
-            {s.store_name}
-          </option>
-        ))}
-      </Select>
-    </label>
+    <div className="flex min-w-0 items-center gap-3 text-sm">
+      {store && (
+        <span className="hidden min-w-0 items-center gap-2 sm:flex" data-testid="current-store">
+          <Store aria-hidden className="size-4 shrink-0 text-fg-muted" />
+          <span className="truncate font-medium">{store.store_name}</span>
+        </span>
+      )}
+      {store?.store_url && (
+        <a
+          href={store.store_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden items-center gap-1 text-fg-muted hover:text-fg md:inline-flex"
+        >
+          <ExternalLink aria-hidden className="size-3.5" />
+          View store
+        </a>
+      )}
+      {canSwitch && (
+        <Link href="/admin/stores" className="text-primary hover:underline">
+          {store ? "Switch store" : "Your stores"}
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -89,11 +92,11 @@ function ProfileMenu() {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Account menu for ${user.name}`}
         onClick={() => setOpen((o) => !o)}
         className="flex size-8 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary hover:ring-2 hover:ring-primary/20"
       >
-        {initials}
+        <span aria-hidden>{initials}</span>
+        <span className="sr-only">Account menu for {user.name}</span>
       </button>
       {open && (
         <div
@@ -153,7 +156,7 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
           )}
         />
       </div>
-      <StoreSwitcher />
+      <StoreBadge />
       <ProfileMenu />
     </header>
   );

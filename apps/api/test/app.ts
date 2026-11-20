@@ -11,8 +11,13 @@ import { applyTestEnv } from "./test-env";
 // Env is read when the app module is instantiated, not at import time.
 applyTestEnv();
 
-export async function createTestApp(): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+/** `overrides`: swap providers (e.g. a fake DNS resolver) for one test file. */
+export async function createTestApp(
+  overrides: { provide: unknown; useValue: unknown }[] = [],
+): Promise<INestApplication> {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  for (const o of overrides) builder = builder.overrideProvider(o.provide).useValue(o.useValue);
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ logger: false });
   configureApp(app);
   await app.init();

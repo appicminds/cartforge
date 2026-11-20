@@ -63,6 +63,31 @@ export const apiEnvSchema = z
       .max(100 * 1024 * 1024)
       .default(10 * 1024 * 1024),
 
+    // ── Platform / editions (P1) ──
+    /**
+     * "saas": you host many merchants (public sign-up, store subdomains).
+     * "self_hosted": a merchant runs their own installation (PRD default).
+     */
+    CARTFORGE_EDITION: z.enum(["saas", "self_hosted"]).default("self_hosted"),
+    /** Public "create your store" sign-up. Defaults to on for SaaS, off for self-hosted. */
+    SIGNUP_ENABLED: bool.optional(),
+    /** Stores get <handle>.<PLATFORM_DOMAIN> automatically, e.g. "myshops.com". */
+    PLATFORM_DOMAIN: z
+      .string()
+      .regex(
+        /^(?=.{3,200}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i,
+        "PLATFORM_DOMAIN must be a hostname like shops.example.com",
+      )
+      .transform((v) => v.toLowerCase())
+      .optional(),
+    /** Hostname merchants point custom domains at (CNAME). Defaults to PLATFORM_DOMAIN. */
+    PLATFORM_CNAME_TARGET: z.string().min(3).max(200).optional(),
+    /** How verified custom domains get routed + HTTPS: "none" (reverse proxy asks /platform/domains/tls-check) or "vercel". */
+    DOMAIN_PROVIDER: z.enum(["none", "vercel"]).default("none"),
+    VERCEL_API_TOKEN: z.string().optional(),
+    VERCEL_STOREFRONT_PROJECT: z.string().optional(),
+    VERCEL_TEAM_ID: z.string().optional(),
+
     // ── Storefront (Next 2) ──
     /** Public storefront URL (no trailing slash); used to build preview links. */
     STOREFRONT_URL: z
@@ -93,12 +118,19 @@ export const apiEnvSchema = z
         need(k, "when STORAGE_DRIVER=s3");
       }
     }
+    if (env.DOMAIN_PROVIDER === "vercel") {
+      need("VERCEL_API_TOKEN", "when DOMAIN_PROVIDER=vercel");
+      need("VERCEL_STOREFRONT_PROJECT", "when DOMAIN_PROVIDER=vercel");
+    }
     if (env.STOREFRONT_REVALIDATE_URL)
       need("STOREFRONT_REVALIDATE_SECRET", "when STOREFRONT_REVALIDATE_URL is set");
     if (env.STORAGE_DRIVER === "vercel-blob")
       need("BLOB_READ_WRITE_TOKEN", "when STORAGE_DRIVER=vercel-blob");
   });
-export type ApiEnv = z.infer<typeof apiEnvSchema> & { COOKIE_SECURE: boolean };
+export type ApiEnv = z.infer<typeof apiEnvSchema> & {
+  COOKIE_SECURE: boolean;
+  SIGNUP_ENABLED: boolean;
+};
 
 export const workerEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -136,7 +168,11 @@ function withRedisFallback(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 export function loadApiEnv(source: NodeJS.ProcessEnv = process.env): ApiEnv {
   const env = parse(apiEnvSchema, withRedisFallback(source));
-  return { ...env, COOKIE_SECURE: env.COOKIE_SECURE ?? env.NODE_ENV === "production" };
+  return {
+    ...env,
+    COOKIE_SECURE: env.COOKIE_SECURE ?? env.NODE_ENV === "production",
+    SIGNUP_ENABLED: env.SIGNUP_ENABLED ?? env.CARTFORGE_EDITION === "saas",
+  };
 }
 
 export function loadWorkerEnv(source: NodeJS.ProcessEnv = process.env): WorkerEnv {

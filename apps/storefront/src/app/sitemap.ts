@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next";
 import { storefront } from "@/lib/api";
-import { config } from "@/lib/config";
+import { site } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const map = await storefront.sitemap();
-  const u = (path: string) => `${config.siteUrl}${path}`;
+  const { siteUrl } = await site();
+  const u = (path: string) => `${siteUrl}${path}`;
   return [
     { url: u("/"), changeFrequency: "daily", priority: 1 },
     { url: u("/products"), changeFrequency: "daily", priority: 0.8 },

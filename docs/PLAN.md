@@ -20,8 +20,8 @@ open, and the gaps found while reading it. Task-level breakdown lives in
 No work on later modules starts before Products Management is accepted.
 
 **Status:** Products Management accepted 2026-11-20. At the product owner's request the storefront
-(Next 2) runs next, ahead of auth hardening (Next 1), followed by cart and checkout (Next 4);
-see `TASKS.md`.
+(Next 2) runs next, ahead of auth hardening (Next 1), followed by cart and checkout (Next 4),
+then the SaaS platform (P1: sign-up, separate stores, domains, platform admin); see `TASKS.md`.
 
 ## 2. Technical decisions (where the PRD is open)
 
@@ -44,11 +44,40 @@ see `TASKS.md`.
 | Rich text   | Tiptap in admin; server-side sanitization (sanitize-html) — Sprint 1                                                                                                                                                        |
 | Media       | Storage adapter interface with local-disk and S3/MinIO drivers; sharp derivatives in worker — Sprint 2                                                                                                                      |
 
+## 2a. Editions: SaaS and self-hosted (decision 2026-11-20)
+
+The PRD describes a self-hosted product. The product owner decided CartForge also runs as a
+hosted, Shopify-style service, **from the same codebase**. `CARTFORGE_EDITION` selects behaviour:
+
+| Topic              | `saas`                                                        | `self_hosted` (default)                                                             |
+| ------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Who creates stores | Anyone, through public sign-up (`SIGNUP_ENABLED`, default on) | Platform administrators only; sign-up off by default                                |
+| Store address      | `<handle>.PLATFORM_DOMAIN`, plus verified custom domains      | Same if `PLATFORM_DOMAIN` is set; otherwise one fixed store (`STOREFRONT_STORE_ID`) |
+| Platform admin     | Operator staff (`users.is_platform_admin`)                    | The installer                                                                       |
+| Billing            | Later; every store starts on plan `trial`                     | None                                                                                |
+
+**Account model (Shopify-style).** A merchant signs up and gets a store. The admin always works
+inside one store at a time; one login can own several stores and picks one from **Your stores**.
+Stores never share products, orders, customers or settings — isolation is the existing `store_id`
+scoping plus `StoreScopeGuard`, which also blocks suspended stores.
+
+**Routing.** One storefront deployment serves every store. Its middleware resolves the request
+host through `GET /storefront/resolve` (cached 60 s) and passes the store id to the pages; an
+unknown host under `PLATFORM_DOMAIN` gets a 404 "store not available" page and never falls back
+to another store.
+
+**Custom domains.** The merchant adds a hostname, publishes a TXT record
+(`_cartforge-verify.<host>` = `cartforge-verify=<token>`) and points the host at
+`PLATFORM_CNAME_TARGET`. After verification the domain is attached through a `DomainProvider`
+(`none` = the operator's reverse proxy issues certificates on demand via the TLS-check endpoint;
+`vercel` = attached to the storefront project through the Vercel API). A hostname can be active
+for only one store.
+
 ## 3. Product-owner defaults (PRD §32) — override any time
 
 | Open decision                                                          | Default adopted                                                       |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Stores per installation                                                | Multiple (PRD baseline); `store_id` on every store-owned row          |
+| Stores per installation                                                | Multiple; one codebase runs as SaaS or self-hosted (see §2a)          |
 | Vendor/brand                                                           | Free text on product; managed entity later                            |
 | Variant limits                                                         | Max 3 option dimensions, max 100 variants per product (configurable)  |
 | Digital products                                                       | Represented as `requires_shipping=false` + flag; no download delivery |

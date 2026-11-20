@@ -296,3 +296,38 @@ after Next 2.
   so no background worker is needed on serverless hosting.
 - Offline payments leave orders `pending` / payment `pending`; stock is committed at order time.
 - Order numbers are sequential per store starting at 1001.
+
+## P1 — SaaS platform: separate stores, sign-up and domains
+
+Goal: run CartForge as a hosted service like Shopify, while keeping the self-hosted edition (see
+`PLAN.md` §2a). Requested by the product owner after Next 4.
+
+| ID    | Task                                                                                                                                             | Status | Evidence                                     |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------- |
+| SA-01 | Editions: `CARTFORGE_EDITION`, `SIGNUP_ENABLED`, `PLATFORM_DOMAIN`, `PLATFORM_CNAME_TARGET`, `DOMAIN_PROVIDER`; validated on boot                | ✅     | `packages/config` env schema                 |
+| SA-02 | Schema: store `handle` (unique, DNS-safe, backfilled), `plan`, suspension fields; `store_domains`; `users.is_platform_admin`                     | ✅     | migration `platform_saas`                    |
+| SA-03 | Store provisioning service (roles, default location, owner, platform address, audit) shared by sign-up, "create store" and seed                  | ✅     | `platform-saas.e2e`                          |
+| SA-04 | Merchant sign-up (`POST /auth/signup`): user + store in one transaction, rate-limited, reserved/taken address checks                             | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
+| SA-05 | Shopify-style admin: one store at a time, **Your stores** picker, create another store, current-store badge with "View store"                    | ✅     | admin `saas.spec`, `auth-shell.spec`         |
+| SA-06 | Host-based storefront routing: `GET /storefront/resolve`, middleware with cache, 404 for unknown hosts, per-store cache tags (`catalog:<store>`) | ✅     | `platform-saas.e2e`, storefront `hosts.spec` |
+| SA-07 | Custom domains: add, DNS TXT verification, primary domain, remove; Vercel adapter; TLS-check endpoint for on-demand certificates                 | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
+| SA-08 | Platform admin: all stores with owner, domain and counts; suspend (reason required) and reactivate, audited; staff can't reach it                | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
+| SA-09 | Accessibility of sign-up, Your stores, Domains and platform pages                                                                                | ✅     | admin `saas.spec` (axe)                      |
+
+**Deliberately later**
+
+- Billing, plans and limits (stores start on `trial`) → with the Payment Hub (Next 5).
+- Staff invitations by email and transferring store ownership → Next 1 (auth hardening).
+- Email verification on sign-up and password reset → Next 1.
+- Store URL in the admin path (`/admin/store/<handle>/…`) — the admin keeps the current store in
+  the browser instead, like Shopify's store switcher.
+- Per-store themes from the storefront builder → Next 3.
+
+**Decisions**
+
+- Handles: 3–63 characters, lowercase letters, digits and hyphens; reserved words (`www`, `admin`,
+  `api`, `app`, …) refused. Taken names get `-2`, `-3`… suggested.
+- A pending domain claim can be replaced by another store (whoever proves DNS first wins); an
+  active domain can't.
+- Suspended stores disappear from their storefront (404) and from the merchant's picker (shown as
+  suspended), but no data is deleted.

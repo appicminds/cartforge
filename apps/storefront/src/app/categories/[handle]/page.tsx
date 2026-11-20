@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { parseListParams, ProductListing } from "@/components/product-listing";
 import { storefront } from "@/lib/api";
-import { config } from "@/lib/config";
+import { site } from "@/lib/config";
 import { breadcrumbJsonLd, jsonLd } from "@/lib/seo";
 
 type Props = {
@@ -34,7 +34,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function CategoryPage({ params, searchParams }: Props) {
   const { handle } = await params;
   const { sort, page } = parseListParams(await searchParams);
-  const [c, store] = await Promise.all([load(handle), storefront.store()]);
+  const [c, store, { siteUrl }] = await Promise.all([load(handle), storefront.store(), site()]);
   const result = await storefront.products({ category: c.handle, sort, page });
   const crumbs = [
     { name: "Home", href: "/" },
@@ -47,9 +47,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: jsonLd(
-            breadcrumbJsonLd(
-              crumbs.map((x) => ({ name: x.name, url: `${config.siteUrl}${x.href}` })),
-            ),
+            breadcrumbJsonLd(crumbs.map((x) => ({ name: x.name, url: `${siteUrl}${x.href}` }))),
           ),
         }}
       />

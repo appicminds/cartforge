@@ -216,7 +216,7 @@ describe("storefront foundation (Next 2)", () => {
       const p = (
         await catalog.post("/products", { title: `Notify ${RUN}`, price_minor: 100 }).expect(201)
       ).body.data;
-      expect(capture.hits).toEqual([{ secret: SECRET, body: { tags: ["catalog"] } }]);
+      expect(capture.hits).toEqual([{ secret: SECRET, body: { tags: [`catalog:${MAIN}`] } }]);
 
       await catalog.get(`/products/${p.id}`).expect(200);
       await catalog.post(`/products/${p.id}/preview-link`).expect(200);

@@ -3,7 +3,7 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
 import { COOKIES, type CurrentUser, type DetailResponse } from "@cartforge/types";
-import { loginSchema, type LoginInput } from "@cartforge/validation";
+import { loginSchema, signupSchema, type LoginInput, type Signup } from "@cartforge/validation";
 import { API_ENV, type ApiEnv } from "../config/env";
 import type { AuthContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -50,6 +50,33 @@ export class AuthController {
       expires: result.expiresAt,
     });
     return { data: result.user, request_id: String(req.id) };
+  }
+
+  @Public()
+  @Post("signup")
+  @ApiOperation({ summary: "Create an account and a store (SaaS sign-up); signs you in." })
+  @ApiZodBody(signupSchema)
+  async signup(
+    @Body(new ZodValidationPipe(signupSchema)) body: Signup,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DetailResponse<CurrentUser>> {
+    const result = await this.auth.signup(body, {
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      requestId: String(req.id),
+    });
+    this.setSessionCookies(res, result.token, result.expiresAt);
+    return { data: result.user, request_id: String(req.id) };
+  }
+
+  private setSessionCookies(res: Response, token: string, expires: Date) {
+    res.cookie(COOKIES.SESSION, token, { ...this.cookieBase(), httpOnly: true, expires });
+    res.cookie(COOKIES.CSRF, deriveCsrfToken(this.env.SESSION_SECRET, token), {
+      ...this.cookieBase(),
+      httpOnly: false,
+      expires,
+    });
   }
 
   @Post("logout")

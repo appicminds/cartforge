@@ -113,18 +113,34 @@ Check: `https://cartforge-api.vercel.app/api/v1/health/ready` should return
    DEMO_API=https://cartforge-app.vercel.app DEMO_EMAIL=owner@cartforge.test DEMO_PASSWORD='<SEED_PASSWORD>' node apps/api/scripts/demo-catalog.mjs
    ```
 
+## 5a. SaaS mode (P1, optional)
+
+1. On `cartforge-api` set `CARTFORGE_EDITION=saas` to turn on public sign-up
+   (`/signup`, linked from the login page). Without a domain, merchants work in the admin only.
+2. To give every store its own address you need a domain you own, e.g. `myshops.com`:
+   - add `*.myshops.com` and `myshops.com` to the **storefront** project (Vercel → Domains;
+     wildcards require Vercel's nameservers for that domain);
+   - set `PLATFORM_DOMAIN=myshops.com` on **both** `cartforge-api` and `cartforge-storefront`,
+     and `PLATFORM_CNAME_TARGET=cname.vercel-dns.com` on the API.
+3. To attach merchants' custom domains automatically, create a Vercel access token and set
+   `DOMAIN_PROVIDER=vercel`, `VERCEL_API_TOKEN`, `VERCEL_STOREFRONT_PROJECT=cartforge-storefront`
+   (and `VERCEL_TEAM_ID` for team accounts) on the API. Without it, verified domains must be added
+   to the storefront project by hand.
+4. Redeploy. The demo seed creates the platform admin `platform@cartforge.test`.
+
 ## 6. Sign in
 
 Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your
 `SEED_PASSWORD`:
 
-| Email                    | Role                               |
-| ------------------------ | ---------------------------------- |
-| `owner@cartforge.test`   | Owner of all three demo stores     |
-| `admin@cartforge.test`   | Administrator, Northwind Goods     |
-| `catalog@cartforge.test` | Catalog Manager, Northwind Goods   |
-| `orders@cartforge.test`  | Order Manager (read-only products) |
-| `other@cartforge.test`   | Owner of Harbor Outfitters only    |
+| Email                     | Role                               |
+| ------------------------- | ---------------------------------- |
+| `owner@cartforge.test`    | Owner of all three demo stores     |
+| `admin@cartforge.test`    | Administrator, Northwind Goods     |
+| `catalog@cartforge.test`  | Catalog Manager, Northwind Goods   |
+| `orders@cartforge.test`   | Order Manager (read-only products) |
+| `other@cartforge.test`    | Owner of Harbor Outfitters only    |
+| `platform@cartforge.test` | Platform admin (all stores)        |
 
 API docs: `https://cartforge-admin.vercel.app/api/docs`.
 
@@ -147,3 +163,6 @@ idempotent either way, but each run resets the demo users' passwords to `SEED_PA
 - **Cold starts:** the first request after a period of inactivity takes a few seconds
   while the API function boots.
 - **No worker:** background jobs aren't processed. Nothing depends on them yet.
+- **Store subdomains need a real domain.** `*.vercel.app` can't be wildcarded, so without
+  `PLATFORM_DOMAIN` the storefront shows the `STOREFRONT_STORE_ID` store only; other stores are
+  managed in the admin but have no public address yet.
