@@ -15,7 +15,9 @@ import { meQueryKey } from "@/lib/session";
 
 /** Only allow same-site relative redirects after login (no open redirect). */
 function safeNext(next: string | null): string {
-  return next && next.startsWith("/admin") && !next.startsWith("//") ? next : "/admin";
+  return next && /^\/(admin|invite)(\/|\?|$)/.test(next) && !next.startsWith("//")
+    ? next
+    : "/admin";
 }
 
 export function LoginForm() {

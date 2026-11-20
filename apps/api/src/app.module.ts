@@ -16,6 +16,8 @@ import { OutboxModule } from "./common/outbox.service";
 import { InventoryModule } from "./inventory/inventory.module";
 import { OrdersModule } from "./orders/order-snapshot.service";
 import { MediaModule } from "./media/media.module";
+import { MailModule } from "./mail/mail.module";
+import { StaffModule } from "./staff/staff.module";
 import { ProductsModule } from "./products/products.module";
 import { StorageModule } from "./storage/storage.module";
 import { StorefrontModule } from "./storefront/storefront.module";
@@ -37,6 +39,7 @@ import { StoresModule } from "./stores/stores.module";
     HealthModule,
     StoresModule,
     StorageModule,
+    MailModule,
     MediaModule,
     InventoryModule,
     OutboxModule,
@@ -44,6 +47,7 @@ import { StoresModule } from "./stores/stores.module";
     StorefrontModule,
     OrdersModule,
     ProductsModule,
+    StaffModule,
     CommerceModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

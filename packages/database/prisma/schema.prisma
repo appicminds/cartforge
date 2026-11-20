@@ -101,6 +101,7 @@ model Store {
   domains             StoreDomain[]
   roles               Role[]
   memberships         StoreMembership[]
+  invitations         StoreInvitation[]
   audit_logs          AuditLog[]
   products            Product[]
   variants            ProductVariant[]
@@ -127,6 +128,7 @@ model Role {
 
   store       Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
   memberships StoreMembership[]
+  invitations StoreInvitation[]
 
   @@unique([store_id, key])
   @@map("roles")
@@ -154,6 +156,27 @@ model StoreMembership {
   @@unique([store_id, user_id])
   @@index([user_id])
   @@map("store_memberships")
+}
+
+/// Invitation to join a store's team (Next 1). Only the token's hash is stored.
+model StoreInvitation {
+  id          String    @id @default(uuid()) @db.Uuid
+  store_id    String    @db.Uuid
+  /// Lower-cased.
+  email       String
+  role_id     String    @db.Uuid
+  token_hash  String    @unique
+  invited_by  String?   @db.Uuid
+  expires_at  DateTime  @db.Timestamptz(3)
+  accepted_at DateTime? @db.Timestamptz(3)
+  revoked_at  DateTime? @db.Timestamptz(3)
+  created_at  DateTime  @default(now()) @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  role  Role  @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@index([store_id, email])
+  @@map("store_invitations")
 }
 
 // ───────────────────────────── Audit ─────────────────────────────

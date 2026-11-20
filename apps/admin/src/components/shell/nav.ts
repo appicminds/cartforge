@@ -8,6 +8,7 @@ import {
   Layers,
   Package,
   Receipt,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSIONS, type Permission } from "@cartforge/types";
@@ -81,6 +82,12 @@ export const NAV: NavSection[] = [
         href: "/admin/settings/domains",
         icon: Globe,
         permission: PERMISSIONS.STORE_READ,
+      },
+      {
+        label: "Team",
+        href: "/admin/settings/team",
+        icon: Users,
+        permission: PERMISSIONS.STAFF_READ,
       },
     ],
   },

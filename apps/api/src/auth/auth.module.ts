@@ -4,7 +4,7 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { AccountService } from "./account.service";
 import { PlatformAccountsController } from "./platform-accounts.controller";
-import { Mailer } from "../mail/mailer";
+import { SessionCookies } from "./session-cookies";
 import { CsrfGuard, PermissionsGuard, SessionGuard, StoreScopeGuard } from "./guards";
 import { PasswordService } from "./password.service";
 import { RateLimitService } from "./rate-limit.service";
@@ -15,7 +15,7 @@ import { SessionService } from "./session.service";
   providers: [
     AuthService,
     AccountService,
-    Mailer,
+    SessionCookies,
     PasswordService,
     SessionService,
     RateLimitService,
@@ -25,6 +25,6 @@ import { SessionService } from "./session.service";
     { provide: APP_GUARD, useClass: StoreScopeGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [PasswordService, RateLimitService],
+  exports: [PasswordService, RateLimitService, SessionService, SessionCookies, AuthService],
 })
 export class AuthModule {}
