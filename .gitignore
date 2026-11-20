@@ -15,3 +15,4 @@ test-results
 .DS_Store
 .vercel
 dump.rdb
+apps/api/perf-results.json

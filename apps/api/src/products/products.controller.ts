@@ -13,6 +13,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiZodBody } from "../common/openapi";
 import type { Request } from "express";
 import {
   PERMISSIONS,
@@ -46,6 +47,7 @@ import type { AuthContext, StoreContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { ProductsService, type ActorContext } from "./products.service";
 import { VariantsService } from "./variants.service";
+import { ProductActivityService, type ActivityEntry } from "./activity.service";
 
 /** Non-UUID ids are simply "not found" — never a 500 or a validation leak. */
 const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Product") });
@@ -58,6 +60,7 @@ export class ProductsController {
   constructor(
     private readonly products: ProductsService,
     private readonly variants: VariantsService,
+    private readonly activityLog: ProductActivityService,
   ) {}
 
   private ctx(auth: AuthContext, store: StoreContext, req: Request): ActorContext {
@@ -92,6 +95,7 @@ export class ProductsController {
   @ApiOperation({
     summary: "Create a product (defaults to Draft; handle generated from title when omitted)",
   })
+  @ApiZodBody(productCreateSchema)
   async create(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -122,6 +126,7 @@ export class ProductsController {
     description:
       "Status changes also require products.publish. Changing a published product's handle requires confirm_handle_change.",
   })
+  @ApiZodBody(productUpdateSchema)
   async update(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -155,6 +160,7 @@ export class ProductsController {
   @ApiOperation({
     summary: "Preview which variants options would keep, create and remove (no changes made)",
   })
+  @ApiZodBody(productOptionsPreviewSchema)
   async previewOptions(
     @CurrentStore() store: StoreContext,
     @Param("id", productId) id: string,
@@ -175,6 +181,7 @@ export class ProductsController {
     description:
       "Existing variants keep their data. Removals require confirm_removals=true (409 otherwise).",
   })
+  @ApiZodBody(productOptionsApplySchema)
   async applyOptions(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -193,6 +200,7 @@ export class ProductsController {
   @Patch(":id/variants")
   @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
   @ApiOperation({ summary: "Bulk-edit selected variants (prices, tracking, continue selling)" })
+  @ApiZodBody(variantBulkUpdateSchema)
   async bulkVariants(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -216,6 +224,7 @@ export class ProductsController {
     description:
       "publish|draft|archive need products.publish; delete needs products.delete. Returns per-product success/failure.",
   })
+  @ApiZodBody(productBulkSchema)
   async bulk(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -240,6 +249,7 @@ export class ProductsController {
   @ApiOperation({
     summary: "Duplicate a product as a new Draft (no SKUs, zero stock, images by reference)",
   })
+  @ApiZodBody(productDuplicateSchema)
   async duplicate(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -291,5 +301,18 @@ export class ProductsController {
       ),
       request_id: String(req.id),
     };
+  }
+
+  @Get(":id/activity")
+  @RequirePermissions(PERMISSIONS.PRODUCTS_READ)
+  @ApiOperation({
+    summary: "Product timeline: changes (audit log) and stock movements, newest first",
+  })
+  async activity(
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Req() req: Request,
+  ): Promise<{ data: ActivityEntry[]; request_id: string }> {
+    return { data: await this.activityLog.list(store.store_id, id), request_id: String(req.id) };
   }
 }

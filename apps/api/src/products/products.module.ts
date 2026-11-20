@@ -6,10 +6,11 @@ import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
 import { VariantsController } from "./variants.controller";
 import { VariantsService } from "./variants.service";
+import { ProductActivityService } from "./activity.service";
 
 @Module({
   imports: [MediaModule, InventoryModule, CatalogModule],
   controllers: [ProductsController, VariantsController],
-  providers: [ProductsService, VariantsService],
+  providers: [ProductsService, VariantsService, ProductActivityService],
 })
 export class ProductsModule {}

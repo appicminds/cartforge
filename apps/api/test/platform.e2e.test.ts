@@ -46,6 +46,31 @@ describe("platform", () => {
     expect(JSON.stringify(res.body)).not.toMatch(/SyntaxError|at JSON/);
   });
 
+  it("documents a request body for every write endpoint (generated from the validation schemas)", async () => {
+    const doc = (await request(app.getHttpServer()).get("/api/docs/openapi.json").expect(200)).body;
+    // Endpoints that intentionally take no body.
+    const noBody = new Set([
+      "post /api/v1/auth/logout",
+      "post /api/v1/products/{id}/publish",
+      "post /api/v1/products/{id}/archive",
+    ]);
+    const missing: string[] = [];
+    for (const [path, ops] of Object.entries(
+      doc.paths as Record<string, Record<string, { requestBody?: unknown }>>,
+    )) {
+      for (const [method, op] of Object.entries(ops)) {
+        if (!["post", "put", "patch"].includes(method)) continue;
+        if (!op.requestBody && !noBody.has(`${method} ${path}`))
+          missing.push(`${method.toUpperCase()} ${path}`);
+      }
+    }
+    expect(missing).toEqual([]);
+    const create =
+      doc.paths["/api/v1/products"].post.requestBody.content["application/json"].schema;
+    expect(create.required).toContain("title");
+    expect(create.properties.price_minor).toBeDefined();
+  });
+
   it("publishes the OpenAPI document", async () => {
     const res = await request(app.getHttpServer()).get("/api/docs/openapi.json").expect(200);
     expect(res.body.paths).toHaveProperty("/api/v1/store");

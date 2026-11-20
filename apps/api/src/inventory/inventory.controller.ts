@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Query, Req } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiZodBody } from "../common/openapi";
 import type { Request } from "express";
 import {
   PERMISSIONS,
@@ -48,6 +49,7 @@ export class InventoryController {
   @ApiOperation({
     summary: "Adjust stock (mode delta|set) with a mandatory reason; records an immutable movement",
   })
+  @ApiZodBody(inventoryAdjustSchema)
   async adjust(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,

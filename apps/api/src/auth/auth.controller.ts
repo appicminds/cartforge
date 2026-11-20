@@ -1,3 +1,4 @@
+import { ApiZodBody } from "../common/openapi";
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
@@ -26,6 +27,7 @@ export class AuthController {
   @Post("login")
   @HttpCode(200)
   @ApiOperation({ summary: "Sign in with email and password; sets session + CSRF cookies." })
+  @ApiZodBody(loginSchema)
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Req() req: Request,

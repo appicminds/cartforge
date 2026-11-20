@@ -1,5 +1,6 @@
 import { Body, Controller, HttpStatus, Param, ParseUUIDPipe, Patch, Req } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiZodBody } from "../common/openapi";
 import type { Request } from "express";
 import {
   CATALOG_ERROR_CODES,
@@ -40,6 +41,7 @@ export class VariantsController {
     summary:
       "Update a variant (SKU, barcode, prices, image, tracking, continue selling, low-stock threshold)",
   })
+  @ApiZodBody(variantUpdateSchema)
   async update(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,

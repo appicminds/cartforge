@@ -631,3 +631,46 @@ model OutboxEvent {
   @@index([store_id, created_at])
   @@map("outbox_events")
 }
+
+// ───────────────────────────── Orders (minimal, Sprint 5) ─────────────────────────────
+// Only what PRD §8.8 rule 7 / §29.2 #32 need: order lines are immutable snapshots that
+// never read live product data. The full orders module (Next 6) extends these tables.
+
+model Order {
+  id         String   @id @default(uuid()) @db.Uuid
+  store_id   String   @db.Uuid
+  number     String   @db.VarChar(40)
+  currency   String   @db.Char(3)
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+
+  items OrderItem[]
+
+  @@unique([store_id, number])
+  @@map("orders")
+}
+
+/// Snapshot of what was sold. product_id/variant_id are informational links only
+/// (SET NULL if the row is ever hard-deleted); all display/financial data is copied.
+model OrderItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  store_id       String   @db.Uuid
+  order_id       String   @db.Uuid
+  product_id     String?  @db.Uuid
+  variant_id     String?  @db.Uuid
+  product_title  String   @db.VarChar(200)
+  variant_title  String   @db.VarChar(255)
+  sku            String?  @db.VarChar(100)
+  option_values  Json     @default("[]")
+  quantity       Int
+  unit_price_minor BigInt
+  tax_minor      BigInt   @default(0)
+  discount_minor BigInt   @default(0)
+  currency       String   @db.Char(3)
+  created_at     DateTime @default(now()) @db.Timestamptz(3)
+
+  order Order @relation(fields: [order_id], references: [id], onDelete: Restrict)
+
+  @@index([order_id])
+  @@index([store_id, product_id])
+  @@map("order_items")
+}

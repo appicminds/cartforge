@@ -208,14 +208,21 @@ Notes:
   (stale-ref race); empty SQL join list crashed storefront listing; picker "Add" buttons lacked a
   specific accessible name.
 
-## Sprint 5 — QA, hardening & release
+## Sprint 5 — QA, hardening & release ✅
 
-| ID    | Task                                                               |
-| ----- | ------------------------------------------------------------------ |
-| S5-01 | Full PRD §29.2 scenario suite (E2E + integration)                  |
-| S5-02 | Minimal `order_items` snapshot + immutability test                 |
-| S5-03 | Large-catalog performance test (pagination/search on 50k products) |
-| S5-04 | Accessibility (axe) and responsive pass on all product screens     |
-| S5-05 | Product activity history view                                      |
-| S5-06 | API docs review, operator notes                                    |
-| S5-07 | Regression run + product-owner acceptance                          |
+| ID    | Task                                                               | Status         | Evidence                                                                                              |
+| ----- | ------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------- |
+| S5-01 | Full PRD §29.2 scenario suite (E2E + integration)                  | ✅             | `docs/ACCEPTANCE-PRODUCTS.md` maps all 15 scenarios and 13 criteria to tests                          |
+| S5-02 | Minimal `order_items` snapshot + immutability test                 | ✅             | migration `order_item_snapshots` (DB trigger), `OrderSnapshotService`, `snapshots-activity.e2e`       |
+| S5-03 | Large-catalog performance test (pagination/search on 50k products) | ✅             | `test/perf/catalog.perf.test.ts` (opt-in), `docs/PERFORMANCE.md` — all within budget                  |
+| S5-04 | Accessibility (axe) and responsive pass on all product screens     | ✅             | `e2e/a11y.spec.ts`; fixed contrast of subtle text and table overflow at 375px                         |
+| S5-05 | Product activity history view                                      | ✅             | `GET /products/:id/activity`, Activity card on product page                                           |
+| S5-06 | API docs review, operator notes                                    | ✅             | Request bodies in OpenAPI from Zod (`ApiZodBody`), coverage test; `docs/API.md`, `docs/OPERATIONS.md` |
+| S5-07 | Regression run + product-owner acceptance                          | ⏳ PO sign-off | Full regression green; sign-off table in `docs/ACCEPTANCE-PRODUCTS.md`                                |
+
+**Follow-ups (not blocking release):**
+
+- Inventory search p95 373 ms at 50k (budget 400) — add trigram index on variant title if catalogs grow.
+- Generate image derivatives in the worker instead of during upload.
+- Deliver outbox events (with webhooks, Next 9).
+- Unsaved-changes guard for browser Back; replace the editor's link `prompt()` with a dialog.

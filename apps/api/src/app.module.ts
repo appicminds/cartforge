@@ -12,6 +12,7 @@ import { PrismaModule } from "./prisma/prisma.service";
 import { CatalogModule } from "./catalog/catalog.module";
 import { OutboxModule } from "./common/outbox.service";
 import { InventoryModule } from "./inventory/inventory.module";
+import { OrdersModule } from "./orders/order-snapshot.service";
 import { MediaModule } from "./media/media.module";
 import { ProductsModule } from "./products/products.module";
 import { StorageModule } from "./storage/storage.module";
@@ -38,6 +39,7 @@ import { StoresModule } from "./stores/stores.module";
     OutboxModule,
     CatalogModule,
     StorefrontModule,
+    OrdersModule,
     ProductsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

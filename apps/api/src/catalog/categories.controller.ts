@@ -12,6 +12,7 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiZodBody } from "../common/openapi";
 import type { Request } from "express";
 import {
   CATALOG_ERROR_CODES,
@@ -70,6 +71,7 @@ export class CategoriesController {
   @Post()
   @RequirePermissions(PERMISSIONS.CATEGORIES_WRITE)
   @ApiOperation({ summary: "Create a category (optional parent; nesting up to 3 levels)" })
+  @ApiZodBody(categoryCreateSchema)
   async create(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -86,6 +88,7 @@ export class CategoriesController {
   @HttpCode(200)
   @RequirePermissions(PERMISSIONS.CATEGORIES_WRITE)
   @ApiOperation({ summary: "Reorder the children of one parent" })
+  @ApiZodBody(categoryReorderSchema)
   async reorder(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -101,6 +104,7 @@ export class CategoriesController {
   @Patch(":id")
   @RequirePermissions(PERMISSIONS.CATEGORIES_WRITE)
   @ApiOperation({ summary: "Update a category (moving it validates depth and cycles)" })
+  @ApiZodBody(categoryUpdateSchema)
   async update(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -122,6 +126,7 @@ export class CategoriesController {
     description:
       "Body: { reassign_to } or { unassign: true } when products are assigned (409 CATEGORY_HAS_PRODUCTS otherwise).",
   })
+  @ApiZodBody(categoryDeleteSchema)
   async removeWithBody(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,

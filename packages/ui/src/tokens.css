@@ -15,7 +15,7 @@
   --cf-color-border-strong: #c9ced6;
   --cf-color-fg: #111827;
   --cf-color-fg-muted: #4b5563;
-  --cf-color-fg-subtle: #6b7280;
+  --cf-color-fg-subtle: #5d6470; /* ≥ 4.5:1 on white and on surface-sunken (WCAG AA) */
   --cf-color-fg-inverse: #ffffff;
 
   /* Brand — forge ember */

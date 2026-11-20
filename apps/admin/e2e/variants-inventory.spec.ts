@@ -47,6 +47,14 @@ test.describe("Variants and inventory (Sprint 3)", () => {
     await expect(history.getByRole("listitem").first()).toContainText("Correction (count)");
     await expect(history.getByRole("listitem").first()).toContainText("+4");
     await expect(history.getByRole("listitem").nth(1)).toContainText("Initial stock");
+    await page.keyboard.press("Escape");
+
+    // The Activity card records the same history, plus product changes.
+    const activity = page.getByRole("list", { name: "Product activity" });
+    await expect(activity.getByRole("listitem").first()).toContainText(
+      "Stock correction: +4 (6 → 10)",
+    );
+    await expect(activity).toContainText("Created the product");
   });
 
   test("options → preview → apply; edit, bulk-price and remove variants", async ({ page }) => {

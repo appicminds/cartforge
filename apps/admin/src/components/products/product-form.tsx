@@ -12,6 +12,7 @@ import { AdjustStockDialog } from "@/components/inventory/adjust-stock-dialog";
 import { MovementsDialog } from "@/components/inventory/movements-dialog";
 import { MediaGallery, type GalleryValue } from "./media-gallery";
 import { VariantsCard } from "./variants-card";
+import { ActivityCard } from "./activity-card";
 import { ChipPicker } from "@/components/chip-picker";
 import { TagInput } from "@/components/tag-input";
 import { useCategories, useCollections, useDuplicateProduct } from "@/lib/catalog";
@@ -963,6 +964,9 @@ function ProductFormInner({
                 </dl>
               </CardBody>
             </Card>
+          )}
+          {product && (
+            <ActivityCard productId={product.id} version={`${product.updated_at}:${stockKey}`} />
           )}
         </div>
       </fieldset>

@@ -5,7 +5,9 @@ import { cn } from "../cn";
 /** Table primitives with horizontal overflow for narrow screens (PRD §5.2). */
 export function Table({ className, children, ...props }: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto">
+    // `relative` contains absolutely-positioned children (e.g. sr-only labels) so they
+    // scroll with the table instead of widening the page on small screens.
+    <div className="relative w-full overflow-x-auto">
       <table className={cn("w-full border-collapse text-sm", className)} {...props}>
         {children}
       </table>

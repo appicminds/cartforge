@@ -14,6 +14,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiZodBody } from "../common/openapi";
 import type { Request } from "express";
 import {
   CATALOG_ERROR_CODES,
@@ -74,6 +75,7 @@ export class CollectionsController {
   @Post()
   @RequirePermissions(PERMISSIONS.COLLECTIONS_WRITE)
   @ApiOperation({ summary: "Create a manual collection" })
+  @ApiZodBody(collectionCreateSchema)
   async create(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -103,6 +105,7 @@ export class CollectionsController {
     summary:
       "Update a collection (live handle changes need confirm_handle_change and create a redirect)",
   })
+  @ApiZodBody(collectionUpdateSchema)
   async update(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
@@ -119,6 +122,7 @@ export class CollectionsController {
   @Put(":id/products")
   @RequirePermissions(PERMISSIONS.COLLECTIONS_WRITE)
   @ApiOperation({ summary: "Replace collection membership (order = display order)" })
+  @ApiZodBody(collectionProductsSchema)
   async setProducts(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,

@@ -15,7 +15,15 @@ import {
   Res,
   UseInterceptors,
 } from "@nestjs/common";
-import { ApiConsumes, ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from "@nestjs/swagger";
+import { ApiZodBody } from "../common/openapi";
 import type { Request, Response } from "express";
 import {
   CATALOG_ERROR_CODES,
@@ -62,6 +70,17 @@ export class MediaController {
   @RequirePermissions(PERMISSIONS.MEDIA_WRITE)
   @UseInterceptors(MediaUploadInterceptor)
   @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: {
+        file: { type: "string", format: "binary", description: "JPEG, PNG or WebP" },
+        alt_text: { type: "string", maxLength: 500 },
+      },
+    },
+  })
   @ApiOperation({
     summary: "Upload an image (multipart field `file`, optional `alt_text`)",
     description:
@@ -95,6 +114,7 @@ export class MediaController {
   @Patch(":id")
   @RequirePermissions(PERMISSIONS.MEDIA_WRITE)
   @ApiOperation({ summary: "Update an asset's default alt text" })
+  @ApiZodBody(mediaUpdateSchema)
   async update(
     @CurrentAuth() auth: AuthContext,
     @CurrentStore() store: StoreContext,
