@@ -19,23 +19,31 @@ enum UserStatus {
 }
 
 model User {
-  id                String     @id @default(uuid()) @db.Uuid
-  email             String     @unique // stored lower-cased
-  name              String
-  password_hash     String
-  status            UserStatus @default(active)
+  id                  String     @id @default(uuid()) @db.Uuid
+  email               String     @unique // stored lower-cased
+  name                String
+  password_hash       String
+  status              UserStatus @default(active)
   /// Operates the whole installation / SaaS platform (sees and suspends all stores).
-  is_platform_admin Boolean    @default(false)
+  is_platform_admin   Boolean    @default(false)
   /// Set once the person proves they own the address (link, invitation or emailed reset).
-  email_verified_at DateTime?  @db.Timestamptz(3)
-  last_login_at     DateTime?  @db.Timestamptz(3)
-  created_at        DateTime   @default(now()) @db.Timestamptz(3)
-  updated_at        DateTime   @updatedAt @db.Timestamptz(3)
+  email_verified_at   DateTime?  @db.Timestamptz(3)
+  /// Two-factor sign-in (TOTP). Secrets are AES-256-GCM encrypted with APP_ENCRYPTION_KEY.
+  totp_secret         String?
+  /// Secret being set up, until the first code confirms it.
+  totp_pending_secret String?
+  totp_enabled_at     DateTime?  @db.Timestamptz(3)
+  /// Last accepted 30-second step, so a code can't be used twice.
+  totp_last_step      BigInt?
+  last_login_at       DateTime?  @db.Timestamptz(3)
+  created_at          DateTime   @default(now()) @db.Timestamptz(3)
+  updated_at          DateTime   @updatedAt @db.Timestamptz(3)
 
   sessions            Session[]
   memberships         StoreMembership[]
   password_resets     PasswordResetToken[]
   email_verifications EmailVerificationToken[]
+  recovery_codes      MfaRecoveryCode[]
 
   @@map("users")
 }
@@ -72,6 +80,20 @@ model EmailVerificationToken {
 
   @@index([user_id])
   @@map("email_verification_tokens")
+}
+
+/// Single-use backup codes for two-factor sign-in (hashed).
+model MfaRecoveryCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  code_hash  String
+  used_at    DateTime? @db.Timestamptz(3)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("mfa_recovery_codes")
 }
 
 model Session {

@@ -3,6 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { AccountService } from "./account.service";
+import { MfaService } from "./mfa.service";
 import { PlatformAccountsController } from "./platform-accounts.controller";
 import { SessionCookies } from "./session-cookies";
 import { CsrfGuard, PermissionsGuard, SessionGuard, StoreScopeGuard } from "./guards";
@@ -15,6 +16,7 @@ import { SessionService } from "./session.service";
   providers: [
     AuthService,
     AccountService,
+    MfaService,
     SessionCookies,
     PasswordService,
     SessionService,
@@ -25,6 +27,13 @@ import { SessionService } from "./session.service";
     { provide: APP_GUARD, useClass: StoreScopeGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [PasswordService, RateLimitService, SessionService, SessionCookies, AuthService],
+  exports: [
+    PasswordService,
+    RateLimitService,
+    SessionService,
+    SessionCookies,
+    AuthService,
+    MfaService,
+  ],
 })
 export class AuthModule {}

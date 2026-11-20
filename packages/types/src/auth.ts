@@ -26,6 +26,8 @@ export interface CurrentUser {
   is_platform_admin: boolean;
   /** False until the person confirms they own the address (link in the welcome email). */
   email_verified: boolean;
+  /** Two-factor sign-in (authenticator app) is on. */
+  mfa_enabled: boolean;
   /** May create another store from "Your stores". */
   can_create_stores: boolean;
   stores: StoreMembershipSummary[];
@@ -49,4 +51,18 @@ export interface SessionView {
   created_at: string;
   last_seen_at: string;
   current: boolean;
+}
+
+/** Login answer when the password was right but an authenticator code is still needed. */
+export interface MfaChallenge {
+  mfa_required: true;
+  /** Short-lived (5 minutes); send with the code to POST /auth/login/mfa. */
+  mfa_token: string;
+}
+
+export interface MfaSetup {
+  /** Base32 secret, for typing into the app by hand. */
+  secret: string;
+  /** otpauth:// URL, shown as a QR code. */
+  otpauth_url: string;
 }

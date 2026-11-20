@@ -11,6 +11,7 @@ import { API_ENV, type ApiEnv } from "../config/env";
 import { StoreProvisioningService } from "../platform/provisioning.service";
 import { DomainsService } from "../platform/domains.service";
 import { AccountService } from "./account.service";
+import { MfaService } from "./mfa.service";
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { PrismaService } from "../prisma/prisma.service";
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly provisioning: StoreProvisioningService,
     private readonly domains: DomainsService,
     private readonly account: AccountService,
+    private readonly mfa: MfaService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -133,17 +135,29 @@ export class AuthService {
     }
 
     await this.rateLimit.reset(limiterKey);
-    const { token, session } = await this.sessions.create(user.id, meta);
-    await this.prisma.user.update({ where: { id: user.id }, data: { last_login_at: new Date() } });
+    // Two-factor: the password alone doesn't sign in; the code step finishes it.
+    if (user.totp_enabled_at) return { mfa_token: await this.mfa.startChallenge(user.id) };
+    return this.finishLogin(user.id, meta);
+  }
+
+  /** Second step for accounts with two-factor sign-in. */
+  async loginMfa(mfaToken: string, code: string, meta: RequestMeta) {
+    const userId = await this.mfa.completeChallenge(mfaToken, code, meta);
+    return this.finishLogin(userId, meta);
+  }
+
+  private async finishLogin(userId: string, meta: RequestMeta) {
+    const { token, session } = await this.sessions.create(userId, meta);
+    await this.prisma.user.update({ where: { id: userId }, data: { last_login_at: new Date() } });
     await this.audit.record({
       action: "auth.login",
       resource_type: "session",
       resource_id: session.id,
-      actor_user_id: user.id,
+      actor_user_id: userId,
       ip: meta.ip,
       request_id: meta.requestId,
     });
-    return { token, expiresAt: session.expires_at, user: await this.currentUser(user.id) };
+    return { token, expiresAt: session.expires_at, user: await this.currentUser(userId) };
   }
 
   async logout(sessionId: string, userId: string, meta: RequestMeta): Promise<void> {
@@ -178,6 +192,7 @@ export class AuthService {
       name: user.name,
       is_platform_admin: user.is_platform_admin,
       email_verified: user.email_verified_at !== null,
+      mfa_enabled: user.totp_enabled_at !== null,
       can_create_stores: this.provisioning.canCreate(user),
       stores: user.memberships.map((m) => ({
         store_id: m.store_id,

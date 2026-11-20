@@ -46,3 +46,38 @@ export type ResetLinkInput = z.infer<typeof resetLinkSchema>;
 
 export const emailVerifySchema = z.object({ token: z.string().min(20).max(200) }).strict();
 export type EmailVerify = z.infer<typeof emailVerifySchema>;
+
+/** A 6-digit authenticator code or a recovery code ("abcd-efgh"). */
+export const mfaCodeSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((v) => v.replace(/\s+/g, ""))
+  .pipe(
+    z
+      .string()
+      .regex(/^(\d{6}|[a-z2-9]{4}-?[a-z2-9]{4})$/, "Enter the 6-digit code or a recovery code"),
+  );
+
+export const mfaLoginSchema = z
+  .object({ mfa_token: z.string().min(20).max(200), code: mfaCodeSchema })
+  .strict();
+export type MfaLogin = z.infer<typeof mfaLoginSchema>;
+
+export const mfaEnableSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, "Enter the 6-digit code from your app"),
+  })
+  .strict();
+export type MfaEnable = z.infer<typeof mfaEnableSchema>;
+
+export const mfaDisableSchema = z
+  .object({ password: z.string().min(1, "Enter your password").max(1024), code: mfaCodeSchema })
+  .strict();
+export type MfaDisable = z.infer<typeof mfaDisableSchema>;
+
+export const mfaCodeOnlySchema = z.object({ code: mfaCodeSchema }).strict();
+export type MfaCodeOnly = z.infer<typeof mfaCodeOnlySchema>;

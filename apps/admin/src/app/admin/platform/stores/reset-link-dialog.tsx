@@ -34,11 +34,19 @@ export function ResetLinkDialog({
       }),
   });
   const { mutate, reset } = create;
+  const mfaReset = useMutation({
+    mutationFn: (email: string) =>
+      apiRequest("/platform/users/mfa-reset", { method: "POST", body: { email } }),
+    onSuccess: () => toast.success("Two-factor sign-in turned off"),
+    onError: (e) => toast.error(e.message),
+  });
+  const { reset: resetMfa } = mfaReset;
 
   useEffect(() => {
     reset();
+    resetMfa();
     if (store?.owner_email) mutate(store.owner_email);
-  }, [store?.id, store?.owner_email, mutate, reset]);
+  }, [store?.id, store?.owner_email, mutate, reset, resetMfa]);
 
   const link = create.data?.data;
   return (
@@ -79,6 +87,22 @@ export function ResetLinkDialog({
             Works once, until {formatDateTime(link.expires_at)}. Send it only to the owner — anyone
             with the link can set the password. Their other sign-ins end when they use it.
           </p>
+          <div className="border-t border-border pt-3 text-sm">
+            <p className="text-fg-muted">
+              Lost their phone and recovery codes too? After checking it&apos;s really them, you can
+              turn off their two-factor sign-in.
+            </p>
+            <Button
+              className="mt-2"
+              variant="secondary"
+              size="sm"
+              loading={mfaReset.isPending}
+              disabled={mfaReset.isSuccess}
+              onClick={() => mfaReset.mutate(link.email)}
+            >
+              Turn off two-factor sign-in
+            </Button>
+          </div>
         </div>
       )}
     </Dialog>

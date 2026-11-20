@@ -14,23 +14,40 @@ import {
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
-import { COOKIES, type CurrentUser, type DetailResponse, type SessionView } from "@cartforge/types";
+import {
+  COOKIES,
+  type CurrentUser,
+  type DetailResponse,
+  type MfaChallenge,
+  type MfaSetup,
+  type SessionView,
+} from "@cartforge/types";
 import {
   loginSchema,
   passwordChangeSchema,
   passwordForgotSchema,
   passwordResetSchema,
   emailVerifySchema,
+  mfaCodeOnlySchema,
+  mfaDisableSchema,
+  mfaEnableSchema,
+  mfaLoginSchema,
   signupSchema,
   type LoginInput,
   type PasswordChange,
   type PasswordForgot,
   type PasswordReset,
   type EmailVerify,
+  type MfaCodeOnly,
+  type MfaDisable,
+  type MfaEnable,
+  type MfaLogin,
   type Signup,
 } from "@cartforge/validation";
 import { AccountService } from "./account.service";
 import { SessionService } from "./session.service";
+import { MfaService } from "./mfa.service";
+import { SessionCookies } from "./session-cookies";
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { API_ENV, type ApiEnv } from "../config/env";
@@ -48,6 +65,8 @@ export class AuthController {
     private readonly account: AccountService,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    private readonly mfa: MfaService,
+    private readonly cookies: SessionCookies,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -58,29 +77,46 @@ export class AuthController {
   @Public()
   @Post("login")
   @HttpCode(200)
-  @ApiOperation({ summary: "Sign in with email and password; sets session + CSRF cookies." })
+  @ApiOperation({
+    summary:
+      "Sign in with email and password; sets session + CSRF cookies. With two-factor on, returns { mfa_required, mfa_token } instead — finish with POST /auth/login/mfa.",
+  })
   @ApiZodBody(loginSchema)
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<DetailResponse<CurrentUser>> {
+  ): Promise<DetailResponse<CurrentUser | MfaChallenge>> {
     const result = await this.auth.login(body, {
       ip: req.ip,
       userAgent: req.get("user-agent"),
       requestId: String(req.id),
     });
-    res.cookie(COOKIES.SESSION, result.token, {
-      ...this.cookieBase(),
-      httpOnly: true,
-      expires: result.expiresAt,
+    if ("mfa_token" in result)
+      return {
+        data: { mfa_required: true, mfa_token: result.mfa_token },
+        request_id: String(req.id),
+      };
+    this.cookies.set(res, result.token, result.expiresAt);
+    return { data: result.user, request_id: String(req.id) };
+  }
+
+  @Public()
+  @Post("login/mfa")
+  @HttpCode(200)
+  @ApiZodBody(mfaLoginSchema)
+  @ApiOperation({ summary: "Second sign-in step: authenticator or recovery code" })
+  async loginMfa(
+    @Body(new ZodValidationPipe(mfaLoginSchema)) body: MfaLogin,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DetailResponse<CurrentUser>> {
+    const result = await this.auth.loginMfa(body.mfa_token, body.code, {
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      requestId: String(req.id),
     });
-    // Readable by the admin JS so it can echo it in X-CSRF-Token (double submit).
-    res.cookie(COOKIES.CSRF, deriveCsrfToken(this.env.SESSION_SECRET, result.token), {
-      ...this.cookieBase(),
-      httpOnly: false,
-      expires: result.expiresAt,
-    });
+    this.cookies.set(res, result.token, result.expiresAt);
     return { data: result.user, request_id: String(req.id) };
   }
 
@@ -267,5 +303,91 @@ export class AuthController {
       request_id: String(req.id),
     });
     return { data: { signed_out: n }, request_id: String(req.id) };
+  }
+
+  @Get("mfa")
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Two-factor status and unused recovery codes left" })
+  async mfaStatus(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+  ): Promise<{ data: { enabled: boolean; recovery_codes_left: number }; request_id: string }> {
+    const user = await this.auth.currentUser(auth.user_id);
+    return {
+      data: {
+        enabled: user.mfa_enabled,
+        recovery_codes_left: user.mfa_enabled
+          ? await this.mfa.remainingRecoveryCodes(auth.user_id)
+          : 0,
+      },
+      request_id: String(req.id),
+    };
+  }
+
+  @Post("mfa/setup")
+  @HttpCode(200)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: "Start two-factor setup: a new secret to scan with an authenticator app",
+  })
+  async mfaSetup(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+  ): Promise<DetailResponse<MfaSetup>> {
+    return { data: await this.mfa.setup(auth.user_id), request_id: String(req.id) };
+  }
+
+  @Post("mfa/enable")
+  @HttpCode(200)
+  @ApiCookieAuth()
+  @ApiZodBody(mfaEnableSchema)
+  @ApiOperation({ summary: "Confirm setup with a code; returns 10 recovery codes (shown once)" })
+  async mfaEnable(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(mfaEnableSchema)) body: MfaEnable,
+  ): Promise<{ data: { recovery_codes: string[] }; request_id: string }> {
+    return {
+      data: await this.mfa.enable(auth.user_id, body.code, {
+        ip: req.ip,
+        requestId: String(req.id),
+      }),
+      request_id: String(req.id),
+    };
+  }
+
+  @Post("mfa/disable")
+  @HttpCode(204)
+  @ApiCookieAuth()
+  @ApiZodBody(mfaDisableSchema)
+  @ApiOperation({ summary: "Turn off two-factor sign-in (password and a code required)" })
+  async mfaDisable(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(mfaDisableSchema)) body: MfaDisable,
+  ): Promise<void> {
+    await this.mfa.disable(auth.user_id, body.password, body.code, {
+      ip: req.ip,
+      requestId: String(req.id),
+    });
+  }
+
+  @Post("mfa/recovery-codes")
+  @HttpCode(200)
+  @ApiCookieAuth()
+  @ApiZodBody(mfaCodeOnlySchema)
+  @ApiOperation({ summary: "Replace your recovery codes (a current code required)" })
+  async mfaRecoveryCodes(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(mfaCodeOnlySchema)) body: MfaCodeOnly,
+  ): Promise<{ data: { recovery_codes: string[] }; request_id: string }> {
+    return {
+      data: await this.mfa.regenerateRecoveryCodes(auth.user_id, body.code, {
+        ip: req.ip,
+        requestId: String(req.id),
+      }),
+      request_id: String(req.id),
+    };
   }
 }

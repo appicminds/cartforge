@@ -9,6 +9,7 @@ import type { AuthContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { PrismaService } from "../prisma/prisma.service";
 import { AccountService } from "./account.service";
+import { MfaService } from "./mfa.service";
 import { CurrentAuth } from "./decorators";
 
 /** Platform operators: help a merchant back into their account. */
@@ -19,7 +20,21 @@ export class PlatformAccountsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly account: AccountService,
+    private readonly mfa: MfaService,
   ) {}
+
+  private async assertAdmin(auth: AuthContext) {
+    const u = await this.prisma.user.findUnique({
+      where: { id: auth.user_id },
+      select: { is_platform_admin: true },
+    });
+    if (!u?.is_platform_admin)
+      throw new AppException(
+        PLATFORM_ERROR_CODES.PLATFORM_ADMIN_REQUIRED,
+        "Only platform administrators can do this.",
+        HttpStatus.FORBIDDEN,
+      );
+  }
 
   @Post("reset-link")
   @HttpCode(200)
@@ -32,20 +47,26 @@ export class PlatformAccountsController {
     @Req() req: Request,
     @Body(new ZodValidationPipe(resetLinkSchema)) body: ResetLinkInput,
   ): Promise<DetailResponse<{ email: string; url: string; expires_at: string }>> {
-    const u = await this.prisma.user.findUnique({
-      where: { id: auth.user_id },
-      select: { is_platform_admin: true },
-    });
-    if (!u?.is_platform_admin)
-      throw new AppException(
-        PLATFORM_ERROR_CODES.PLATFORM_ADMIN_REQUIRED,
-        "Only platform administrators can do this.",
-        HttpStatus.FORBIDDEN,
-      );
+    await this.assertAdmin(auth);
     const link = await this.account.adminResetLink(body.email, auth.user_id, {
       ip: req.ip,
       requestId: String(req.id),
     });
     return { data: link, request_id: String(req.id) };
+  }
+
+  @Post("mfa-reset")
+  @HttpCode(204)
+  @ApiZodBody(resetLinkSchema)
+  @ApiOperation({
+    summary: "Turn off someone's two-factor sign-in (lost phone and recovery codes); audited",
+  })
+  async mfaReset(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(resetLinkSchema)) body: ResetLinkInput,
+  ): Promise<void> {
+    await this.assertAdmin(auth);
+    await this.mfa.adminReset(body.email, auth.user_id, { ip: req.ip, requestId: String(req.id) });
   }
 }

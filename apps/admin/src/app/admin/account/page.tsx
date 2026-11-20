@@ -22,6 +22,7 @@ import { apiRequest } from "@/lib/api-client";
 import { applyServerErrors } from "@/lib/forms";
 import { useSession } from "@/lib/session";
 import { DevicesCard } from "./devices-card";
+import { TwoFactorCard } from "./two-factor-card";
 
 const schema = z
   .object({
@@ -101,6 +102,7 @@ export default function AccountPage() {
           </form>
         </CardBody>
       </Card>
+      <TwoFactorCard />
       <DevicesCard />
     </div>
   );
