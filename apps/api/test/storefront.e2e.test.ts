@@ -181,7 +181,13 @@ describe("storefront foundation (Next 2)", () => {
       const link = (await catalog.post(`/products/${draft.id}/preview-link`).expect(200)).body.data;
       token = link.token;
       expect(link.path).toBe(`/preview/products/${draft.id}?token=${encodeURIComponent(token)}`);
-      expect(link.url).toBe(`https://shop.example.test${link.path}`);
+      // The store's own address, or the shared storefront's preview address.
+      const own = (
+        await request(app.getHttpServer()).get("/api/v1/storefront/resolve?handle=northwind")
+      ).body.data?.url as string | null | undefined;
+      expect(link.url).toBe(
+        own ? `${own}${link.path}` : `https://shop.example.test${link.path}&store=northwind`,
+      );
       expect(Date.parse(link.expires_at)).toBeGreaterThan(Date.now() + 50 * 60_000);
     });
 

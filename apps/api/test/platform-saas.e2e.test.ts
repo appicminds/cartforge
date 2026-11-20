@@ -55,6 +55,7 @@ describe("platform / SaaS edition (P1)", () => {
   beforeAll(async () => {
     process.env.CARTFORGE_EDITION = "saas";
     process.env.PLATFORM_DOMAIN = PLATFORM;
+    process.env.STOREFRONT_URL = "https://shared.example.test";
     app = await createTestApp([{ provide: DNS_RESOLVER, useValue: fakeDns }]);
   });
   afterAll(async () => {
@@ -148,6 +149,31 @@ describe("platform / SaaS edition (P1)", () => {
     const me = (await http().get("/api/v1/auth/me").set("Cookie", grace.cookies).expect(200)).body
       .data;
     expect(me.stores).toHaveLength(2);
+  });
+
+  it("previews a store on the shared storefront by its handle", async () => {
+    const res = await http()
+      .get(`/api/v1/storefront/resolve?handle=${handle("grace")}`)
+      .expect(200);
+    expect(res.body.data).toMatchObject({
+      store_id: graceStore.store_id,
+      url: `https://${handle("grace")}.${PLATFORM}`,
+    });
+    await http().get(`/api/v1/storefront/resolve?handle=no-such-${RUN}`).expect(404);
+    await http().get("/api/v1/storefront/resolve?handle=..%2Fadmin").expect(404);
+    await http().get("/api/v1/storefront/resolve").expect(404);
+
+    const me = (await http().get("/api/v1/auth/me").set("Cookie", grace.cookies).expect(200)).body
+      .data;
+    const s = me.stores.find((x: { store_id: string }) => x.store_id === graceStore.store_id);
+    expect(s.store_preview_url).toBe(`https://shared.example.test/?store=${handle("grace")}`);
+
+    // Draft preview links use the store's own address when it has one.
+    const g = api(app, grace, graceStore.store_id);
+    const p = (await g.post("/products", { title: `Peek ${RUN}`, price_minor: 100 }).expect(201))
+      .body.data;
+    const link = (await g.post(`/products/${p.id}/preview-link`).expect(200)).body.data;
+    expect(link.url).toBe(`https://${handle("grace")}.${PLATFORM}${link.path}`);
   });
 
   describe("domains", () => {
@@ -257,7 +283,7 @@ describe("platform / SaaS edition (P1)", () => {
         owner_email: email("grace"),
         status: "active",
         plan: "trial",
-        product_count: 0,
+        product_count: 1, // the draft from the preview-link test
         order_count: 0,
       });
     });
@@ -276,6 +302,9 @@ describe("platform / SaaS edition (P1)", () => {
       await http()
         .get(`/api/v1/storefront/resolve?host=${handle("grace")}.${PLATFORM}`)
         .expect(404);
+      await http()
+        .get(`/api/v1/storefront/resolve?handle=${handle("grace")}`)
+        .expect(404);
       const me = (await http().get("/api/v1/auth/me").set("Cookie", grace.cookies)).body.data;
       expect(
         me.stores.find((s: { store_id: string }) => s.store_id === graceStore.store_id)
@@ -284,6 +313,9 @@ describe("platform / SaaS edition (P1)", () => {
 
       await patch({ status: "active" }).expect(200);
       await api(app, grace, graceStore.store_id).get("/products").expect(200);
+      await http()
+        .get(`/api/v1/storefront/resolve?handle=${handle("grace")}`)
+        .expect(200);
     });
   });
 });

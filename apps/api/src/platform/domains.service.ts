@@ -249,7 +249,40 @@ export class DomainsService {
     });
     if (!d) return null;
     const primary = d.store.domains[0]?.hostname ?? d.hostname;
-    return { store_id: d.store_id, name: d.store.name, url: `https://${primary}` };
+    return { store_id: d.store_id, name: d.store.name, url: this.originOf(primary) };
+  }
+
+  /**
+   * Handle → active store, for previewing a store that has no domain yet on the shared
+   * storefront (`/?store=<handle>`). Suspended stores are never served.
+   */
+  async resolveHandle(handle: string): Promise<ResolvedStore | null> {
+    const h = handle.trim().toLowerCase();
+    if (!/^[a-z0-9-]{1,63}$/.test(h)) return null;
+    const store = await this.prisma.store.findFirst({
+      where: { handle: h, status: "active" },
+      include: { domains: { where: { is_primary: true, status: "active" } } },
+    });
+    if (!store) return null;
+    return { store_id: store.id, name: store.name, url: this.primaryUrl(store.domains) };
+  }
+
+  /** `<STOREFRONT_URL>/?store=<handle>` — how a store without a domain is previewed. */
+  previewUrl(handle: string, path = "/"): string | null {
+    if (!this.env.STOREFRONT_URL) return null;
+    const sep = path.includes("?") ? "&" : "?";
+    return `${this.env.STOREFRONT_URL}${path}${sep}store=${encodeURIComponent(handle)}`;
+  }
+
+  /** Public link to a storefront path: the store's own domain, or the preview address. */
+  async storefrontLink(storeId: string, path: string): Promise<string | null> {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      include: { domains: { where: { is_primary: true, status: "active" } } },
+    });
+    if (!store) return null;
+    const primary = this.primaryUrl(store.domains);
+    return primary ? `${primary}${path}` : this.previewUrl(store.handle, path);
   }
 
   /** For reverse proxies with on-demand TLS (Caddy "ask"): only issue certificates for real store domains. */
@@ -259,7 +292,19 @@ export class DomainsService {
 
   primaryUrl(domains: { hostname: string; is_primary: boolean; status: string }[]): string | null {
     const p = domains.find((d) => d.is_primary && d.status === "active");
-    return p ? `https://${p.hostname}` : null;
+    return p ? this.originOf(p.hostname) : null;
+  }
+
+  /**
+   * Public origin of a store hostname: always https, except `*.localhost` in development,
+   * which is served like STOREFRONT_URL (e.g. http://northwind.shops.localhost:3100).
+   */
+  originOf(hostname: string): string {
+    if ((hostname === "localhost" || hostname.endsWith(".localhost")) && this.env.STOREFRONT_URL) {
+      const u = new URL(this.env.STOREFRONT_URL);
+      return `${u.protocol}//${hostname}${u.port ? `:${u.port}` : ""}`;
+    }
+    return `https://${hostname}`;
   }
 
   private record(

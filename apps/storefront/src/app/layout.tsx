@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Footer } from "@/components/footer";
 import { cookies, headers } from "next/headers";
-import { NO_STORE_HEADER } from "@/lib/site-headers";
+import { NO_STORE_HEADER, PREVIEW_HEADER } from "@/lib/site-headers";
+import { PreviewBar } from "@/components/preview-bar";
 import { Header } from "@/components/header";
 import { CART_COUNT_COOKIE } from "@/lib/commerce";
 import { storefront } from "@/lib/api";
@@ -21,10 +22,20 @@ async function noStore(): Promise<boolean> {
   return (await headers()).get(NO_STORE_HEADER) === "1";
 }
 
+/** A store without a domain, previewed on the shared address (`/?store=<handle>`). */
+async function previewing(): Promise<boolean> {
+  return (await headers()).get(PREVIEW_HEADER) === "1";
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   if (await noStore()) return { title: "Store not found", robots: { index: false, follow: false } };
-  const [store, { siteUrl }] = await Promise.all([storefront.store(), site()]);
+  const [store, { siteUrl }, preview] = await Promise.all([
+    storefront.store(),
+    site(),
+    previewing(),
+  ]);
   return {
+    ...(preview && { robots: { index: false, follow: false } }),
     metadataBase: new URL(siteUrl),
     title: { default: store.name, template: `%s | ${store.name}` },
     description: `Shop ${store.name} online.`,
@@ -48,11 +59,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </html>
     );
   }
-  const [store, categories, collections, jar] = await Promise.all([
+  const [store, categories, collections, jar, preview] = await Promise.all([
     storefront.store(),
     storefront.categories(),
     storefront.collections(),
     cookies(),
+    previewing(),
   ]);
   const cartCount = Math.max(0, Number.parseInt(jar.get(CART_COUNT_COOKIE)?.value ?? "0", 10) || 0);
   return (
@@ -68,6 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Skip to content
         </a>
+        {preview && <PreviewBar storeName={store.name} />}
         <Header store={store} categories={categories} cartCount={cartCount} />
         <main id="main" className="flex-1">
           {children}

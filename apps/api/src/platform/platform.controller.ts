@@ -83,15 +83,22 @@ export class PlatformPublicController {
   }
 
   @Get("storefront/resolve")
-  @ApiQuery({ name: "host", required: true })
-  @ApiOperation({ summary: "Which store a hostname serves (shared storefront routing)" })
+  @ApiQuery({ name: "host", required: false })
+  @ApiQuery({ name: "handle", required: false, description: "Preview a store that has no domain" })
+  @ApiOperation({ summary: "Which store a hostname (or preview handle) serves" })
   async resolve(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Query("host") host: unknown,
+    @Query("handle") handle: unknown,
   ): Promise<DetailResponse<ResolvedStore>> {
     res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
-    const found = typeof host === "string" ? await this.domains.resolve(host) : null;
+    const found =
+      typeof host === "string"
+        ? await this.domains.resolve(host)
+        : typeof handle === "string"
+          ? await this.domains.resolveHandle(handle)
+          : null;
     if (!found) throw AppException.notFound("Store");
     return { data: found, request_id: String(req.id) };
   }

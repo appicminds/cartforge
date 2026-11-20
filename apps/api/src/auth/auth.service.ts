@@ -9,6 +9,7 @@ import {
 import type { LoginInput, Signup } from "@cartforge/validation";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { StoreProvisioningService } from "../platform/provisioning.service";
+import { DomainsService } from "../platform/domains.service";
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { PrismaService } from "../prisma/prisma.service";
@@ -32,6 +33,7 @@ export class AuthService {
     private readonly rateLimit: RateLimitService,
     private readonly audit: AuditService,
     private readonly provisioning: StoreProvisioningService,
+    private readonly domains: DomainsService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -178,7 +180,8 @@ export class AuthService {
         store_name: m.store.name,
         store_handle: m.store.handle,
         store_status: m.store.status,
-        store_url: m.store.domains[0] ? `https://${m.store.domains[0].hostname}` : null,
+        store_url: this.domains.primaryUrl(m.store.domains),
+        store_preview_url: this.domains.previewUrl(m.store.handle),
         role_key: m.role.key,
         role_name: m.role.name,
         permissions: m.role.permissions.filter(isPermission),

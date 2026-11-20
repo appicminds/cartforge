@@ -179,13 +179,13 @@ export default function StoresPage() {
                       </p>
                     )}
                   </div>
-                  {s.store_url && !suspended && (
+                  {(s.store_url ?? s.store_preview_url) && !suspended && (
                     <Button asChild variant="ghost" size="sm">
                       <a
-                        href={s.store_url}
+                        href={(s.store_url ?? s.store_preview_url)!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        aria-label={`View ${s.store_name} storefront`}
+                        aria-label={`${s.store_url ? "View" : "Preview"} ${s.store_name} storefront`}
                       >
                         <ExternalLink aria-hidden />
                       </a>

@@ -43,7 +43,7 @@ test("a merchant signs up and lands in their new store", async ({ page }) => {
   await expect(page.getByTestId("current-store")).toHaveText(STORE);
   await expect(page.getByRole("link", { name: "View store" })).toHaveAttribute(
     "href",
-    `https://${address}.shops.localhost`,
+    `http://${address}.shops.localhost:3100`,
   );
   // A fresh store is empty and isolated.
   await page.getByRole("link", { name: "Products" }).click();

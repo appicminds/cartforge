@@ -34,15 +34,15 @@ function StoreBadge() {
           <span className="truncate font-medium">{store.store_name}</span>
         </span>
       )}
-      {store?.store_url && (
+      {(store?.store_url ?? store?.store_preview_url) && (
         <a
-          href={store.store_url}
+          href={(store.store_url ?? store.store_preview_url)!}
           target="_blank"
           rel="noopener noreferrer"
           className="hidden items-center gap-1 text-fg-muted hover:text-fg md:inline-flex"
         >
           <ExternalLink aria-hidden className="size-3.5" />
-          View store
+          {store.store_url ? "View store" : "Preview store"}
         </a>
       )}
       {canSwitch && (

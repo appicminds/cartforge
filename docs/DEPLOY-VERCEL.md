@@ -164,5 +164,6 @@ idempotent either way, but each run resets the demo users' passwords to `SEED_PA
   while the API function boots.
 - **No worker:** background jobs aren't processed. Nothing depends on them yet.
 - **Store subdomains need a real domain.** `*.vercel.app` can't be wildcarded, so without
-  `PLATFORM_DOMAIN` the storefront shows the `STOREFRONT_STORE_ID` store only; other stores are
-  managed in the admin but have no public address yet.
+  `PLATFORM_DOMAIN` the storefront shows the `STOREFRONT_STORE_ID` store by default. Every other
+  store can be previewed at `https://cartforge-app.vercel.app/?store=<handle>` (the admin's
+  **Preview store** link); `?store=` returns to the default store.

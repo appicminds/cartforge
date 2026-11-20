@@ -64,7 +64,10 @@ scoping plus `StoreScopeGuard`, which also blocks suspended stores.
 **Routing.** One storefront deployment serves every store. Its middleware resolves the request
 host through `GET /storefront/resolve` (cached 60 s) and passes the store id to the pages; an
 unknown host under `PLATFORM_DOMAIN` gets a 404 "store not available" page and never falls back
-to another store.
+to another store. **Preview without a domain:** on the shared fallback address,
+`/?store=<handle>` shows any active store (remembered in a cookie, marked with a preview bar and
+`noindex`, `?store=` exits). Stores' own domains ignore it. This is how stores are seen before
+the platform has a wildcard domain.
 
 **Custom domains.** The merchant adds a hostname, publishes a TXT record
 (`_cartforge-verify.<host>` = `cartforge-verify=<token>`) and points the host at

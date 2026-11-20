@@ -8,6 +8,11 @@ export interface StoreMembershipSummary {
   store_status: "active" | "suspended";
   /** Storefront address (primary domain), when one is set up. */
   store_url: string | null;
+  /**
+   * Preview address on the shared storefront (`<STOREFRONT_URL>/?store=<handle>`), for stores
+   * without a domain yet. Not a public shop address: the storefront marks it as a preview.
+   */
+  store_preview_url: string | null;
   role_key: string;
   role_name: string;
   permissions: Permission[];

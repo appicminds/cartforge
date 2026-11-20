@@ -302,17 +302,18 @@ after Next 2.
 Goal: run CartForge as a hosted service like Shopify, while keeping the self-hosted edition (see
 `PLAN.md` §2a). Requested by the product owner after Next 4.
 
-| ID    | Task                                                                                                                                             | Status | Evidence                                     |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------- |
-| SA-01 | Editions: `CARTFORGE_EDITION`, `SIGNUP_ENABLED`, `PLATFORM_DOMAIN`, `PLATFORM_CNAME_TARGET`, `DOMAIN_PROVIDER`; validated on boot                | ✅     | `packages/config` env schema                 |
-| SA-02 | Schema: store `handle` (unique, DNS-safe, backfilled), `plan`, suspension fields; `store_domains`; `users.is_platform_admin`                     | ✅     | migration `platform_saas`                    |
-| SA-03 | Store provisioning service (roles, default location, owner, platform address, audit) shared by sign-up, "create store" and seed                  | ✅     | `platform-saas.e2e`                          |
-| SA-04 | Merchant sign-up (`POST /auth/signup`): user + store in one transaction, rate-limited, reserved/taken address checks                             | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
-| SA-05 | Shopify-style admin: one store at a time, **Your stores** picker, create another store, current-store badge with "View store"                    | ✅     | admin `saas.spec`, `auth-shell.spec`         |
-| SA-06 | Host-based storefront routing: `GET /storefront/resolve`, middleware with cache, 404 for unknown hosts, per-store cache tags (`catalog:<store>`) | ✅     | `platform-saas.e2e`, storefront `hosts.spec` |
-| SA-07 | Custom domains: add, DNS TXT verification, primary domain, remove; Vercel adapter; TLS-check endpoint for on-demand certificates                 | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
-| SA-08 | Platform admin: all stores with owner, domain and counts; suspend (reason required) and reactivate, audited; staff can't reach it                | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
-| SA-09 | Accessibility of sign-up, Your stores, Domains and platform pages                                                                                | ✅     | admin `saas.spec` (axe)                      |
+| ID    | Task                                                                                                                                                                      | Status | Evidence                                     |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
+| SA-01 | Editions: `CARTFORGE_EDITION`, `SIGNUP_ENABLED`, `PLATFORM_DOMAIN`, `PLATFORM_CNAME_TARGET`, `DOMAIN_PROVIDER`; validated on boot                                         | ✅     | `packages/config` env schema                 |
+| SA-02 | Schema: store `handle` (unique, DNS-safe, backfilled), `plan`, suspension fields; `store_domains`; `users.is_platform_admin`                                              | ✅     | migration `platform_saas`                    |
+| SA-03 | Store provisioning service (roles, default location, owner, platform address, audit) shared by sign-up, "create store" and seed                                           | ✅     | `platform-saas.e2e`                          |
+| SA-04 | Merchant sign-up (`POST /auth/signup`): user + store in one transaction, rate-limited, reserved/taken address checks                                                      | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
+| SA-05 | Shopify-style admin: one store at a time, **Your stores** picker, create another store, current-store badge with "View store"                                             | ✅     | admin `saas.spec`, `auth-shell.spec`         |
+| SA-06 | Host-based storefront routing: `GET /storefront/resolve`, middleware with cache, 404 for unknown hosts, per-store cache tags (`catalog:<store>`)                          | ✅     | `platform-saas.e2e`, storefront `hosts.spec` |
+| SA-07 | Custom domains: add, DNS TXT verification, primary domain, remove; Vercel adapter; TLS-check endpoint for on-demand certificates                                          | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
+| SA-08 | Platform admin: all stores with owner, domain and counts; suspend (reason required) and reactivate, audited; staff can't reach it                                         | ✅     | `platform-saas.e2e`, admin `saas.spec`       |
+| SA-10 | Store preview without a domain: `?store=<handle>` on the shared address (cookie, preview bar, noindex, fresh cart); admin "Preview store" links and draft previews use it | ✅     | storefront `hosts.spec`, `platform-saas.e2e` |
+| SA-09 | Accessibility of sign-up, Your stores, Domains and platform pages                                                                                                         | ✅     | admin `saas.spec` (axe)                      |
 
 **Deliberately later**
 

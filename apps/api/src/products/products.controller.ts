@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Inject,
   Delete,
   Get,
   HttpCode,
@@ -52,7 +51,7 @@ import { VariantsService } from "./variants.service";
 import { ProductActivityService, type ActivityEntry } from "./activity.service";
 import { PreviewTokens } from "../storefront/preview-token";
 import { InvalidatesStorefront } from "../storefront/revalidation";
-import { API_ENV, type ApiEnv } from "../config/env";
+import { DomainsService } from "../platform/domains.service";
 
 /** Non-UUID ids are simply "not found" — never a 500 or a validation leak. */
 const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Product") });
@@ -68,7 +67,7 @@ export class ProductsController {
     private readonly variants: VariantsService,
     private readonly activityLog: ProductActivityService,
     private readonly previews: PreviewTokens,
-    @Inject(API_ENV) private readonly env: ApiEnv,
+    private readonly domains: DomainsService,
   ) {}
 
   private ctx(auth: AuthContext, store: StoreContext, req: Request): ActorContext {
@@ -345,7 +344,8 @@ export class ProductsController {
         token,
         expires_at: expires.toISOString(),
         path,
-        url: this.env.STOREFRONT_URL ? `${this.env.STOREFRONT_URL}${path}` : null,
+        // The store's own domain, or the shared storefront's preview address.
+        url: await this.domains.storefrontLink(store.store_id, path),
       },
       request_id: String(req.id),
     };
