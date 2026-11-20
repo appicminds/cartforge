@@ -62,6 +62,21 @@ export const apiEnvSchema = z
       .min(1024)
       .max(100 * 1024 * 1024)
       .default(10 * 1024 * 1024),
+
+    // ── Storefront (Next 2) ──
+    /** Public storefront URL (no trailing slash); used to build preview links. */
+    STOREFRONT_URL: z
+      .string()
+      .url()
+      .transform((v) => v.replace(/\/+$/, ""))
+      .optional(),
+    /**
+     * Where to tell the storefront that catalog data changed (PRD §8.8 #10),
+     * e.g. https://shop.example.com/api/revalidate. Unset = rely on the storefront's
+     * time-based revalidation only.
+     */
+    STOREFRONT_REVALIDATE_URL: z.string().url().optional(),
+    STOREFRONT_REVALIDATE_SECRET: z.string().min(24).optional(),
   })
   .superRefine((env, ctx) => {
     const need = (key: keyof typeof env, why: string) => {
@@ -78,6 +93,8 @@ export const apiEnvSchema = z
         need(k, "when STORAGE_DRIVER=s3");
       }
     }
+    if (env.STOREFRONT_REVALIDATE_URL)
+      need("STOREFRONT_REVALIDATE_SECRET", "when STOREFRONT_REVALIDATE_URL is set");
     if (env.STORAGE_DRIVER === "vercel-blob")
       need("BLOB_READ_WRITE_TOKEN", "when STORAGE_DRIVER=vercel-blob");
   });

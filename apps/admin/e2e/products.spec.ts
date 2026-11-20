@@ -238,7 +238,7 @@ test.describe("Products — list states and permissions", () => {
       "true",
     );
     await expect(page).toHaveURL(/status=active/);
-    await page.getByRole("button", { name: "Product" }).click();
+    await page.getByRole("button", { name: "Product", exact: true }).click();
     await expect(page).toHaveURL(/sort=title/);
     await expect(page.getByRole("columnheader", { name: "Product", exact: true })).toHaveAttribute(
       "aria-sort",

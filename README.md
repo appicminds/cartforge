@@ -12,18 +12,20 @@ Self-hosted commerce platform — _Build commerce. Own everything._
 ```
 apps/
   admin/       Next.js admin (App Router, TanStack Query, RHF + Zod)
+  storefront/  Next.js storefront: server-rendered catalog, default theme, SEO
   api/         NestJS REST API under /api/v1 (OpenAPI at /api/docs)
   worker/      BullMQ background worker
 packages/
   config/      Zod-validated environment loading
   database/    Prisma schema, migrations, client, dev seed
+  theme-engine/ Theme settings + section schemas, default theme, CSS compiler
   types/       Shared contracts: permissions, roles, API envelopes
   ui/          Design tokens + React component library
   validation/  Shared Zod schemas (admin + API)
 docs/          Plan and task breakdown
 ```
 
-Further folders from PRD §25.3 (storefront, theme engine, payment engine, …) are
+Further folders from PRD §25.3 (page builder, checkout and payment engines, …) are
 added when their module starts.
 
 ## Local development
@@ -37,10 +39,11 @@ pnpm install
 pnpm build                    # builds shared packages (and apps)
 pnpm db:migrate               # apply migrations
 pnpm db:seed                  # dev stores + users (refuses in production)
-pnpm dev                      # admin :3000, API :4000, worker
+pnpm dev                      # admin :3000, storefront :3100, API :4000, worker
 ```
 
-Open http://localhost:3000 and sign in with a seeded account. All seeded users
+Open http://localhost:3000/admin and sign in with a seeded account (the storefront is at
+http://localhost:3100; `node apps/api/scripts/demo-catalog.mjs` with `DEMO_PASSWORD` fills it). All seeded users
 share the dev-only password `CartForge!dev1`:
 
 | Email                  | Role(s)                                            |

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { ArrowLeft, Copy } from "lucide-react";
+import { ArrowLeft, Copy, Eye } from "lucide-react";
 import { CATALOG_ERROR_CODES, PERMISSIONS, type ProductDetail } from "@cartforge/types";
 import { AdjustStockDialog } from "@/components/inventory/adjust-stock-dialog";
 import { MovementsDialog } from "@/components/inventory/movements-dialog";
@@ -56,7 +56,7 @@ import {
 import { ApiError } from "@/lib/api-client";
 import { applyServerErrors } from "@/lib/forms";
 import { formatDateTime } from "@/lib/format";
-import { STATUS_LABEL, STATUS_TONE, lastListUrl } from "@/lib/products";
+import { STATUS_LABEL, STATUS_TONE, lastListUrl, usePreviewProduct } from "@/lib/products";
 import { useSession } from "@/lib/session";
 import { useStoreSettings } from "@/lib/store";
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-guard";
@@ -457,7 +457,8 @@ function ProductFormInner({
           </div>
         </div>
         {product && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <PreviewButton productId={product.id} unsaved={isDirty} />
             {canWrite && (
               <Button
                 variant="secondary"
@@ -1258,5 +1259,26 @@ function DuplicateDialog({
         </label>
       </div>
     </Dialog>
+  );
+}
+
+function PreviewButton({ productId, unsaved }: { productId: string; unsaved: boolean }) {
+  const preview = usePreviewProduct(productId);
+  return (
+    <>
+      <Button
+        variant="secondary"
+        onClick={() => preview.mutate()}
+        disabled={preview.isPending}
+        title={unsaved ? "Shows the last saved version" : "Open on the storefront, even as a draft"}
+      >
+        <Eye aria-hidden /> Preview
+      </Button>
+      {preview.isError && (
+        <span role="alert" className="self-center text-sm text-danger">
+          Couldn’t open the preview. Try again.
+        </span>
+      )}
+    </>
   );
 }

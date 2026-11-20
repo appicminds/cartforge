@@ -4,9 +4,14 @@ This sets up a **hosted demo/staging environment**. CartForge itself remains a
 self-hosted product (PRD §24); the Docker Compose distribution arrives in Next 10.
 
 ```
-Browser ──► cartforge-admin (Next.js)  ──/api/v1/* rewrite──►  cartforge-api (NestJS as a Vercel Function)
-                                                                   ├─► Neon Postgres
-                                                                   └─► Upstash Redis
+                     ┌── /admin, /login ──────────► admin pages
+Browser ──► cartforge-admin (owns the domain)
+                     ├── /api/v1/*, /api/docs ───► cartforge-api (NestJS as a Vercel Function)
+                     │                                 ├─► Neon Postgres
+                     │                                 └─► Upstash Redis
+                     └── everything else ────────► cartforge-storefront (Next.js)
+                                                       └─► cartforge-api (server-side, cached)
+cartforge-api ──catalog changed──► cartforge-storefront /api/revalidate
 ```
 
 **One public URL.** People only use the admin project's domain. In the current demo that's
@@ -84,9 +89,33 @@ Check: `https://cartforge-api.vercel.app/api/v1/health/ready` should return
 
 5. **Deploy.**
 
-## 5. Sign in
+## 5. Create the storefront project (Next 2)
 
-Open `https://cartforge-admin.vercel.app` and sign in as any demo user with your
+1. Import `appicminds/cartforge` a third time as **`cartforge-storefront`**, Root Directory
+   `apps/storefront` (Next.js).
+2. Pick one shared secret: `openssl rand -hex 24`. Then set:
+
+   | Project                | Name                           | Value                                                            |
+   | ---------------------- | ------------------------------ | ---------------------------------------------------------------- |
+   | `cartforge-storefront` | `API_URL`                      | `https://cartforge-api.vercel.app`                               |
+   | `cartforge-storefront` | `STOREFRONT_STORE_ID`          | the store to show (demo: `00000000-0000-4000-8000-000000000001`) |
+   | `cartforge-storefront` | `STOREFRONT_URL`               | the public URL, e.g. `https://cartforge-app.vercel.app`          |
+   | `cartforge-storefront` | `STOREFRONT_REVALIDATE_SECRET` | the secret                                                       |
+   | `cartforge-api`        | `STOREFRONT_URL`               | same public URL (used for preview links)                         |
+   | `cartforge-api`        | `STOREFRONT_REVALIDATE_URL`    | `https://cartforge-storefront.vercel.app/api/revalidate`         |
+   | `cartforge-api`        | `STOREFRONT_REVALIDATE_SECRET` | the secret                                                       |
+   | `cartforge-admin`      | `STOREFRONT_ORIGIN`            | `https://cartforge-storefront.vercel.app` (read at build time)   |
+
+3. Redeploy all three. The admin domain now shows the storefront at `/`; the admin is at `/admin`.
+4. Optional demo catalog (11 products with illustrations, categories, collections, a variable tee):
+
+   ```bash
+   DEMO_API=https://cartforge-app.vercel.app DEMO_EMAIL=owner@cartforge.test DEMO_PASSWORD='<SEED_PASSWORD>' node apps/api/scripts/demo-catalog.mjs
+   ```
+
+## 6. Sign in
+
+Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your
 `SEED_PASSWORD`:
 
 | Email                    | Role                               |

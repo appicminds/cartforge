@@ -1,7 +1,7 @@
 # Products Management — Acceptance Package
 
 **Milestone:** PRD §8 "Product Management — first delivery milestone" (Sprints 0–5).
-**Status:** ready for product-owner acceptance (2026-11-20).
+**Status:** ✅ accepted by the product owner (2026-11-20).
 **Evidence:** automated tests listed below, all green; full regression 2026-11-20: format, lint, typecheck, build, 202 unit/integration tests, 42 browser tests × 3 consecutive runs — all green.
 
 Test locations: API integration tests in `apps/api/test/*.e2e.test.ts` (real PostgreSQL + Redis);
@@ -75,8 +75,8 @@ browser tests in `apps/admin/e2e/*.spec.ts` (Playwright, real API); unit tests n
 
 ## 5. Sign-off
 
-| Role          | Name | Decision                                         | Date |
-| ------------- | ---- | ------------------------------------------------ | ---- |
-| Product owner |      | ☐ Accepted ☐ Accepted with conditions ☐ Rejected |      |
+| Role          | Name                      | Decision    | Date       |
+| ------------- | ------------------------- | ----------- | ---------- |
+| Product owner | (product owner, via chat) | ☑ Accepted | 2026-11-20 |
 
 Notes / conditions:

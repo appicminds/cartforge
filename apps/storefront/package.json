@@ -1,0 +1,32 @@
+{
+  "name": "@cartforge/storefront",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src e2e",
+    "test": "vitest run",
+    "test:e2e": "playwright test --trace off"
+  },
+  "dependencies": {
+    "@cartforge/theme-engine": "workspace:*",
+    "@cartforge/types": "workspace:*",
+    "next": "15.5.29",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.1.17",
+    "@types/node": "22.19.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "tailwindcss": "4.1.17",
+    "vitest": "3.2.4"
+  }
+}

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Inject,
   Delete,
   Get,
   HttpCode,
@@ -21,6 +22,7 @@ import {
   type DetailResponse,
   type ListResponse,
   type ProductDetail,
+  type PreviewLink,
   type ProductListItem,
   type VariantPlan,
 } from "@cartforge/types";
@@ -48,6 +50,9 @@ import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { ProductsService, type ActorContext } from "./products.service";
 import { VariantsService } from "./variants.service";
 import { ProductActivityService, type ActivityEntry } from "./activity.service";
+import { PreviewTokens } from "../storefront/preview-token";
+import { InvalidatesStorefront } from "../storefront/revalidation";
+import { API_ENV, type ApiEnv } from "../config/env";
 
 /** Non-UUID ids are simply "not found" — never a 500 or a validation leak. */
 const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Product") });
@@ -55,12 +60,15 @@ const productId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFo
 @ApiTags("products")
 @ApiCookieAuth()
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
+@InvalidatesStorefront()
 @Controller("products")
 export class ProductsController {
   constructor(
     private readonly products: ProductsService,
     private readonly variants: VariantsService,
     private readonly activityLog: ProductActivityService,
+    private readonly previews: PreviewTokens,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
   private ctx(auth: AuthContext, store: StoreContext, req: Request): ActorContext {
@@ -155,6 +163,7 @@ export class ProductsController {
   }
 
   @Post(":id/options/preview")
+  @InvalidatesStorefront(false)
   @HttpCode(200)
   @RequirePermissions(PERMISSIONS.PRODUCTS_READ)
   @ApiOperation({
@@ -314,5 +323,31 @@ export class ProductsController {
     @Req() req: Request,
   ): Promise<{ data: ActivityEntry[]; request_id: string }> {
     return { data: await this.activityLog.list(store.store_id, id), request_id: String(req.id) };
+  }
+
+  @Post(":id/preview-link")
+  @HttpCode(200)
+  @InvalidatesStorefront(false)
+  @RequirePermissions(PERMISSIONS.PRODUCTS_READ)
+  @ApiOperation({
+    summary: "Signed, 1-hour storefront link that shows the product even while it is a draft",
+  })
+  async previewLink(
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Req() req: Request,
+  ): Promise<DetailResponse<PreviewLink>> {
+    await this.products.get(store.store_id, id); // 404 for unknown / other store / deleted
+    const { token, expires } = this.previews.sign(store.store_id, id);
+    const path = `/preview/products/${id}?token=${encodeURIComponent(token)}`;
+    return {
+      data: {
+        token,
+        expires_at: expires.toISOString(),
+        path,
+        url: this.env.STOREFRONT_URL ? `${this.env.STOREFRONT_URL}${path}` : null,
+      },
+      request_id: String(req.id),
+    };
   }
 }

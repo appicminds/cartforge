@@ -1,3 +1,4 @@
+import { InvalidatesStorefront } from "../storefront/revalidation";
 import { Body, Controller, HttpStatus, Param, ParseUUIDPipe, Patch, Req } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiZodBody } from "../common/openapi";
@@ -28,6 +29,7 @@ const variantId = new ParseUUIDPipe({
 @ApiTags("variants")
 @ApiCookieAuth()
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
+@InvalidatesStorefront()
 @Controller("variants")
 export class VariantsController {
   constructor(

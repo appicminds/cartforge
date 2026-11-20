@@ -1,3 +1,4 @@
+import { InvalidatesStorefront } from "../storefront/revalidation";
 import {
   Body,
   Controller,
@@ -53,6 +54,7 @@ const collectionId = new ParseUUIDPipe({
 @ApiTags("collections")
 @ApiCookieAuth()
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
+@InvalidatesStorefront()
 @Controller("collections")
 export class CollectionsController {
   constructor(private readonly collections: CollectionsService) {}

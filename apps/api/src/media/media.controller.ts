@@ -1,3 +1,4 @@
+import { InvalidatesStorefront } from "../storefront/revalidation";
 import {
   Body,
   Controller,
@@ -55,6 +56,7 @@ const mediaId = new ParseUUIDPipe({
 @ApiTags("media")
 @ApiCookieAuth()
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
+@InvalidatesStorefront()
 @Controller("media")
 export class MediaController {
   constructor(

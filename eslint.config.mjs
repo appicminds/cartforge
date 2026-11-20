@@ -30,7 +30,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/admin/**/*.{ts,tsx}", "packages/ui/**/*.{ts,tsx}"],
+    files: [
+      "apps/admin/**/*.{ts,tsx}",
+      "apps/storefront/**/*.{ts,tsx}",
+      "packages/ui/**/*.{ts,tsx}",
+    ],
     plugins: { "react-hooks": reactHooks },
     rules: {
       "react-hooks/rules-of-hooks": "error",

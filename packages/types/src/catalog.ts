@@ -310,6 +310,65 @@ export interface StorefrontProduct {
   options: { name: string; values: string[] }[];
   variants: StorefrontVariant[];
   tags: string[];
+  /** Active categories the product is in (for breadcrumbs), deepest first. */
+  categories: { handle: string; name: string }[];
   seo: { title: string; description: string };
   published_at: string | null;
+  /** Content changes since the last publish, for sitemaps and caching. */
+  updated_at: string;
+}
+
+/** Store identity and presentation settings for the storefront (Next 2). */
+export interface StorefrontStore {
+  id: string;
+  name: string;
+  currency: string;
+  locale: string;
+  contact_email: string | null;
+}
+
+export interface StorefrontCategory {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  handle: string;
+  depth: number;
+  /** Active products in this category or any subcategory. */
+  product_count: number;
+}
+
+export interface StorefrontCategoryDetail extends StorefrontCategory {
+  description_html: string;
+  /** Root → parent, for breadcrumbs. */
+  ancestors: { name: string; handle: string }[];
+  children: { name: string; handle: string }[];
+  seo: { title: string; description: string };
+}
+
+export interface StorefrontCollectionSummary {
+  id: string;
+  handle: string;
+  title: string;
+  description_html: string;
+  product_count: number;
+}
+
+export interface StorefrontSitemap {
+  products: { handle: string; updated_at: string }[];
+  collections: { handle: string; updated_at: string }[];
+  categories: { handle: string; updated_at: string }[];
+}
+
+/** A previewed product also carries its status, so the storefront can label it. */
+export interface StorefrontPreviewProduct extends StorefrontProduct {
+  status: ProductStatus;
+}
+
+export interface PreviewLink {
+  token: string;
+  expires_at: string;
+  /** Storefront path to open (append to the storefront origin). */
+  path: string;
+  /** Absolute URL when the API knows the storefront URL. */
+  url: string | null;
 }

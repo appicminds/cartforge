@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  PreviewLink,
   DetailResponse,
   ListResponse,
   ProductDetail,
@@ -127,4 +128,31 @@ export function lastListUrl(): string {
   } catch {
     return "/admin/products";
   }
+}
+
+/**
+ * Signed storefront link (valid 1 hour) that shows the product even while it's a
+ * draft. Opens a tab synchronously so pop-up blockers allow it, then navigates.
+ */
+export function usePreviewProduct(id: string) {
+  const storeId = useStoreId();
+  return useMutation({
+    mutationFn: async () => {
+      const tab = window.open("about:blank", "_blank");
+      try {
+        const { data } = await apiRequest<DetailResponse<PreviewLink>>(
+          `/products/${id}/preview-link`,
+          { method: "POST", storeId },
+        );
+        const target = data.url ?? data.path;
+        if (tab) {
+          tab.opener = null;
+          tab.location.href = target;
+        } else window.location.href = target;
+      } catch (err) {
+        tab?.close();
+        throw err;
+      }
+    },
+  });
 }

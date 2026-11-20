@@ -68,6 +68,7 @@ names (`confirm_handle_change`, `confirm_removals`).
 | `PUT /products/:id/options`                                              | products.write                              | Apply options; removing variants needs `confirm_removals`                                                                                                                                                    |
 | `PATCH /products/:id/variants`                                           | products.write                              | Bulk-edit variant price, SKU, image…                                                                                                                                                                         |
 | `PATCH /variants/:id`                                                    | products.write                              | Edit one variant                                                                                                                                                                                             |
+| `POST /products/:id/preview-link`                                        | products.read                               | Signed 1-hour storefront preview link (works for drafts)                                                                                                                                                     |
 | `GET /products/:id/activity`                                             | products.read                               | Merged audit + stock history, newest first                                                                                                                                                                   |
 | **Categories / collections**                                             |                                             |                                                                                                                                                                                                              |
 | `GET /categories`                                                        | products.read                               | Tree (flattened, with depth and path)                                                                                                                                                                        |
@@ -90,17 +91,40 @@ names (`confirm_handle_change`, `confirm_removals`).
 ## Storefront API (public)
 
 No session, no CSRF. Choose the store with `X-Store-Id` (custom domains arrive later).
-Responses carry `Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=300`.
+Responses carry `Cache-Control: public, max-age=0, must-revalidate`: shared caches must not keep
+copies, because the storefront app is the cache layer and is purged on every catalog write (see
+_Cache invalidation_ below).
 
-| Method & path                         | Purpose                                                                                                                                                                                              |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /storefront/products`            | Active products only. `q`, `collection` (handle), `category` (handle; includes subcategories), `sort` (`featured`, `newest`, `oldest`, `title_asc`, `title_desc`, `price_asc`, `price_desc`), paging |
-| `GET /storefront/products/:handle`    | Active product. After a rename, the old handle answers `301` with `{ redirect_to }`                                                                                                                  |
-| `GET /storefront/collections/:handle` | Active collection with SEO fields; redirects like products                                                                                                                                           |
+| Method & path                          | Purpose                                                                                                                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /storefront/store`                | Store name, currency, locale, contact email                                                                                                                                           |
+| `GET /storefront/products`             | Active products only. `q`, `collection` (handle), `category` (handle; includes subcategories), `sort` (`featured`, `newest`, `title_asc`, `price_asc`, `price_desc`), paging (max 50) |
+| `GET /storefront/products/:handle`     | Active product. After a rename, the old handle answers `301` with `{ redirect_to }`                                                                                                   |
+| `GET /storefront/categories`           | Visible category tree in display order (archived categories hide their subtree), with active-product counts per subtree                                                               |
+| `GET /storefront/categories/:handle`   | Category with breadcrumb `ancestors`, `children` and SEO                                                                                                                              |
+| `GET /storefront/collections`          | Active collections with active-product counts                                                                                                                                         |
+| `GET /storefront/collections/:handle`  | Active collection with SEO fields; redirects like products                                                                                                                            |
+| `GET /storefront/sitemap`              | Handles + `updated_at` of everything indexable                                                                                                                                        |
+| `GET /storefront/preview/products/:id` | Any non-deleted product, **only** with `?token=` from `POST /products/:id/preview-link`. `Cache-Control: private, no-store`, `X-Robots-Tag: noindex`                                  |
 
-Storefront payloads never contain cost, internal notes, stock counts, SKUs of drafts, or audit data —
+Products include `categories` (visible ones, deepest first — for breadcrumbs) and `updated_at`.
+Storefront payloads never contain cost, internal notes, stock counts, SKUs, or audit data —
 only `available` booleans, prices, images, options, variants, tags and SEO
-(`organization.e2e` asserts the exact key set).
+(`organization.e2e` asserts it).
+
+### Draft previews
+
+`POST /products/:id/preview-link` (products.read) returns `{ token, expires_at, path, url }`. The token
+is an HMAC-signed `{store, product, expiry}` valid for **1 hour**, keyed from `SESSION_SECRET` with a
+purpose label — rotating the secret revokes every link. Wrong, expired, tampered or other-store
+tokens answer `404`, exactly like a missing product.
+
+### Cache invalidation
+
+After any successful write on products, variants, categories, collections, media or inventory, the API
+`POST`s `{ "tags": ["catalog"] }` to `STOREFRONT_REVALIDATE_URL` with header `x-revalidate-secret`
+(bounded to 2.5 s; a slow or offline storefront never fails the write). Reads, dry runs and preview
+links don't notify. The storefront also revalidates every 5 minutes as a backstop.
 
 ## Quick example
 

@@ -210,15 +210,15 @@ Notes:
 
 ## Sprint 5 — QA, hardening & release ✅
 
-| ID    | Task                                                               | Status         | Evidence                                                                                              |
-| ----- | ------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------- |
-| S5-01 | Full PRD §29.2 scenario suite (E2E + integration)                  | ✅             | `docs/ACCEPTANCE-PRODUCTS.md` maps all 15 scenarios and 13 criteria to tests                          |
-| S5-02 | Minimal `order_items` snapshot + immutability test                 | ✅             | migration `order_item_snapshots` (DB trigger), `OrderSnapshotService`, `snapshots-activity.e2e`       |
-| S5-03 | Large-catalog performance test (pagination/search on 50k products) | ✅             | `test/perf/catalog.perf.test.ts` (opt-in), `docs/PERFORMANCE.md` — all within budget                  |
-| S5-04 | Accessibility (axe) and responsive pass on all product screens     | ✅             | `e2e/a11y.spec.ts`; fixed contrast of subtle text and table overflow at 375px                         |
-| S5-05 | Product activity history view                                      | ✅             | `GET /products/:id/activity`, Activity card on product page                                           |
-| S5-06 | API docs review, operator notes                                    | ✅             | Request bodies in OpenAPI from Zod (`ApiZodBody`), coverage test; `docs/API.md`, `docs/OPERATIONS.md` |
-| S5-07 | Regression run + product-owner acceptance                          | ⏳ PO sign-off | Full regression green; sign-off table in `docs/ACCEPTANCE-PRODUCTS.md`                                |
+| ID    | Task                                                               | Status | Evidence                                                                                                         |
+| ----- | ------------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| S5-01 | Full PRD §29.2 scenario suite (E2E + integration)                  | ✅     | `docs/ACCEPTANCE-PRODUCTS.md` maps all 15 scenarios and 13 criteria to tests                                     |
+| S5-02 | Minimal `order_items` snapshot + immutability test                 | ✅     | migration `order_item_snapshots` (DB trigger), `OrderSnapshotService`, `snapshots-activity.e2e`                  |
+| S5-03 | Large-catalog performance test (pagination/search on 50k products) | ✅     | `test/perf/catalog.perf.test.ts` (opt-in), `docs/PERFORMANCE.md` — all within budget                             |
+| S5-04 | Accessibility (axe) and responsive pass on all product screens     | ✅     | `e2e/a11y.spec.ts`; fixed contrast of subtle text and table overflow at 375px                                    |
+| S5-05 | Product activity history view                                      | ✅     | `GET /products/:id/activity`, Activity card on product page                                                      |
+| S5-06 | API docs review, operator notes                                    | ✅     | Request bodies in OpenAPI from Zod (`ApiZodBody`), coverage test; `docs/API.md`, `docs/OPERATIONS.md`            |
+| S5-07 | Regression run + product-owner acceptance                          | ✅     | Full regression green; accepted by the product owner 2026-11-20; sign-off table in `docs/ACCEPTANCE-PRODUCTS.md` |
 
 **Follow-ups (not blocking release):**
 
@@ -226,3 +226,37 @@ Notes:
 - Generate image derivatives in the worker instead of during upload.
 - Deliver outbox events (with webhooks, Next 9).
 - Unsaved-changes guard for browser Back; replace the editor's link `prompt()` with a dialog.
+
+## Next 2 — Storefront foundation & default theme
+
+Goal (PRD §27.7): the published catalog renders on a real storefront. Requested by the product owner
+right after Products acceptance, ahead of Next 1 (auth hardening).
+
+| ID    | Task                                                                                                                                                                                              | Status | Evidence                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| SF-01 | Public API: store, category tree + detail, collection list, sitemap feed; breadcrumb categories on products                                                                                       | ✅     | `storefront.e2e`                                                                           |
+| SF-02 | Draft preview: signed 1-hour links (`POST /products/:id/preview-link`), admin **Preview** button                                                                                                  | ✅     | `preview-token.test`, `storefront.e2e`, admin `preview.spec`, storefront `storefront.spec` |
+| SF-03 | Cache invalidation (§8.8 #10): API notifies the storefront after catalog writes; tagged data cache                                                                                                | ✅     | `storefront.e2e` "cache revalidation", storefront "admin edits show up immediately"        |
+| SF-04 | `packages/theme-engine`: settings schema (colors, typography, width, buttons, cards, header, footer, spacing), section/template schemas, default theme "Foundry", CSS compiler, AA contrast check | ✅     | `theme.test`                                                                               |
+| SF-05 | `apps/storefront`: home (theme sections), all products, collections, collection, category, search, 404                                                                                            | ✅     | `storefront.spec`                                                                          |
+| SF-06 | Product page: gallery, option selection with sold-out/unavailable states, price/sale, stock, quantity; add-to-cart shown disabled until Next 4                                                    | ✅     | `storefront.spec` "variant selection", `variants.test`                                     |
+| SF-07 | SEO: titles, descriptions, canonical, Open Graph, JSON-LD (Product, BreadcrumbList, WebSite), sitemap.xml, robots.txt, 308 for renamed handles, noindex on search/preview/admin                   | ✅     | `storefront.spec`, `seo.test`                                                              |
+| SF-08 | Accessibility + phone layout                                                                                                                                                                      | ✅     | `a11y.spec` (axe on 8 templates), `mobile.spec`                                            |
+| SF-09 | Deployment: `cartforge-storefront` project served at the root of the public URL                                                                                                                   | ✅     | `docs/DEPLOY-VERCEL.md` §5                                                                 |
+| SF-10 | Demo catalog script (real API, generated illustrations)                                                                                                                                           | ✅     | `apps/api/scripts/demo-catalog.mjs`                                                        |
+
+**Decisions**
+
+- **Separate Next.js app ("zone").** The admin domain forwards everything it doesn't own to the
+  storefront; storefront assets live under `/sf-static` so they never collide with the admin's.
+- **Theme settings are code-defined in Next 2.** The engine already validates merchant overrides and
+  templates; storing, editing, previewing and rolling back theme versions is Next 3.
+- **Theme safety (§11.2):** only registered section types; settings are hex colors, enums, bounded
+  numbers and plain text; links must be on-site paths. Nothing a merchant enters is executed.
+- **Caching:** pages render per request from Next's data cache (tag `catalog`, purged on writes,
+  5-minute backstop). The API no longer sends `s-maxage`, so no CDN copy can outlive a purge.
+- **Product URLs** are `/products/:handle`; categories `/categories/:handle`; collections
+  `/collections/:handle` (handles were already unique per store).
+
+**Follow-ups:** theme editor and versions (Next 3); cart and checkout (Next 4); faceted filters
+(price, availability, vendor); per-product cache tags instead of one catalog tag; image CDN resizing.

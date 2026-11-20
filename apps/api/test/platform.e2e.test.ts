@@ -53,6 +53,7 @@ describe("platform", () => {
       "post /api/v1/auth/logout",
       "post /api/v1/products/{id}/publish",
       "post /api/v1/products/{id}/archive",
+      "post /api/v1/products/{id}/preview-link",
     ]);
     const missing: string[] = [];
     for (const [path, ops] of Object.entries(

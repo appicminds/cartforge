@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/* Theme settings arrive as --sf-* custom properties (compiled by @cartforge/theme-engine). */
+@theme inline {
+  --color-bg: var(--sf-bg);
+  --color-surface: var(--sf-surface);
+  --color-ink: var(--sf-text);
+  --color-muted: var(--sf-muted);
+  --color-accent: var(--sf-accent);
+  --color-on-accent: var(--sf-accent-text);
+  --color-line: var(--sf-border);
+  --color-sale: var(--sf-sale);
+  --font-heading: var(--sf-font-heading);
+  --font-body: var(--sf-font-body);
+}
+
+@layer base {
+  html {
+    background: var(--sf-bg);
+    color: var(--sf-text);
+    font-family: var(--sf-font-body);
+    font-size: var(--sf-base-size);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--sf-font-heading);
+    font-weight: var(--sf-heading-weight);
+    text-transform: var(--sf-heading-case);
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  :focus-visible {
+    outline: 2px solid var(--sf-accent);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .sf-container {
+    width: 100%;
+    max-width: var(--sf-max-width);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 768px) {
+    .sf-container {
+      padding-inline: 2rem;
+    }
+  }
+  .sf-section {
+    padding-block: var(--sf-section-space);
+  }
+  .sf-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--sf-radius);
+    border: 1px solid var(--sf-accent);
+    background: var(--sf-accent);
+    color: var(--sf-accent-text);
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 150ms ease;
+  }
+  .sf-button:hover {
+    opacity: 0.9;
+  }
+  .sf-button[data-variant="outline"] {
+    background: transparent;
+    color: var(--sf-accent);
+  }
+  .sf-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .sf-card-media {
+    aspect-ratio: var(--sf-card-ratio);
+    background: var(--sf-surface);
+    overflow: hidden;
+  }
+  .sf-card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: var(--sf-card-fit);
+    transition: transform 400ms ease;
+  }
+  .group:hover .sf-card-media img {
+    transform: scale(1.03);
+  }
+  .sf-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .sf-field {
+    min-height: 2.75rem;
+    border: 1px solid var(--sf-border);
+    border-radius: var(--sf-radius);
+    background: var(--sf-bg);
+    color: var(--sf-text);
+    padding: 0.5rem 0.75rem;
+  }
+  .sf-select {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23666' stroke-width='1.5'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+  }
+}
+
+/* Merchant rich text (sanitized server-side against an allow-list). */
+.sf-prose {
+  line-height: 1.7;
+  color: var(--sf-text);
+}
+.sf-prose > * + * {
+  margin-top: 0.9em;
+}
+.sf-prose h2 {
+  font-size: 1.35rem;
+}
+.sf-prose h3 {
+  font-size: 1.15rem;
+}
+.sf-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.sf-prose ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.sf-prose a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sf-prose blockquote {
+  border-left: 3px solid var(--sf-border);
+  padding-left: 1rem;
+  color: var(--sf-muted);
+}

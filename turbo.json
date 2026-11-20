@@ -6,7 +6,9 @@
     "REDIS_URL",
     "API_URL",
     "SESSION_SECRET",
-    "APP_ENCRYPTION_KEY"
+    "APP_ENCRYPTION_KEY",
+    "STOREFRONT_ORIGIN",
+    "STOREFRONT_URL"
   ],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },

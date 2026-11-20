@@ -1,0 +1,56 @@
+import type { Metadata, Viewport } from "next";
+import { Footer } from "@/components/footer";
+import { Header } from "@/components/header";
+import { storefront } from "@/lib/api";
+import { config } from "@/lib/config";
+import { getTheme, getThemeCss } from "@/lib/theme";
+import "./globals.css";
+
+/**
+ * Pages render per request; the API data they read is served from Next's data
+ * cache under the "catalog" tag, which the API purges on every catalog write.
+ * This keeps builds independent of the API and output fresh after edits.
+ */
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const store = await storefront.store();
+  return {
+    metadataBase: new URL(config.siteUrl),
+    title: { default: store.name, template: `%s | ${store.name}` },
+    description: `Shop ${store.name} online.`,
+    openGraph: { siteName: store.name, type: "website" },
+    formatDetection: { telephone: false },
+  };
+}
+
+export const viewport: Viewport = { themeColor: getTheme().settings.colors.background };
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [store, categories, collections] = await Promise.all([
+    storefront.store(),
+    storefront.categories(),
+    storefront.collections(),
+  ]);
+  return (
+    <html lang={store.locale}>
+      <head>
+        {/* Validated, enum/hex-only values (see @cartforge/theme-engine). */}
+        <style dangerouslySetInnerHTML={{ __html: getThemeCss() }} />
+      </head>
+      <body className="flex min-h-screen flex-col">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-bg focus:px-4 focus:py-2 focus:shadow"
+        >
+          Skip to content
+        </a>
+        <Header store={store} categories={categories} />
+        <main id="main" className="flex-1">
+          {children}
+        </main>
+        <Footer store={store} categories={categories} collections={collections} />
+      </body>
+    </html>
+  );
+}

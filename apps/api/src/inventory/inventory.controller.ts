@@ -1,3 +1,4 @@
+import { InvalidatesStorefront } from "../storefront/revalidation";
 import { Body, Controller, Get, HttpCode, Post, Query, Req } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { ApiZodBody } from "../common/openapi";
@@ -25,6 +26,7 @@ import { InventoryService } from "./inventory.service";
 @ApiTags("inventory")
 @ApiCookieAuth()
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store scope (UUID)" })
+@InvalidatesStorefront()
 @Controller("inventory")
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}

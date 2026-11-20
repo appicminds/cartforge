@@ -379,7 +379,7 @@ describe("categories, collections, SEO, bulk, duplicate, storefront (Sprint 4)",
       const body = JSON.stringify(res.body);
       for (const secret of ["cost_minor", "on_hand", "reserved", "created_by", "store_id", "sku"])
         expect(body).not.toContain(secret);
-      expect(res.headers["cache-control"]).toContain("s-maxage");
+      expect(res.headers["cache-control"]).toBe("public, max-age=0, must-revalidate");
     });
 
     it("filters by collection (in manual order) and serves product detail", async () => {
