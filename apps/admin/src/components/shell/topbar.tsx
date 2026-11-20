@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, LogOut, Menu, Store } from "lucide-react";
+import { ExternalLink, KeyRound, LogOut, Menu, Store } from "lucide-react";
 import { Breadcrumb, IconButton, cn, type BreadcrumbItem } from "@cartforge/ui";
 import { useBreadcrumbTitleValue } from "@/lib/breadcrumbs";
 import { useSession } from "@/lib/session";
@@ -108,11 +108,20 @@ function ProfileMenu() {
             <p className="truncate text-xs text-fg-muted">{user.email}</p>
             {store && <p className="mt-1 text-xs text-fg-subtle">{store.role_name}</p>}
           </div>
+          <Link
+            role="menuitem"
+            href="/admin/account"
+            autoFocus
+            onClick={() => setOpen(false)}
+            className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-surface-sunken focus-visible:bg-surface-sunken"
+          >
+            <KeyRound aria-hidden className="size-4" />
+            Change password
+          </Link>
           <button
             role="menuitem"
             type="button"
             disabled={pending}
-            autoFocus
             onClick={async () => {
               setPending(true);
               try {
@@ -121,7 +130,7 @@ function ProfileMenu() {
                 setPending(false);
               }
             }}
-            className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-surface-sunken focus-visible:bg-surface-sunken disabled:opacity-50"
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-surface-sunken focus-visible:bg-surface-sunken disabled:opacity-50"
           >
             <LogOut aria-hidden className="size-4" />
             {pending ? "Signing out…" : "Sign out"}

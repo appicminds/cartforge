@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -62,7 +63,16 @@ export function LoginForm() {
           />
         )}
       </Field>
-      <Field label="Password" error={errors.password?.message} required>
+      <Field
+        label="Password"
+        error={errors.password?.message}
+        required
+        hint={
+          <Link href="/forgot-password" className="text-primary underline underline-offset-2">
+            Forgot password?
+          </Link>
+        }
+      >
         {({ id, describedBy, invalid }) => (
           <Input
             id={id}

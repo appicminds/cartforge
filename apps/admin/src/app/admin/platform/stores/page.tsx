@@ -34,6 +34,7 @@ import {
 } from "@/lib/platform";
 import { useSession } from "@/lib/session";
 import { useDebounced } from "@/lib/use-debounced";
+import { ResetLinkDialog } from "./reset-link-dialog";
 import { TransferDialog } from "./transfer-dialog";
 
 type Tab = "all" | "active" | "suspended";
@@ -132,6 +133,7 @@ export default function PlatformStoresPage() {
   const toast = useToast();
   const [suspending, setSuspending] = useState<PlatformStoreRow | null>(null);
   const [moving, setMoving] = useState<PlatformStoreRow | null>(null);
+  const [resetting, setResetting] = useState<PlatformStoreRow | null>(null);
 
   if (!user.is_platform_admin) {
     return (
@@ -231,8 +233,18 @@ export default function PlatformStoresPage() {
                               {s.primary_domain ?? s.handle}
                             </span>
                           </Td>
-                          <Td className="max-w-56 truncate text-fg-muted">
-                            {s.owner_email ?? "—"}
+                          <Td className="max-w-56 text-fg-muted">
+                            <span className="block truncate">{s.owner_email ?? "—"}</span>
+                            {s.owner_email && (
+                              <button
+                                type="button"
+                                onClick={() => setResetting(s)}
+                                aria-label={`Password reset link for ${s.owner_email}`}
+                                className="text-xs text-primary underline underline-offset-2"
+                              >
+                                Password reset link
+                              </button>
+                            )}
                           </Td>
                           <Td>
                             <Badge>{s.plan}</Badge>
@@ -320,6 +332,7 @@ export default function PlatformStoresPage() {
       </Card>
       <SuspendDialog store={suspending} onClose={() => setSuspending(null)} />
       <TransferDialog store={moving} onClose={() => setMoving(null)} />
+      <ResetLinkDialog store={resetting} onClose={() => setResetting(null)} />
     </div>
   );
 }

@@ -128,6 +128,16 @@ Check: `https://cartforge-api.vercel.app/api/v1/health/ready` should return
    to the storefront project by hand.
 4. Redeploy. The demo seed creates the platform admin `platform@cartforge.test`.
 
+## 5b. Password reset emails (optional)
+
+Without an email service, **Forgot password?** accepts requests but sends nothing; a platform
+admin can still give someone a reset link (**All stores → Password reset link**). To send emails:
+
+1. Create a [Resend](https://resend.com) account, verify your sending domain, and create an API key.
+2. On `cartforge-api` set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY=<key>`,
+   `EMAIL_FROM="CartForge <no-reply@yourdomain.com>"` and `ADMIN_URL=https://cartforge-app.vercel.app`.
+3. Redeploy the API.
+
 ## 6. Sign in
 
 Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your

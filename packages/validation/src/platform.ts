@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { emailSchema } from "@cartforge/checkout-engine";
+import { newPasswordSchema } from "./auth.js";
 import { paginationQuerySchema, uuidSchema } from "./common.js";
 
 /** Subdomain labels that would collide with platform services. */
@@ -80,14 +81,7 @@ export const signupSchema = z
   .object({
     name: z.string().trim().min(1, "Enter your name").max(120),
     email: emailSchema,
-    password: z
-      .string()
-      .min(12, "Use at least 12 characters")
-      .max(200)
-      .refine(
-        (p) => /[a-zA-Z]/.test(p) && /[^a-zA-Z]/.test(p),
-        "Mix letters with numbers or symbols",
-      ),
+    password: newPasswordSchema,
     store_name: z.string().trim().min(2, "Enter your store name").max(80),
     handle: storeHandleSchema.optional(),
     currency: currency.default("USD"),

@@ -3,7 +3,19 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { CookieOptions, Request, Response } from "express";
 import { COOKIES, type CurrentUser, type DetailResponse } from "@cartforge/types";
-import { loginSchema, signupSchema, type LoginInput, type Signup } from "@cartforge/validation";
+import {
+  loginSchema,
+  passwordChangeSchema,
+  passwordForgotSchema,
+  passwordResetSchema,
+  signupSchema,
+  type LoginInput,
+  type PasswordChange,
+  type PasswordForgot,
+  type PasswordReset,
+  type Signup,
+} from "@cartforge/validation";
+import { AccountService } from "./account.service";
 import { API_ENV, type ApiEnv } from "../config/env";
 import type { AuthContext } from "../common/request-context";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
@@ -16,6 +28,7 @@ import { deriveCsrfToken } from "./tokens";
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly account: AccountService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -105,5 +118,53 @@ export class AuthController {
     @Req() req: Request,
   ): Promise<DetailResponse<CurrentUser>> {
     return { data: await this.auth.currentUser(auth.user_id), request_id: String(req.id) };
+  }
+
+  @Post("password")
+  @HttpCode(204)
+  @ApiCookieAuth()
+  @ApiZodBody(passwordChangeSchema)
+  @ApiOperation({
+    summary: "Change your password (needs the current one); signs out your other sessions.",
+  })
+  async changePassword(
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(passwordChangeSchema)) body: PasswordChange,
+  ): Promise<void> {
+    await this.account.changePassword(auth.user_id, auth.session_id, body, {
+      ip: req.ip,
+      requestId: String(req.id),
+    });
+  }
+
+  @Public()
+  @Post("password/forgot")
+  @HttpCode(202)
+  @ApiZodBody(passwordForgotSchema)
+  @ApiOperation({
+    summary:
+      "Email a one-time reset link (1 hour). Always 202, whether or not the address has an account.",
+  })
+  async forgotPassword(
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(passwordForgotSchema)) body: PasswordForgot,
+  ): Promise<{ data: { accepted: true }; request_id: string }> {
+    await this.account.forgotPassword(body.email, { ip: req.ip, requestId: String(req.id) });
+    return { data: { accepted: true }, request_id: String(req.id) };
+  }
+
+  @Public()
+  @Post("password/reset")
+  @HttpCode(204)
+  @ApiZodBody(passwordResetSchema)
+  @ApiOperation({
+    summary: "Set a new password from a reset link; the link is used up and all sessions end.",
+  })
+  async resetPassword(
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(passwordResetSchema)) body: PasswordReset,
+  ): Promise<void> {
+    await this.account.resetPassword(body, { ip: req.ip, requestId: String(req.id) });
   }
 }

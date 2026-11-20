@@ -30,10 +30,28 @@ model User {
   created_at        DateTime   @default(now()) @db.Timestamptz(3)
   updated_at        DateTime   @updatedAt @db.Timestamptz(3)
 
-  sessions    Session[]
-  memberships StoreMembership[]
+  sessions        Session[]
+  memberships     StoreMembership[]
+  password_resets PasswordResetToken[]
 
   @@map("users")
+}
+
+/// One-time password reset link (emailed, or created by a platform admin). Only the hash is stored.
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz(3)
+  used_at    DateTime? @db.Timestamptz(3)
+  /// Platform admin who created it (null = requested by the user).
+  created_by String?   @db.Uuid
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("password_reset_tokens")
 }
 
 model Session {

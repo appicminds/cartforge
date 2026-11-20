@@ -29,6 +29,9 @@ For the Vercel deployment specifically, see `DEPLOY-VERCEL.md`. This page is the
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_FORCE_PATH_STYLE`, `S3_PUBLIC_BASE_URL` | s3          | Public base URL is what image URLs are built from (CDN in front of the bucket)         |
 | `BLOB_READ_WRITE_TOKEN`                                                                                                | vercel-blob | Added automatically when a Blob store is connected to the project                      |
 | `MEDIA_MAX_BYTES`                                                                                                      | no          | Upload cap. Default 10 MB; **4 MB on Vercel** (serverless request body limit ≈ 4.5 MB) |
+| `EMAIL_PROVIDER`                                                                                                       | no          | `log` (default: nothing sent; dev prints reset links in the API log) or `resend`       |
+| `RESEND_API_KEY`, `EMAIL_FROM`                                                                                         | resend      | Resend API key (secret) and a sender on a domain verified with Resend                  |
+| `ADMIN_URL`                                                                                                            | no          | Admin address used in emailed links. Defaults to the first `ADMIN_ORIGIN`              |
 | `CARTFORGE_EDITION`                                                                                                    | no          | `self_hosted` (default) or `saas`. See `PLAN.md` §2a                                   |
 | `SIGNUP_ENABLED`                                                                                                       | no          | Public merchant sign-up. Defaults to `true` for `saas`, `false` for `self_hosted`      |
 | `PLATFORM_DOMAIN`                                                                                                      | no          | e.g. `myshops.com` → stores at `<handle>.myshops.com`. Needs wildcard DNS (below)      |
@@ -92,13 +95,14 @@ bucket; database rows reference files by key, so restore both to the same point 
 
 ## Routine tasks
 
-| Task                                   | How                                                                                                              |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Reset a user's password (demo)         | Change `SEED_PASSWORD`, redeploy (seed updates demo users)                                                       |
-| Revoke all sessions                    | Rotate `SESSION_SECRET`                                                                                          |
-| Check performance after schema changes | `RUN_PERF=1 pnpm --filter @cartforge/api exec vitest run test/perf` (see `PERFORMANCE.md`)                       |
-| Move or copy products between stores   | Platform admin: **All stores → Move products**. Or `apps/api/scripts/move-products.mjs` with both stores' logins |
-| Orphaned media                         | Media not attached to any product stays in the library; delete via admin or `DELETE /media/:id`                  |
+| Task                                   | How                                                                                                                                                   |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reset a user's password                | They use **Forgot password?** (needs `EMAIL_PROVIDER=resend`), or a platform admin opens **All stores → Password reset link** and sends them the link |
+| Reset the demo users' password         | Change `SEED_PASSWORD`, redeploy (seed updates demo users)                                                                                            |
+| Revoke all sessions                    | Rotate `SESSION_SECRET`                                                                                                                               |
+| Check performance after schema changes | `RUN_PERF=1 pnpm --filter @cartforge/api exec vitest run test/perf` (see `PERFORMANCE.md`)                                                            |
+| Move or copy products between stores   | Platform admin: **All stores → Move products**. Or `apps/api/scripts/move-products.mjs` with both stores' logins                                      |
+| Orphaned media                         | Media not attached to any product stays in the library; delete via admin or `DELETE /media/:id`                                                       |
 
 ## Security checklist before a real launch
 

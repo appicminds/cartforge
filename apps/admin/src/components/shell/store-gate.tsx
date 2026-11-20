@@ -6,7 +6,7 @@ import { Spinner } from "@cartforge/ui";
 import { useSession } from "@/lib/session";
 
 /** Pages that work without an open store. */
-const STORELESS = ["/admin/stores", "/admin/platform"];
+const STORELESS = ["/admin/stores", "/admin/platform", "/admin/account"];
 
 /**
  * Shopify-style: the admin always works inside one chosen store. Without one,

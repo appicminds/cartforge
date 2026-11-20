@@ -88,6 +88,19 @@ export const apiEnvSchema = z
     VERCEL_STOREFRONT_PROJECT: z.string().optional(),
     VERCEL_TEAM_ID: z.string().optional(),
 
+    // ── Email (password reset) ──
+    /** "log": no email is sent (development prints the link) · "resend": send through Resend. */
+    EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
+    RESEND_API_KEY: z.string().optional(),
+    /** Sender, e.g. "CartForge <no-reply@example.com>" (a domain verified with the provider). */
+    EMAIL_FROM: z.string().min(3).max(200).optional(),
+    /** Public admin URL used in emailed links. Defaults to the first ADMIN_ORIGIN. */
+    ADMIN_URL: z
+      .string()
+      .url()
+      .transform((v) => v.replace(/\/+$/, ""))
+      .optional(),
+
     // ── Storefront (Next 2) ──
     /** Public storefront URL (no trailing slash); used to build preview links. */
     STOREFRONT_URL: z
@@ -124,6 +137,10 @@ export const apiEnvSchema = z
     }
     if (env.STOREFRONT_REVALIDATE_URL)
       need("STOREFRONT_REVALIDATE_SECRET", "when STOREFRONT_REVALIDATE_URL is set");
+    if (env.EMAIL_PROVIDER === "resend") {
+      need("RESEND_API_KEY", "when EMAIL_PROVIDER=resend");
+      need("EMAIL_FROM", "when EMAIL_PROVIDER=resend");
+    }
     if (env.STORAGE_DRIVER === "vercel-blob")
       need("BLOB_READ_WRITE_TOKEN", "when STORAGE_DRIVER=vercel-blob");
   });

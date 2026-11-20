@@ -173,6 +173,17 @@ The checkout view lists what is still `missing` (`email`, `shipping_address`, `s
 | `GET /shipping-methods`                                                                 | store.read           | Flat-rate methods                                                           |
 | `POST /shipping-methods`, `PATCH /shipping-methods/:id`, `DELETE /shipping-methods/:id` | store.settings.write | Manage methods (`countries` empty = everywhere; optional `free_over_minor`) |
 
+## Passwords
+
+| Method & path                     | Auth           | Purpose                                                                                                        |
+| --------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/password`             | signed in      | `{ current_password, new_password }` → `204`; other sessions end. Wrong current → `422` on `current_password`  |
+| `POST /auth/password/forgot`      | public         | `{ email }` → always `202`. Emails a one-time link (1 hour) if the account exists; max 3 per hour per account  |
+| `POST /auth/password/reset`       | public         | `{ token, new_password }` → `204`; link used up, all sessions end. Bad/expired/used → `400 RESET_LINK_INVALID` |
+| `POST /platform/users/reset-link` | platform admin | `{ email }` → `{ email, url, expires_at }` to hand over (not emailed); audited. Not for platform admins        |
+
+New passwords: at least 12 characters, mixing letters with numbers or symbols.
+
 ## Platform: sign-up, stores, domains (P1)
 
 | Method & path                                 | Auth / permission         | Purpose                                                                                                                                                                                                                                                                                   |
