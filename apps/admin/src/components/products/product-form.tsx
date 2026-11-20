@@ -6,12 +6,16 @@ import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
 import { CATALOG_ERROR_CODES, PERMISSIONS, type ProductDetail } from "@cartforge/types";
 import { AdjustStockDialog } from "@/components/inventory/adjust-stock-dialog";
 import { MovementsDialog } from "@/components/inventory/movements-dialog";
 import { MediaGallery, type GalleryValue } from "./media-gallery";
 import { VariantsCard } from "./variants-card";
+import { ChipPicker } from "@/components/chip-picker";
+import { TagInput } from "@/components/tag-input";
+import { useCategories, useCollections, useDuplicateProduct } from "@/lib/catalog";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   Badge,
@@ -23,14 +27,19 @@ import {
   Field,
   Input,
   Label,
+  Dialog,
   Select,
   Skeleton,
+  Textarea,
+  useToast,
 } from "@cartforge/ui";
 import {
   DESCRIPTION_MAX,
   HANDLE_MAX,
   HANDLE_PATTERN,
   PRODUCT_STATUSES,
+  SEO_DESCRIPTION_RECOMMENDED,
+  SEO_TITLE_RECOMMENDED,
   PRODUCT_TYPES,
   TITLE_MAX,
   VENDOR_MAX,
@@ -87,6 +96,11 @@ const makeSchema = (currency: string) =>
       cost: moneyField(currency),
       taxable: z.boolean(),
       gallery: z.custom<GalleryValue>(),
+      category_ids: z.array(z.string()),
+      collection_ids: z.array(z.string()),
+      tags: z.array(z.string()),
+      seo_title: z.string().trim().max(255, "Must be 255 characters or fewer"),
+      seo_description: z.string().trim().max(500, "Must be 500 characters or fewer"),
       sku: z.string().trim().max(100, "Must be 100 characters or fewer"),
       barcode: z.string().trim().max(100, "Must be 100 characters or fewer"),
       inventory_tracking: z.boolean(),
@@ -134,6 +148,11 @@ const FIELDS = [
   "barcode",
   "threshold",
   "quantity",
+  "category_ids",
+  "collection_ids",
+  "tags",
+  "seo_title",
+  "seo_description",
 ] as const;
 
 /** Server field paths → form field names. */
@@ -175,6 +194,11 @@ export function toFormValues(p: ProductDetail | undefined, currency: string): Pr
     continue_selling: p?.variants[0]?.continue_selling ?? false,
     threshold: p?.variants[0]?.inventory.low_stock_threshold?.toString() ?? "",
     quantity: "",
+    category_ids: p?.categories.map((c) => c.id) ?? [],
+    collection_ids: p?.collections.map((c) => c.id) ?? [],
+    tags: p?.tags ?? [],
+    seo_title: p?.seo_title ?? "",
+    seo_description: p?.seo_description ?? "",
     // Primary first: the UI treats the first image as primary.
     gallery: {
       items: [...(p?.media ?? [])]
@@ -257,6 +281,20 @@ function ProductFormInner({
 
   useUnsavedChangesGuard(isDirty && !isSubmitting);
   const canAdjust = can(PERMISSIONS.INVENTORY_ADJUST);
+  const categories = useCategories();
+  const collections = useCollections();
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [seoTitle, seoDescription, handleValue, descriptionHtml] = form.watch([
+    "seo_title",
+    "seo_description",
+    "handle",
+    "description_html",
+  ]);
+  const plainDescription = descriptionHtml
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -321,6 +359,11 @@ function ProductFormInner({
           cost_minor: toMinor(v.cost),
         }),
         ...(media.length && { media, primary_media_id }),
+        ...(v.category_ids.length && { category_ids: v.category_ids }),
+        ...(v.collection_ids.length && { collection_ids: v.collection_ids }),
+        ...(v.tags.length && { tags: v.tags }),
+        ...(v.seo_title && { seo_title: v.seo_title }),
+        ...(v.seo_description && { seo_description: v.seo_description }),
       });
       // On success the page navigates away; keep the form as-is until then.
       if (!res.ok) handleResult(res);
@@ -345,6 +388,11 @@ function ProductFormInner({
       if (dirtyFields.threshold)
         body.low_stock_threshold = v.threshold ? Number(v.threshold) : null;
     }
+    if (dirtyFields.category_ids) body.category_ids = v.category_ids;
+    if (dirtyFields.collection_ids) body.collection_ids = v.collection_ids;
+    if (dirtyFields.tags) body.tags = v.tags;
+    if (dirtyFields.seo_title) body.seo_title = v.seo_title || null;
+    if (dirtyFields.seo_description) body.seo_description = v.seo_description || null;
     if (dirtyFields.gallery) {
       body.media = media;
       body.primary_media_id = primary_media_id;
@@ -407,10 +455,24 @@ function ProductFormInner({
             )}
           </div>
         </div>
-        {product && canDelete && onDelete && (
-          <Button variant="secondary" onClick={onDelete} className="text-danger">
-            Delete
-          </Button>
+        {product && (
+          <div className="flex gap-2">
+            {canWrite && (
+              <Button
+                variant="secondary"
+                onClick={() => setDuplicateOpen(true)}
+                disabled={isDirty}
+                title={isDirty ? "Save your changes first" : undefined}
+              >
+                <Copy aria-hidden /> Duplicate
+              </Button>
+            )}
+            {canDelete && onDelete && (
+              <Button variant="secondary" onClick={onDelete} className="text-danger">
+                Delete
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -697,9 +759,56 @@ function ProductFormInner({
           <Card>
             <CardHeader
               title="Search engine listing"
-              description="How this product's address appears on your storefront."
+              description="How this product appears in search results and when shared."
             />
-            <CardBody>
+            <CardBody className="flex flex-col gap-4">
+              <SearchPreview
+                title={seoTitle || title || "Product title"}
+                handle={handleValue || (isNew ? slugify(title) : product.handle) || "product"}
+                description={seoDescription || plainDescription}
+              />
+              <Field
+                label="Page title"
+                error={errors.seo_title?.message}
+                hint={
+                  <Counter
+                    n={seoTitle.length}
+                    recommended={SEO_TITLE_RECOMMENDED}
+                    fallback="Defaults to the product title."
+                  />
+                }
+              >
+                {({ id, describedBy, invalid }) => (
+                  <Input
+                    id={id}
+                    aria-describedby={describedBy}
+                    invalid={invalid}
+                    placeholder={title}
+                    {...form.register("seo_title")}
+                  />
+                )}
+              </Field>
+              <Field
+                label="Meta description"
+                error={errors.seo_description?.message}
+                hint={
+                  <Counter
+                    n={seoDescription.length}
+                    recommended={SEO_DESCRIPTION_RECOMMENDED}
+                    fallback="Defaults to the start of the description."
+                  />
+                }
+              >
+                {({ id, describedBy, invalid }) => (
+                  <Textarea
+                    id={id}
+                    aria-describedby={describedBy}
+                    invalid={invalid}
+                    className="min-h-16"
+                    {...form.register("seo_description")}
+                  />
+                )}
+              </Field>
               <Field
                 label="URL handle"
                 error={errors.handle?.message}
@@ -786,6 +895,52 @@ function ProductFormInner({
                   />
                 )}
               </Field>
+              <Controller
+                control={form.control}
+                name="category_ids"
+                render={({ field }) => (
+                  <ChipPicker
+                    label="Categories"
+                    emptyText="No categories"
+                    addLabel={field.value.length ? "Edit" : "Add"}
+                    options={(categories.data ?? []).map((c) => ({
+                      id: c.id,
+                      label: c.name,
+                      depth: c.depth,
+                      hint: c.status === "archived" ? "Archived" : undefined,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={!canWrite || isSubmitting}
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="collection_ids"
+                render={({ field }) => (
+                  <ChipPicker
+                    label="Collections"
+                    emptyText="Not in any collection"
+                    addLabel={field.value.length ? "Edit" : "Add"}
+                    options={(collections.data?.data ?? []).map((c) => ({
+                      id: c.id,
+                      label: c.title,
+                      hint: c.status === "active" ? undefined : c.status,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={!canWrite || isSubmitting}
+                  />
+                )}
+              />
+              <Controller
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                  <TagInput label="Tags" values={field.value} onChange={field.onChange} />
+                )}
+              />
             </CardBody>
           </Card>
 
@@ -870,6 +1025,14 @@ function ProductFormInner({
             onClose={() => setHistoryOpen(false)}
           />
         </>
+      )}
+
+      {product && (
+        <DuplicateDialog
+          product={product}
+          open={duplicateOpen}
+          onClose={() => setDuplicateOpen(false)}
+        />
       )}
 
       <ConfirmDialog
@@ -964,5 +1127,132 @@ function ProfitStat({
         </span>
       </div>
     </>
+  );
+}
+
+function Counter({
+  n,
+  recommended,
+  fallback,
+}: {
+  n: number;
+  recommended: number;
+  fallback: string;
+}) {
+  if (!n) return <>{fallback}</>;
+  return (
+    <span className={n > recommended ? "text-warning" : undefined}>
+      {n} of {recommended} characters recommended
+      {n > recommended ? " — search engines may cut it off" : ""}
+    </span>
+  );
+}
+
+/** Approximation of a search result listing (PRD §8.4 H). */
+function SearchPreview({
+  title,
+  handle,
+  description,
+}: {
+  title: string;
+  handle: string;
+  description: string;
+}) {
+  const host = typeof window !== "undefined" ? window.location.host : "your-store.com";
+  return (
+    <div
+      className="rounded-lg border border-border bg-surface-sunken/50 p-3"
+      aria-label="Search result preview"
+      role="group"
+    >
+      <p className="truncate text-xs text-fg-muted">
+        {host} › products › {handle}
+      </p>
+      <p className="truncate text-base text-info">{title.slice(0, 70)}</p>
+      <p className="line-clamp-2 text-xs text-fg-muted">
+        {description || "Add a description to show a summary here."}
+      </p>
+    </div>
+  );
+}
+
+function DuplicateDialog({
+  product,
+  open,
+  onClose,
+}: {
+  product: ProductDetail;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const duplicate = useDuplicateProduct();
+  const [title, setTitle] = useState(`Copy of ${product.title}`);
+  const [media, setMedia] = useState(true);
+  useEffect(() => {
+    if (open) {
+      setTitle(`Copy of ${product.title}`.slice(0, 200));
+      setMedia(true);
+    }
+  }, [open, product.title]);
+  return (
+    <Dialog
+      open={open}
+      onClose={() => !duplicate.isPending && onClose()}
+      title="Duplicate product"
+      description="The copy starts as a draft with no SKUs and no stock."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={duplicate.isPending}>
+            Cancel
+          </Button>
+          <Button
+            loading={duplicate.isPending}
+            onClick={async () => {
+              try {
+                const copy = await duplicate.mutateAsync({
+                  id: product.id,
+                  title: title.trim() || undefined,
+                  include_media: media,
+                });
+                toast.success("Product duplicated");
+                onClose();
+                router.push(`/admin/products/${copy.id}`);
+              } catch (err) {
+                toast.error(
+                  err instanceof ApiError ? err.message : "Couldn't duplicate the product.",
+                );
+              }
+            }}
+          >
+            Duplicate
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Field label="Title">
+          {({ id }) => (
+            <Input
+              id={id}
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+            />
+          )}
+        </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4 accent-primary"
+            checked={media}
+            onChange={(e) => setMedia(e.target.checked)}
+          />
+          Include images
+        </label>
+      </div>
+    </Dialog>
   );
 }

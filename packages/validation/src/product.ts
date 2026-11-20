@@ -85,6 +85,33 @@ const pricingFields = {
   taxable: z.boolean().optional(),
 };
 
+const uuidList = (max: number) =>
+  z
+    .array(uuidSchema)
+    .max(max)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "Each item can only be listed once",
+    });
+
+/** Categories, collections, tags and SEO (PRD §8.4 G–H). Lists replace current values. */
+const organizationFields = {
+  category_ids: uuidList(50).optional(),
+  collection_ids: uuidList(100).optional(),
+  tags: z.array(z.string().trim().min(1).max(80)).max(50, "Up to 50 tags").optional(),
+  seo_title: z
+    .string()
+    .trim()
+    .max(255)
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null)),
+  seo_description: z
+    .string()
+    .trim()
+    .max(500)
+    .nullish()
+    .transform((v) => (v === undefined ? undefined : v || null)),
+};
+
 /** Default-variant inventory fields for simple products (PRD §8.4 D). */
 const inventoryFields = {
   sku: z
@@ -132,6 +159,7 @@ export const productCreateSchema = z
     handle: handleSchema.optional(),
     ...pricingFields,
     ...inventoryFields,
+    ...organizationFields,
     /** Starting stock at the default location; recorded as an "initial" movement. */
     inventory_quantity: z.number().int().min(0).max(MAX_STOCK).optional(),
     media: productMediaInputSchema.optional(),
@@ -151,6 +179,7 @@ export const productUpdateSchema = z
     handle: handleSchema.optional(),
     ...pricingFields,
     ...inventoryFields,
+    ...organizationFields,
     /** Replaces the product's image list (order = display order). */
     media: productMediaInputSchema.optional(),
     primary_media_id: uuidSchema.nullish(),
@@ -190,6 +219,14 @@ const csvEnum = <T extends readonly [string, ...string[]]>(values: T) =>
     });
 
 export const productListQuerySchema = paginationQuerySchema.extend({
+  category_id: uuidSchema.optional(),
+  collection_id: uuidSchema.optional(),
+  tag: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .transform((v) => v || undefined),
   q: z
     .string()
     .trim()

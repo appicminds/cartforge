@@ -6,7 +6,7 @@ const RUN = `mp${Date.now().toString(36)}`;
 
 async function newProduct(page: Page, title: string) {
   await page.goto("/admin/products/new");
-  await page.getByLabel("Title").fill(title);
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill(title);
 }
 
 const gallery = (page: Page) => page.getByRole("list", { name: "Product images" });

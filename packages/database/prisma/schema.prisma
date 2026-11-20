@@ -79,6 +79,9 @@ model Store {
   variants    ProductVariant[]
   media       MediaAsset[]
   inventory_locations InventoryLocation[]
+  categories          Category[]
+  collections         Collection[]
+  tags                ProductTag[]
 
   @@map("stores")
 }
@@ -192,6 +195,9 @@ model Product {
   variants ProductVariant[]
   media    ProductMedia[]
   options  ProductOption[]
+  categories  ProductCategory[]
+  collections CollectionProduct[]
+  tags        ProductTagAssignment[]
 
   @@index([store_id, status, updated_at])
   @@index([store_id, updated_at])
@@ -452,4 +458,176 @@ model StockMovement {
   @@index([variant_id, created_at])
   @@index([store_id, created_at])
   @@map("stock_movements")
+}
+
+// ───────────────────────────── Organization (PRD §8.6) ─────────────────────────────
+
+enum CategoryStatus {
+  active
+  archived
+}
+
+/// Parent-child taxonomy. Depth limit and cycle prevention are enforced by the API.
+model Category {
+  id               String         @id @default(uuid()) @db.Uuid
+  store_id         String         @db.Uuid
+  parent_id        String?        @db.Uuid
+  name             String         @db.VarChar(120)
+  handle           String         @db.VarChar(255)
+  description_html String         @default("")
+  image_asset_id   String?        @db.Uuid
+  seo_title        String?        @db.VarChar(255)
+  seo_description  String?        @db.VarChar(500)
+  status           CategoryStatus @default(active)
+  sort_order       Int            @default(0)
+  created_at       DateTime       @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime       @updatedAt @db.Timestamptz(3)
+
+  store    Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  parent   Category?         @relation("CategoryTree", fields: [parent_id], references: [id], onDelete: Restrict)
+  children Category[]        @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@unique([store_id, handle])
+  @@index([store_id, parent_id, sort_order])
+  @@map("categories")
+}
+
+model ProductCategory {
+  product_id  String   @db.Uuid
+  category_id String   @db.Uuid
+  store_id    String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+
+  product  Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  @@id([product_id, category_id])
+  @@index([category_id])
+  @@map("product_categories")
+}
+
+enum CollectionType {
+  manual
+  /// Reserved: rule-based collections are out of the first release (PLAN.md §3).
+  automated
+}
+
+enum CollectionStatus {
+  draft
+  active
+  archived
+}
+
+/// How a collection orders its products on the storefront.
+enum CollectionSort {
+  manual
+  title_asc
+  title_desc
+  price_asc
+  price_desc
+  created_desc
+  created_asc
+}
+
+model Collection {
+  id               String           @id @default(uuid()) @db.Uuid
+  store_id         String           @db.Uuid
+  title            String           @db.VarChar(200)
+  handle           String           @db.VarChar(255)
+  description_html String           @default("")
+  image_asset_id   String?          @db.Uuid
+  collection_type  CollectionType   @default(manual)
+  rules_json       Json?
+  status           CollectionStatus @default(draft)
+  sort_order       CollectionSort   @default(manual)
+  seo_title        String?          @db.VarChar(255)
+  seo_description  String?          @db.VarChar(500)
+  created_by       String?          @db.Uuid
+  updated_by       String?          @db.Uuid
+  created_at       DateTime         @default(now()) @db.Timestamptz(3)
+  updated_at       DateTime         @updatedAt @db.Timestamptz(3)
+
+  store    Store               @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  products CollectionProduct[]
+
+  @@unique([store_id, handle])
+  @@index([store_id, status])
+  @@map("collections")
+}
+
+model CollectionProduct {
+  collection_id String   @db.Uuid
+  product_id    String   @db.Uuid
+  store_id      String   @db.Uuid
+  position      Int
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+
+  collection Collection @relation(fields: [collection_id], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@id([collection_id, product_id])
+  @@index([product_id])
+  @@index([collection_id, position])
+  @@map("collection_products")
+}
+
+model ProductTag {
+  id              String   @id @default(uuid()) @db.Uuid
+  store_id        String   @db.Uuid
+  name            String   @db.VarChar(80)
+  /// lower-cased, trimmed, inner whitespace collapsed
+  normalized_name String   @db.VarChar(80)
+  created_at      DateTime @default(now()) @db.Timestamptz(3)
+
+  store       Store                  @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  assignments ProductTagAssignment[]
+
+  @@unique([store_id, normalized_name])
+  @@map("product_tags")
+}
+
+model ProductTagAssignment {
+  product_id String @db.Uuid
+  tag_id     String @db.Uuid
+
+  product Product    @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  tag     ProductTag @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([product_id, tag_id])
+  @@index([tag_id])
+  @@map("product_tag_assignments")
+}
+
+/// Created when a published product's handle changes (PRD §8.4 A), so old links keep working.
+model UrlRedirect {
+  id            String   @id @default(uuid()) @db.Uuid
+  store_id      String   @db.Uuid
+  path_from     String   @db.VarChar(500)
+  path_to       String   @db.VarChar(500)
+  resource_type String   @db.VarChar(40)
+  resource_id   String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([store_id, path_from])
+  @@index([store_id, resource_type, resource_id])
+  @@map("url_redirects")
+}
+
+/// Transactional outbox (BE-010): written in the same transaction as the change;
+/// a worker delivers webhooks and invalidates storefront caches (PRD §8.8 rule 10).
+model OutboxEvent {
+  id            String    @id @default(uuid()) @db.Uuid
+  store_id      String    @db.Uuid
+  event_type    String    @db.VarChar(80)
+  resource_type String    @db.VarChar(40)
+  resource_id   String    @db.Uuid
+  payload       Json      @default("{}")
+  created_at    DateTime  @default(now()) @db.Timestamptz(3)
+  processed_at  DateTime? @db.Timestamptz(3)
+  attempts      Int       @default(0)
+
+  @@index([processed_at, created_at])
+  @@index([store_id, created_at])
+  @@map("outbox_events")
 }

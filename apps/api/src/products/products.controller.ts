@@ -16,6 +16,7 @@ import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger
 import type { Request } from "express";
 import {
   PERMISSIONS,
+  type BulkResult,
   type DetailResponse,
   type ListResponse,
   type ProductDetail,
@@ -25,11 +26,15 @@ import {
 import {
   productCreateSchema,
   productListQuerySchema,
+  productBulkSchema,
+  productDuplicateSchema,
   productOptionsApplySchema,
   productOptionsPreviewSchema,
   productUpdateSchema,
   variantBulkUpdateSchema,
+  type ProductBulk,
   type ProductCreate,
+  type ProductDuplicate,
   type ProductListQuery,
   type ProductOptionsApply,
   type ProductUpdate,
@@ -201,5 +206,90 @@ export class ProductsController {
       request_id: String(req.id),
     });
     return { data: await this.products.get(store.store_id, id), request_id: String(req.id) };
+  }
+
+  @Post("bulk")
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
+  @ApiOperation({
+    summary: "Bulk action on up to 100 products",
+    description:
+      "publish|draft|archive need products.publish; delete needs products.delete. Returns per-product success/failure.",
+  })
+  async bulk(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Body(new ZodValidationPipe(productBulkSchema)) body: ProductBulk,
+    @Req() req: Request,
+  ): Promise<DetailResponse<BulkResult>> {
+    const needs =
+      body.action === "delete"
+        ? PERMISSIONS.PRODUCTS_DELETE
+        : ["publish", "draft", "archive"].includes(body.action)
+          ? PERMISSIONS.PRODUCTS_PUBLISH
+          : null;
+    if (needs && !store.permissions.has(needs)) throw AppException.forbidden();
+    return {
+      data: await this.products.bulk(body, this.ctx(auth, store, req)),
+      request_id: String(req.id),
+    };
+  }
+
+  @Post(":id/duplicate")
+  @RequirePermissions(PERMISSIONS.PRODUCTS_WRITE)
+  @ApiOperation({
+    summary: "Duplicate a product as a new Draft (no SKUs, zero stock, images by reference)",
+  })
+  async duplicate(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Body(new ZodValidationPipe(productDuplicateSchema)) body: ProductDuplicate,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    return {
+      data: await this.products.duplicate(id, body, this.ctx(auth, store, req)),
+      request_id: String(req.id),
+    };
+  }
+
+  @Post(":id/publish")
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRODUCTS_PUBLISH)
+  @ApiOperation({ summary: "Validate and publish (422 PRODUCT_NOT_PUBLISHABLE lists what to fix)" })
+  async publish(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    return {
+      data: await this.products.update(
+        id,
+        this.products.statusChange("publish"),
+        this.ctx(auth, store, req),
+      ),
+      request_id: String(req.id),
+    };
+  }
+
+  @Post(":id/archive")
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.PRODUCTS_PUBLISH)
+  @ApiOperation({ summary: "Archive (hidden from the storefront; order history unaffected)" })
+  async archive(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Param("id", productId) id: string,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ProductDetail>> {
+    return {
+      data: await this.products.update(
+        id,
+        this.products.statusChange("archive"),
+        this.ctx(auth, store, req),
+      ),
+      request_id: String(req.id),
+    };
   }
 }

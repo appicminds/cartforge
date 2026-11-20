@@ -118,7 +118,12 @@ export function MediaGallery({
     const have = new Set(current.items.map((i) => i.media_asset_id));
     const fresh = assets.filter((a) => !have.has(a.media_asset_id));
     if (fresh.length < assets.length) toast.success("That image is already on this product");
-    if (fresh.length) onChange({ ...current, items: [...current.items, ...fresh] });
+    if (!fresh.length) return;
+    const next = { ...current, items: [...current.items, ...fresh] };
+    // Update the ref now: another upload may finish before React re-renders, and
+    // it must merge into this value rather than the stale one (lost-image race).
+    latest.current = next;
+    onChange(next);
   };
 
   const start = (key: string, file: File) => {

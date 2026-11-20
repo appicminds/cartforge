@@ -9,7 +9,7 @@ async function createSimple(
   fields: { price?: string; sku?: string; qty?: string; threshold?: string },
 ) {
   await page.goto("/admin/products/new");
-  await page.getByLabel("Title").fill(title);
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill(title);
   if (fields.price) await page.getByLabel("Price", { exact: true }).fill(fields.price);
   if (fields.sku) await page.getByLabel("SKU (stock keeping unit)").fill(fields.sku);
   if (fields.qty) await page.getByLabel("Quantity", { exact: true }).fill(fields.qty);

@@ -1,5 +1,8 @@
 import type {
+  Category,
+  Collection,
   InventoryLevel,
+  ProductTag,
   MediaAsset,
   MediaDerivative,
   Product,
@@ -104,11 +107,22 @@ export function toVariant(
   };
 }
 
+export type OrganizationRows = {
+  categories: { category: Category }[];
+  collections: { collection: Collection }[];
+  tags: { tag: ProductTag }[];
+};
+
 export function toDetail(
-  p: Product & { variants: VariantRow[]; media: MediaRow[]; options: OptionRow[] },
+  p: Product & {
+    variants: VariantRow[];
+    media: MediaRow[];
+    options: OptionRow[];
+  } & OrganizationRows,
   currency: string,
   locationId: string,
   actors: Map<string, ActorSummary>,
+  categoryPaths: Map<string, string>,
 ): ProductDetail {
   const def = p.variants[0];
   const simple = p.product_type === "simple";
@@ -127,6 +141,20 @@ export function toDetail(
     compare_at_minor: simple ? money(def?.compare_at_minor) : null,
     cost_minor: simple ? money(def?.cost_minor) : null,
     media: p.media.map(toMediaItem),
+    seo_title: p.seo_title,
+    seo_description: p.seo_description,
+    categories: p.categories
+      .map((c) => ({
+        id: c.category.id,
+        name: c.category.name,
+        handle: c.category.handle,
+        path: categoryPaths.get(c.category.id) ?? c.category.name,
+      }))
+      .sort((a, b) => a.path.localeCompare(b.path)),
+    collections: p.collections
+      .map((c) => ({ id: c.collection.id, title: c.collection.title, handle: c.collection.handle }))
+      .sort((a, b) => a.title.localeCompare(b.title)),
+    tags: p.tags.map((t) => t.tag.name).sort((a, b) => a.localeCompare(b)),
     options: [...p.options]
       .sort((a, b) => a.position - b.position)
       .map((o) => ({

@@ -15,6 +15,8 @@ export interface ProductListParams {
   q?: string;
   status?: string;
   product_type?: string;
+  category_id?: string;
+  collection_id?: string;
   sort: "title" | "created_at" | "updated_at" | "status";
   order: "asc" | "desc";
   page: number;

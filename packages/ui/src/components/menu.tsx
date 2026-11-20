@@ -20,11 +20,14 @@ export function Menu({
   label,
   items,
   align = "end",
+  triggerClassName,
 }: {
   trigger: ReactNode;
   label: string;
   items: MenuItem[];
   align?: "start" | "end";
+  /** Extra classes for the trigger button (e.g. on dark surfaces). */
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -88,7 +91,10 @@ export function Menu({
             setOpen(true);
           }
         }}
-        className="inline-flex size-8 items-center justify-center rounded-md text-fg-muted hover:bg-surface-sunken hover:text-fg [&_svg]:size-4"
+        className={cn(
+          "inline-flex size-8 items-center justify-center rounded-md text-fg-muted hover:bg-surface-sunken hover:text-fg [&_svg]:size-4",
+          triggerClassName,
+        )}
       >
         {trigger}
       </button>

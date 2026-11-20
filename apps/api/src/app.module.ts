@@ -9,10 +9,13 @@ import { ConfigModule } from "./config/config.module";
 import { API_ENV, type ApiEnv } from "./config/env";
 import { HealthModule } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.service";
+import { CatalogModule } from "./catalog/catalog.module";
+import { OutboxModule } from "./common/outbox.service";
 import { InventoryModule } from "./inventory/inventory.module";
 import { MediaModule } from "./media/media.module";
 import { ProductsModule } from "./products/products.module";
 import { StorageModule } from "./storage/storage.module";
+import { StorefrontModule } from "./storefront/storefront.module";
 import { RedisModule } from "./redis/redis.service";
 import { StoresModule } from "./stores/stores.module";
 
@@ -32,6 +35,9 @@ import { StoresModule } from "./stores/stores.module";
     StorageModule,
     MediaModule,
     InventoryModule,
+    OutboxModule,
+    CatalogModule,
+    StorefrontModule,
     ProductsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

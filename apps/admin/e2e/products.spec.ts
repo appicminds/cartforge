@@ -17,7 +17,7 @@ async function createProduct(
   opts: { vendor?: string; handle?: string } = {},
 ) {
   await page.goto("/admin/products/new");
-  await page.getByLabel("Title").fill(title);
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill(title);
   if (opts.vendor) await page.getByLabel("Vendor / brand").fill(opts.vendor);
   if (opts.handle) await page.getByLabel("URL handle", { exact: true }).fill(opts.handle);
   await page.getByRole("button", { name: "Save product" }).click();
@@ -27,7 +27,7 @@ async function createProduct(
 async function waitForProductPage(page: Page) {
   await expect(page.getByText("Product created")).toBeVisible();
   await page.waitForURL(/\/admin\/products\/[0-9a-f-]{36}$/);
-  await expect(page.getByLabel("Title")).toBeEnabled();
+  await expect(page.getByRole("textbox", { name: "Title", exact: true })).toBeEnabled();
 }
 
 test.describe("Products — Sprint 1 exit gate", () => {
@@ -40,13 +40,13 @@ test.describe("Products — Sprint 1 exit gate", () => {
 
     await page.getByRole("link", { name: "Add product" }).first().click();
     await expect(page.getByRole("heading", { name: "Add product" })).toBeVisible();
-    await page.getByLabel("Title").fill(title);
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill(title);
     // Placeholder previews the generated handle.
     await expect(page.getByLabel("URL handle", { exact: true })).toHaveAttribute(
       "placeholder",
       `linen-apron-${RUN.toLowerCase()}`,
     );
-    const editor = page.getByRole("textbox", { name: "Description" });
+    const editor = page.getByRole("textbox", { name: "Description", exact: true });
     await editor.click();
     await page.keyboard.type("Heavyweight linen. ");
     await page.getByRole("button", { name: "Bold" }).click();
@@ -61,7 +61,7 @@ test.describe("Products — Sprint 1 exit gate", () => {
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(title);
 
     await page.reload();
-    await expect(page.getByLabel("Title")).toHaveValue(title);
+    await expect(page.getByRole("textbox", { name: "Title", exact: true })).toHaveValue(title);
     await expect(editor.locator("strong")).toHaveText("Machine washable.");
     await expect(page.getByLabel("URL handle", { exact: true })).toHaveValue(
       `linen-apron-${RUN.toLowerCase()}`,
@@ -77,13 +77,15 @@ test.describe("Products — Sprint 1 exit gate", () => {
 
     // Open, edit, save, refresh.
     await row.getByRole("link", { name: title }).click();
-    await page.getByLabel("Title").fill(`${title} v2`);
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill(`${title} v2`);
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Product saved")).toBeVisible();
     await expect(page.getByText("Unsaved changes")).toBeHidden();
     await page.reload();
-    await expect(page.getByLabel("Title")).toHaveValue(`${title} v2`);
+    await expect(page.getByRole("textbox", { name: "Title", exact: true })).toHaveValue(
+      `${title} v2`,
+    );
 
     // Returning to the list preserves the previous search.
     await page.getByRole("link", { name: "Back to products" }).click();
@@ -97,12 +99,12 @@ test.describe("Products — Sprint 1 exit gate", () => {
     await waitForProductPage(page);
 
     await page.goto("/admin/products/new");
-    await page.getByLabel("Title").fill("   ");
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill("   ");
     await page.getByLabel("URL handle", { exact: true }).fill(`dup-${RUN.toLowerCase()}`);
     await page.getByRole("button", { name: "Save product" }).click();
     await expect(page.getByText("This field is required")).toBeVisible();
 
-    await page.getByLabel("Title").fill(`Handle Thief ${RUN}`);
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill(`Handle Thief ${RUN}`);
     await page.getByRole("button", { name: "Save product" }).click();
     await expect(
       page.getByText(`The handle "dup-${RUN.toLowerCase()}" is already in use.`),
@@ -142,17 +144,21 @@ test.describe("Products — Sprint 1 exit gate", () => {
     await signIn(page, "catalog@cartforge.test");
     await createProduct(page, `Guarded ${RUN}`);
     await waitForProductPage(page);
-    await page.getByLabel("Title").fill("Changed but not saved");
+    await page.getByRole("textbox", { name: "Title", exact: true }).fill("Changed but not saved");
 
     page.once("dialog", (d) => d.dismiss());
     await page
       .getByRole("navigation", { name: "Main" })
       .getByRole("link", { name: "Home" })
       .click();
-    await expect(page.getByLabel("Title")).toHaveValue("Changed but not saved");
+    await expect(page.getByRole("textbox", { name: "Title", exact: true })).toHaveValue(
+      "Changed but not saved",
+    );
 
     await page.getByRole("button", { name: "Discard" }).click();
-    await expect(page.getByLabel("Title")).toHaveValue(`Guarded ${RUN}`);
+    await expect(page.getByRole("textbox", { name: "Title", exact: true })).toHaveValue(
+      `Guarded ${RUN}`,
+    );
     await page
       .getByRole("navigation", { name: "Main" })
       .getByRole("link", { name: "Home" })
@@ -192,7 +198,9 @@ test.describe("Products — list states and permissions", () => {
       .click();
     await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
 
-    await page.getByLabel("Title").fill(`${title} saved by keyboard`);
+    await page
+      .getByRole("textbox", { name: "Title", exact: true })
+      .fill(`${title} saved by keyboard`);
     await expect(page.getByRole("region", { name: "Save changes" })).toBeVisible();
     await page.keyboard.press("ControlOrMeta+s");
     await expect(page.getByText("Product saved")).toBeVisible();
@@ -232,7 +240,7 @@ test.describe("Products — list states and permissions", () => {
     await expect(page).toHaveURL(/status=active/);
     await page.getByRole("button", { name: "Product" }).click();
     await expect(page).toHaveURL(/sort=title/);
-    await expect(page.getByRole("columnheader", { name: "Product" })).toHaveAttribute(
+    await expect(page.getByRole("columnheader", { name: "Product", exact: true })).toHaveAttribute(
       "aria-sort",
       "ascending",
     );
@@ -253,7 +261,7 @@ test.describe("Products — list states and permissions", () => {
 
     const first = page.getByRole("row").nth(1).getByRole("link").first();
     await first.click();
-    await expect(page.getByLabel("Title")).toBeDisabled();
+    await expect(page.getByRole("textbox", { name: "Title", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
 

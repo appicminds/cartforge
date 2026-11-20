@@ -1,3 +1,5 @@
+import type { FieldError } from "./api.js";
+
 /** Catalog API contracts. Admin-facing shapes — never returned by storefront endpoints. */
 
 export type ProductStatus = "draft" | "active" | "archived";
@@ -165,6 +167,11 @@ export interface ProductDetail {
   compare_at_minor: number | null;
   cost_minor: number | null;
   media: ProductMediaItem[];
+  seo_title: string | null;
+  seo_description: string | null;
+  categories: { id: string; name: string; handle: string; path: string }[];
+  collections: { id: string; title: string; handle: string }[];
+  tags: string[];
   options: ProductOptionSummary[];
   variants: ProductVariantSummary[];
   created_at: string;
@@ -186,6 +193,123 @@ export const CATALOG_ERROR_CODES = {
   SKU_TAKEN: "SKU_TAKEN",
   VARIANT_REMOVAL_REQUIRES_CONFIRMATION: "VARIANT_REMOVAL_REQUIRES_CONFIRMATION",
   VARIANT_NOT_FOUND: "VARIANT_NOT_FOUND",
+  CATEGORY_NOT_FOUND: "CATEGORY_NOT_FOUND",
+  CATEGORY_HANDLE_TAKEN: "CATEGORY_HANDLE_TAKEN",
+  CATEGORY_DEPTH_EXCEEDED: "CATEGORY_DEPTH_EXCEEDED",
+  CATEGORY_CYCLE: "CATEGORY_CYCLE",
+  CATEGORY_HAS_CHILDREN: "CATEGORY_HAS_CHILDREN",
+  CATEGORY_HAS_PRODUCTS: "CATEGORY_HAS_PRODUCTS",
+  COLLECTION_NOT_FOUND: "COLLECTION_NOT_FOUND",
+  COLLECTION_HANDLE_TAKEN: "COLLECTION_HANDLE_TAKEN",
   INVENTORY_NOT_TRACKED: "INVENTORY_NOT_TRACKED",
   INVENTORY_NO_CHANGE: "INVENTORY_NO_CHANGE",
 } as const;
+
+// ───────────── Organization ─────────────
+
+export interface CategorySummary {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  handle: string;
+  description_html: string;
+  status: "active" | "archived";
+  sort_order: number;
+  /** 0 = top level */
+  depth: number;
+  /** "Apparel › Tops › Tees" */
+  path: string;
+  product_count: number;
+  child_count: number;
+  seo_title: string | null;
+  seo_description: string | null;
+  updated_at: string;
+}
+
+export type CollectionStatus = "draft" | "active" | "archived";
+export type CollectionSortOrder =
+  | "manual"
+  | "title_asc"
+  | "title_desc"
+  | "price_asc"
+  | "price_desc"
+  | "created_desc"
+  | "created_asc";
+
+export interface CollectionSummary {
+  id: string;
+  title: string;
+  handle: string;
+  description_html: string;
+  status: CollectionStatus;
+  sort_order: CollectionSortOrder;
+  collection_type: "manual" | "automated";
+  product_count: number;
+  seo_title: string | null;
+  seo_description: string | null;
+  published_handle_locked: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollectionProductItem {
+  id: string;
+  title: string;
+  handle: string;
+  status: ProductStatus;
+  thumbnail_url: string | null;
+  price_minor: number | null;
+  position: number;
+}
+
+export interface CollectionDetail extends CollectionSummary {
+  products: CollectionProductItem[];
+}
+
+export interface BulkResult {
+  action: string;
+  succeeded: string[];
+  failed: { id: string; title: string; errors: FieldError[] }[];
+}
+
+// ───────────── Storefront (public, no internal fields) ─────────────
+
+export interface StorefrontImage {
+  url: string;
+  thumb_url: string | null;
+  medium_url: string | null;
+  large_url: string | null;
+  alt: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+export interface StorefrontVariant {
+  id: string;
+  title: string;
+  options: VariantOptionValue[];
+  price_minor: number | null;
+  compare_at_minor: number | null;
+  /** In stock, untracked, or allowed to oversell. Exact stock counts are never exposed. */
+  available: boolean;
+  image_index: number | null;
+}
+
+export interface StorefrontProduct {
+  id: string;
+  handle: string;
+  title: string;
+  description_html: string;
+  vendor: string | null;
+  currency: string;
+  price_min_minor: number | null;
+  price_max_minor: number | null;
+  compare_at_min_minor: number | null;
+  available: boolean;
+  images: StorefrontImage[];
+  options: { name: string; values: string[] }[];
+  variants: StorefrontVariant[];
+  tags: string[];
+  seo: { title: string; description: string };
+  published_at: string | null;
+}

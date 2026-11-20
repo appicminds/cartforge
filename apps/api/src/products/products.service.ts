@@ -4,18 +4,26 @@ import {
   CATALOG_ERROR_CODES,
   ERROR_CODES,
   type ActorSummary,
+  type BulkResult,
   type FieldError,
   type ListResponse,
   type ProductDetail,
   type ProductListItem,
 } from "@cartforge/types";
 import {
+  normalizeTag,
   slugify,
+  type ProductBulk,
+  type ProductDuplicate,
   type ProductCreate,
   type ProductListQuery,
   type ProductUpdate,
 } from "@cartforge/validation";
 import { AuditService } from "../audit/audit.service";
+import { CategoriesService } from "../catalog/categories.service";
+import { CollectionsService } from "../catalog/collections.service";
+import { recordRedirect } from "../catalog/redirects";
+import { OutboxService } from "../common/outbox.service";
 import { AppException } from "../common/app-exception";
 import { sanitizeRichText } from "../common/sanitize-html";
 import { InventoryService } from "../inventory/inventory.service";
@@ -64,6 +72,14 @@ const INVENTORY_FIELDS = [
   "low_stock_threshold",
 ] as const;
 
+const ORGANIZATION_INCLUDE = {
+  categories: { include: { category: true } },
+  collections: { include: { collection: true } },
+  tags: { include: { tag: true } },
+} as const;
+
+type OrganizationInput = Pick<ProductUpdate, "category_ids" | "collection_ids" | "tags">;
+
 const big = (v: number | null | undefined) => (v === null || v === undefined ? null : BigInt(v));
 const num = (v: bigint | null) => (v === null ? null : Number(v));
 
@@ -90,6 +106,9 @@ export class ProductsService {
     private readonly media: MediaService,
     private readonly variants: VariantsService,
     private readonly inventory: InventoryService,
+    private readonly categories: CategoriesService,
+    private readonly collections: CollectionsService,
+    private readonly outbox: OutboxService,
   ) {}
 
   // ───────────── Queries ─────────────
@@ -102,6 +121,9 @@ export class ProductsService {
       ...LIVE,
       ...(q.status && { status: { in: q.status } }),
       ...(q.product_type && { product_type: { in: q.product_type } }),
+      ...(q.category_id && { categories: { some: { category_id: q.category_id } } }),
+      ...(q.collection_id && { collections: { some: { collection_id: q.collection_id } } }),
+      ...(q.tag && { tags: { some: { tag: { normalized_name: normalizeTag(q.tag) } } } }),
       ...(q.q && {
         OR: [
           { title: { contains: q.q, mode: "insensitive" as const } },
@@ -164,6 +186,7 @@ export class ProductsService {
         variants: { where: LIVE, orderBy: { position: "asc" }, include: VARIANT_INCLUDE },
         media: MEDIA_INCLUDE,
         options: { include: { values: true } },
+        ...ORGANIZATION_INCLUDE,
       },
     });
     // Same 404 for "other store" and "missing" so IDs can't be probed (BE-012).
@@ -173,7 +196,10 @@ export class ProductsService {
       this.actors([product.created_by, product.updated_by]),
       this.inventory.defaultLocation(this.prisma, storeId),
     ]);
-    return toDetail(product, currency, location.id, actors);
+    const paths = product.categories.length
+      ? new Map((await this.categories.list(storeId)).map((c) => [c.id, c.path]))
+      : new Map<string, string>();
+    return toDetail(product, currency, location.id, actors, paths);
   }
 
   // ───────────── Commands ─────────────
@@ -231,6 +257,8 @@ export class ProductsService {
             vendor: input.vendor ?? null,
             status: input.status,
             taxable: input.taxable ?? true,
+            seo_title: input.seo_title ?? null,
+            seo_description: input.seo_description ?? null,
             published_at: input.status === "active" ? new Date() : null,
             created_by: ctx.user_id,
             updated_by: ctx.user_id,
@@ -285,6 +313,13 @@ export class ProductsService {
             input.primary_media_id ?? null,
           );
         }
+        await this.syncOrganization(tx, ctx.store_id, product.id, input);
+        await this.outbox.emit(tx, {
+          store_id: ctx.store_id,
+          event_type: "product.created",
+          resource_type: "product",
+          resource_id: product.id,
+        });
 
         await this.audit.recordIn(tx, {
           action: "product.created",
@@ -343,6 +378,9 @@ export class ProductsService {
         if (input.title !== undefined) set("title", input.title);
         if (input.vendor !== undefined) set("vendor", input.vendor);
         if (input.taxable !== undefined) set("taxable", input.taxable);
+        if (input.seo_title !== undefined) set("seo_title", input.seo_title);
+        if (input.seo_description !== undefined) set("seo_description", input.seo_description);
+        if (await this.syncOrganization(tx, ctx.store_id, id, input)) changed.add("organization");
         if (input.description_html !== undefined)
           set("description_html", sanitizeRichText(input.description_html));
 
@@ -364,6 +402,16 @@ export class ProductsService {
             );
           }
           set("handle", await this.assertHandleFree(tx, ctx.store_id, input.handle, id));
+          // Published products keep their old URL working (PRD §8.4 A).
+          if (current.published_at) {
+            await recordRedirect(tx, {
+              store_id: ctx.store_id,
+              from: `/products/${current.handle}`,
+              to: `/products/${input.handle}`,
+              resource_type: "product",
+              resource_id: id,
+            });
+          }
         }
 
         if (input.product_type !== undefined && input.product_type !== current.product_type) {
@@ -465,6 +513,15 @@ export class ProductsService {
 
         data.updated_by = ctx.user_id;
         const updated = await tx.product.update({ where: { id }, data });
+        await this.outbox.emit(tx, {
+          store_id: ctx.store_id,
+          event_type: changed.has("status")
+            ? `product.${updated.status === "active" ? "published" : updated.status === "archived" ? "archived" : "unpublished"}`
+            : "product.updated",
+          resource_type: "product",
+          resource_id: id,
+          payload: { changed: [...changed] },
+        });
 
         const fields = AUDITED_FIELDS.filter((f) => changed.has(f));
         await this.audit.recordIn(tx, {
@@ -528,7 +585,437 @@ export class ProductsService {
         request_id: ctx.request_id,
         ip: ctx.ip,
       });
+      await this.outbox.emit(tx, {
+        store_id: ctx.store_id,
+        event_type: "product.deleted",
+        resource_type: "product",
+        resource_id: id,
+      });
     });
+  }
+
+  // ───────────── Duplicate + bulk ─────────────
+
+  /**
+   * Copies a product as a new Draft (PRD §8.9): fields, options, variants with
+   * prices and settings, images (as references — no binary copies), categories,
+   * collections and tags. SKUs/barcodes are cleared (they must be unique) and
+   * stock starts at zero.
+   */
+  async duplicate(id: string, input: ProductDuplicate, ctx: ActorContext): Promise<ProductDetail> {
+    const newId = await this.prisma.$transaction(async (tx) => {
+      const src = await tx.product.findFirst({
+        where: storeScoped(ctx.store_id, { id, ...LIVE }),
+        include: {
+          variants: {
+            where: LIVE,
+            orderBy: { position: "asc" },
+            include: { option_values: { include: { option_value: true } }, inventory: true },
+          },
+          options: {
+            include: { values: { orderBy: { position: "asc" } } },
+            orderBy: { position: "asc" },
+          },
+          media: { orderBy: { position: "asc" } },
+          categories: true,
+          collections: true,
+          tags: true,
+        },
+      });
+      if (!src) throw AppException.notFound("Product");
+      const title = (input.title ?? `Copy of ${src.title}`).slice(0, 200);
+      const handle = await this.generateHandle(tx, ctx.store_id, title);
+      const location = await this.inventory.defaultLocation(tx, ctx.store_id);
+
+      const copy = await tx.product.create({
+        data: {
+          store_id: ctx.store_id,
+          title,
+          handle,
+          description_html: src.description_html,
+          product_type: src.product_type,
+          vendor: src.vendor,
+          status: "draft",
+          taxable: src.taxable,
+          requires_shipping: src.requires_shipping,
+          seo_title: src.seo_title,
+          seo_description: src.seo_description,
+          created_by: ctx.user_id,
+          updated_by: ctx.user_id,
+        },
+      });
+
+      const valueMap = new Map<string, string>();
+      for (const o of src.options) {
+        const created = await tx.productOption.create({
+          data: {
+            store_id: ctx.store_id,
+            product_id: copy.id,
+            name: o.name,
+            position: o.position,
+            values: {
+              create: o.values.map((v) => ({
+                store_id: ctx.store_id,
+                value: v.value,
+                position: v.position,
+              })),
+            },
+          },
+          include: { values: true },
+        });
+        for (const v of o.values)
+          valueMap.set(v.id, created.values.find((n) => n.value === v.value)!.id);
+      }
+
+      const mediaIds = new Set(input.include_media ? src.media.map((m) => m.media_asset_id) : []);
+      for (const v of src.variants) {
+        const valueIds = v.option_values
+          .map((ov) => valueMap.get(ov.option_value_id)!)
+          .filter(Boolean);
+        const threshold =
+          v.inventory.find((l) => l.location_id === location.id)?.low_stock_threshold ?? null;
+        await tx.productVariant.create({
+          data: {
+            store_id: ctx.store_id,
+            product_id: copy.id,
+            title: v.title,
+            position: v.position,
+            currency: v.currency,
+            price_minor: v.price_minor,
+            compare_at_minor: v.compare_at_minor,
+            cost_minor: v.cost_minor,
+            inventory_tracking: v.inventory_tracking,
+            continue_selling: v.continue_selling,
+            media_asset_id:
+              v.media_asset_id && mediaIds.has(v.media_asset_id) ? v.media_asset_id : null,
+            option_signature: [...valueIds].sort().join(","),
+            option_values: { create: valueIds.map((option_value_id) => ({ option_value_id })) },
+            inventory: {
+              create: {
+                store_id: ctx.store_id,
+                location_id: location.id,
+                low_stock_threshold: threshold,
+              },
+            },
+          },
+        });
+      }
+
+      if (input.include_media && src.media.length) {
+        await tx.productMedia.createMany({
+          data: src.media.map((m) => ({
+            store_id: ctx.store_id,
+            product_id: copy.id,
+            media_asset_id: m.media_asset_id,
+            position: m.position,
+            is_primary: m.is_primary,
+            alt_text: m.alt_text,
+          })),
+        });
+        await tx.mediaReference.createMany({
+          data: src.media.map((m) => ({
+            store_id: ctx.store_id,
+            media_asset_id: m.media_asset_id,
+            resource_type: MEDIA_RESOURCE.PRODUCT,
+            resource_id: copy.id,
+          })),
+        });
+      }
+      if (src.categories.length) {
+        await tx.productCategory.createMany({
+          data: src.categories.map((c) => ({
+            product_id: copy.id,
+            category_id: c.category_id,
+            store_id: ctx.store_id,
+          })),
+        });
+      }
+      for (const c of src.collections)
+        await this.appendToCollection(tx, ctx.store_id, c.collection_id, [copy.id]);
+      if (src.tags.length) {
+        await tx.productTagAssignment.createMany({
+          data: src.tags.map((t) => ({ product_id: copy.id, tag_id: t.tag_id })),
+        });
+      }
+
+      await this.audit.recordIn(tx, {
+        action: "product.duplicated",
+        resource_type: "product",
+        resource_id: copy.id,
+        store_id: ctx.store_id,
+        actor_user_id: ctx.user_id,
+        metadata: {
+          source_id: src.id,
+          include_media: input.include_media,
+          variants: src.variants.length,
+        },
+        request_id: ctx.request_id,
+        ip: ctx.ip,
+      });
+      await this.outbox.emit(tx, {
+        store_id: ctx.store_id,
+        event_type: "product.created",
+        resource_type: "product",
+        resource_id: copy.id,
+      });
+      return copy.id;
+    });
+    return this.get(ctx.store_id, newId);
+  }
+
+  /**
+   * Bulk actions (PRD §8.3). Each product is processed independently so one
+   * invalid product (e.g. not publishable) doesn't block the rest; failures are
+   * reported per product with actionable errors.
+   */
+  async bulk(input: ProductBulk, ctx: ActorContext): Promise<BulkResult> {
+    const products = await this.prisma.product.findMany({
+      where: storeScoped(ctx.store_id, { id: { in: input.product_ids }, ...LIVE }),
+      select: { id: true, title: true },
+    });
+    const titles = new Map(products.map((p) => [p.id, p.title]));
+    const result: BulkResult = { action: input.action, succeeded: [], failed: [] };
+    for (const id of input.product_ids) {
+      if (!titles.has(id))
+        result.failed.push({
+          id,
+          title: "",
+          errors: [{ path: "id", message: "Product not found.", code: "not_found" }],
+        });
+    }
+    const ids = input.product_ids.filter((id) => titles.has(id));
+
+    // Validate targets once, up front.
+    await this.prisma.$transaction(async (tx) => {
+      if (input.category_ids)
+        await this.categories.assertOwned(tx, ctx.store_id, input.category_ids);
+      if (input.collection_ids)
+        await this.collections.assertOwned(tx, ctx.store_id, input.collection_ids);
+    });
+
+    for (const id of ids) {
+      try {
+        switch (input.action) {
+          case "publish":
+          case "draft":
+          case "archive":
+            await this.update(id, this.statusChange(input.action), ctx);
+            break;
+          case "delete":
+            await this.remove(id, ctx);
+            break;
+          default:
+            await this.prisma.$transaction(async (tx) => {
+              const org = await this.modifiedOrganization(tx, id, input);
+              if (await this.syncOrganization(tx, ctx.store_id, id, org)) {
+                await tx.product.update({ where: { id }, data: { updated_by: ctx.user_id } });
+                await this.outbox.emit(tx, {
+                  store_id: ctx.store_id,
+                  event_type: "product.updated",
+                  resource_type: "product",
+                  resource_id: id,
+                });
+              }
+            });
+        }
+        result.succeeded.push(id);
+      } catch (err) {
+        if (!(err instanceof AppException)) throw err;
+        result.failed.push({
+          id,
+          title: titles.get(id) ?? "",
+          errors: err.fields?.length
+            ? err.fields
+            : [{ path: "product", message: err.message, code: err.code }],
+        });
+      }
+    }
+    await this.audit.record({
+      action: `product.bulk.${input.action}`,
+      resource_type: "product",
+      store_id: ctx.store_id,
+      actor_user_id: ctx.user_id,
+      metadata: {
+        requested: input.product_ids.length,
+        succeeded: result.succeeded.length,
+        failed: result.failed.length,
+      },
+      request_id: ctx.request_id,
+      ip: ctx.ip,
+    });
+    return result;
+  }
+
+  /** A status-only update (other fields untouched). */
+  statusChange(action: "publish" | "draft" | "archive"): ProductUpdate {
+    return {
+      status: action === "publish" ? "active" : action === "draft" ? "draft" : "archived",
+    } as ProductUpdate;
+  }
+
+  /** Current organization ± the bulk change, as a full replacement for syncOrganization. */
+  private async modifiedOrganization(
+    tx: Tx,
+    id: string,
+    input: ProductBulk,
+  ): Promise<OrganizationInput> {
+    const union = <T>(a: T[], b: T[]) => [...new Set([...a, ...b])];
+    const minus = <T>(a: T[], b: T[]) => a.filter((x) => !b.includes(x));
+    switch (input.action) {
+      case "add_categories":
+      case "remove_categories": {
+        const cur = (await tx.productCategory.findMany({ where: { product_id: id } })).map(
+          (c) => c.category_id,
+        );
+        return {
+          category_ids:
+            input.action === "add_categories"
+              ? union(cur, input.category_ids!)
+              : minus(cur, input.category_ids!),
+        };
+      }
+      case "add_collections":
+      case "remove_collections": {
+        const cur = (await tx.collectionProduct.findMany({ where: { product_id: id } })).map(
+          (c) => c.collection_id,
+        );
+        return {
+          collection_ids:
+            input.action === "add_collections"
+              ? union(cur, input.collection_ids!)
+              : minus(cur, input.collection_ids!),
+        };
+      }
+      default: {
+        const cur = (
+          await tx.productTagAssignment.findMany({
+            where: { product_id: id },
+            include: { tag: true },
+          })
+        ).map((t) => t.tag.name);
+        const targets = input.tags!.map(normalizeTag);
+        return {
+          tags:
+            input.action === "add_tags"
+              ? [...cur, ...input.tags!]
+              : cur.filter((t) => !targets.includes(normalizeTag(t))),
+        };
+      }
+    }
+  }
+
+  // ───────────── Organization ─────────────
+
+  /**
+   * Replaces categories / collections / tags when provided. Collections keep
+   * existing positions; new memberships are appended. Returns true on change.
+   */
+  async syncOrganization(
+    tx: Tx,
+    storeId: string,
+    productId: string,
+    input: OrganizationInput,
+  ): Promise<boolean> {
+    let changed = false;
+    if (input.category_ids) {
+      await this.categories.assertOwned(tx, storeId, input.category_ids);
+      const before = (await tx.productCategory.findMany({ where: { product_id: productId } })).map(
+        (c) => c.category_id,
+      );
+      const want = new Set(input.category_ids);
+      const remove = before.filter((c) => !want.has(c));
+      const add = input.category_ids.filter((c) => !before.includes(c));
+      if (remove.length)
+        await tx.productCategory.deleteMany({
+          where: { product_id: productId, category_id: { in: remove } },
+        });
+      if (add.length) {
+        await tx.productCategory.createMany({
+          data: add.map((category_id) => ({
+            product_id: productId,
+            category_id,
+            store_id: storeId,
+          })),
+        });
+      }
+      changed ||= Boolean(remove.length || add.length);
+    }
+    if (input.collection_ids) {
+      await this.collections.assertOwned(tx, storeId, input.collection_ids);
+      const before = (
+        await tx.collectionProduct.findMany({ where: { product_id: productId } })
+      ).map((c) => c.collection_id);
+      const want = new Set(input.collection_ids);
+      const remove = before.filter((c) => !want.has(c));
+      const add = input.collection_ids.filter((c) => !before.includes(c));
+      if (remove.length)
+        await tx.collectionProduct.deleteMany({
+          where: { product_id: productId, collection_id: { in: remove } },
+        });
+      for (const collection_id of add)
+        await this.appendToCollection(tx, storeId, collection_id, [productId]);
+      changed ||= Boolean(remove.length || add.length);
+    }
+    if (input.tags) {
+      const tagIds = await this.upsertTags(tx, storeId, input.tags);
+      const before = (
+        await tx.productTagAssignment.findMany({ where: { product_id: productId } })
+      ).map((t) => t.tag_id);
+      const want = new Set(tagIds);
+      const remove = before.filter((t) => !want.has(t));
+      const add = tagIds.filter((t) => !before.includes(t));
+      if (remove.length)
+        await tx.productTagAssignment.deleteMany({
+          where: { product_id: productId, tag_id: { in: remove } },
+        });
+      if (add.length)
+        await tx.productTagAssignment.createMany({
+          data: add.map((tag_id) => ({ product_id: productId, tag_id })),
+        });
+      changed ||= Boolean(remove.length || add.length);
+    }
+    return changed;
+  }
+
+  private async appendToCollection(
+    tx: Tx,
+    storeId: string,
+    collectionId: string,
+    productIds: string[],
+  ): Promise<void> {
+    const max = await tx.collectionProduct.aggregate({
+      where: { collection_id: collectionId },
+      _max: { position: true },
+    });
+    let pos = (max._max.position ?? -1) + 1;
+    await tx.collectionProduct.createMany({
+      data: productIds.map((product_id) => ({
+        collection_id: collectionId,
+        product_id,
+        store_id: storeId,
+        position: pos++,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  /** Creates missing tags (case-insensitive) and returns their ids in input order. */
+  private async upsertTags(tx: Tx, storeId: string, names: string[]): Promise<string[]> {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const raw of names) {
+      const name = raw.trim().replace(/\s+/g, " ").slice(0, 80);
+      const norm = normalizeTag(name);
+      if (!norm || seen.has(norm)) continue;
+      seen.add(norm);
+      const tag = await tx.productTag.upsert({
+        where: { store_id_normalized_name: { store_id: storeId, normalized_name: norm } },
+        update: {},
+        create: { store_id: storeId, name, normalized_name: norm },
+      });
+      ids.push(tag.id);
+    }
+    return ids;
   }
 
   // ───────────── Helpers ─────────────

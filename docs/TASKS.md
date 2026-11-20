@@ -179,6 +179,35 @@ Design notes:
 | S4-09 | Duplicate product (controlled media/variant copy)                                           |
 | S4-10 | Cache invalidation event hook (outbox entry) on storefront-affecting changes                |
 
+**Exit gate:** PRD §27.5 — products can be organized and published; invalid products cannot be
+published; drafts and archived products are excluded from public catalog queries.
+
+**Status: ☑ all tasks done, exit gate passed (2026-11-20).** Evidence:
+`apps/api/test/organization.e2e.test.ts` (19 cases: category tree rules, collections, organization
+filters, redirects, bulk partial failure, duplicate, storefront visibility/field safety, outbox),
+`apps/api/src/catalog/category-tree.test.ts`, `apps/admin/e2e/organization.spec.ts`.
+Totals: 190 unit/integration + 32 E2E (3 consecutive green runs).
+
+Notes:
+
+- **Categories:** nested up to 3 levels; cycles blocked (API + DB check for self-parent). Deleting a
+  category with products requires `reassign_to` or `unassign`; categories with children can't be
+  deleted until emptied.
+- **Collections:** manual only (automated rules reserved via `collection_type`/`rules_json`).
+  Storefront sort options: manual, title, price, newest/oldest.
+- **Redirects:** renaming a published product or live collection records a 301 redirect; chains are
+  flattened and reverting a rename removes the stale redirect.
+- **Outbox:** product/category/collection changes write `outbox_events` in the same transaction.
+  Delivery (webhooks, cache purge) is a worker job planned with the developer platform (Next 9).
+- **Storefront API** (`/api/v1/storefront/*`, public): active products only; never cost, stock
+  counts, SKUs or internal ids beyond product/variant ids; store chosen by `X-Store-Id` until custom
+  domains (Next 1). Category filters include subcategories.
+- **Bulk actions** process products independently and report per-product failures.
+- **Duplicate** copies everything except SKUs/barcodes (must be unique) and stock (starts at 0).
+- Bugs found by E2E and fixed: two near-simultaneous image uploads could drop one image
+  (stale-ref race); empty SQL join list crashed storefront listing; picker "Add" buttons lacked a
+  specific accessible name.
+
 ## Sprint 5 — QA, hardening & release
 
 | ID    | Task                                                               |
