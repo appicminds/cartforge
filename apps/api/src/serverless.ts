@@ -14,7 +14,7 @@ type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 let ready: Promise<Handler> | undefined;
 
 async function bootstrap(): Promise<Handler> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   configureApp(app);
   await app.init();
   return app.getHttpAdapter().getInstance() as Handler;

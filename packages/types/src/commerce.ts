@@ -155,6 +155,8 @@ export interface PlacedOrder {
   access_key: string;
   total_minor: number;
   currency: string;
+  /** True when the shopper pays on a provider's page next (POST /storefront/orders/:id/payment). */
+  pay_online: boolean;
 }
 
 export type OrderStatus =
@@ -213,7 +215,17 @@ export interface OrderConfirmation {
   shipping_address: CommerceAddress | null;
   billing_address: CommerceAddress | null;
   shipping_method: { name: string; price_minor: number } | null;
-  payment: { method: string; label: string; instructions: string | null } | null;
+  payment: {
+    method: string;
+    label: string;
+    instructions: string | null;
+    /** Paid on a provider's page (Next 5). */
+    online: boolean;
+    /** Online and still unpaid: the shopper can (re)try paying. */
+    can_pay: boolean;
+    /** Why the last online attempt didn't go through. */
+    failure_reason: string | null;
+  } | null;
   lines: OrderLineView[];
   fulfillments: FulfillmentView[];
   canceled_at: string | null;
@@ -281,6 +293,10 @@ export interface OrderDetail extends OrderConfirmation {
     status: PaymentStatus;
     amount_minor: number;
     created_at: string;
+    /** Online providers: "test" or "live", the provider's reference, last failure. */
+    mode: string | null;
+    provider_reference: string | null;
+    failure_reason: string | null;
   }[];
 }
 

@@ -12,6 +12,7 @@ import type { OrderListQuery } from "@cartforge/validation";
 import { safeEqual, sha256 } from "../auth/tokens";
 import { AppException } from "../common/app-exception";
 import { PrismaService } from "../prisma/prisma.service";
+import { isOnlineProvider } from "./payments/registry";
 
 const DETAIL_INCLUDE = {
   items: { orderBy: { created_at: "asc" } },
@@ -158,6 +159,9 @@ export class OrdersService {
         status: p.status,
         amount_minor: n(p.amount_minor),
         created_at: p.created_at.toISOString(),
+        mode: p.mode,
+        provider_reference: p.provider_reference,
+        failure_reason: p.failure_reason,
       })),
     };
   }
@@ -197,6 +201,10 @@ export class OrdersService {
             method: o.payment_method,
             label: o.payment_method_label ?? o.payment_method,
             instructions: payment?.instructions ?? null,
+            online: isOnlineProvider(o.payment_method),
+            can_pay:
+              isOnlineProvider(o.payment_method) && !o.canceled_at && payment?.status === "pending",
+            failure_reason: payment?.status === "pending" ? (payment.failure_reason ?? null) : null,
           }
         : null,
       lines: o.items.map((i) => ({

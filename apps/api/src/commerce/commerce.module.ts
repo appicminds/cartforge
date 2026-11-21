@@ -10,6 +10,14 @@ import { IdempotencyService } from "./idempotency.service";
 import { OrdersService } from "./orders.service";
 import { OrderActionsService } from "./order-actions.service";
 import { OrderMailer } from "./order-mailer";
+import { PaymentAccountsService } from "./payments/accounts.service";
+import { PaymentHubService } from "./payments/payment-hub.service";
+import {
+  PaymentWebhooksController,
+  PaymentsAdminController,
+  StorefrontPaymentsController,
+} from "./payments/payments.controller";
+import { PAYMENT_HTTP, fetchHttp } from "./payments/provider";
 import { ReservationsService } from "./reservations.service";
 import { CommerceSettingsService } from "./settings.service";
 import { StorefrontCommerceController } from "./storefront-commerce.controller";
@@ -17,7 +25,14 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
 /** Next 4: cart, checkout, orders, checkout settings and shipping methods. */
 @Module({
   imports: [AuthModule, InventoryModule, OrdersModule],
-  controllers: [StorefrontCommerceController, CommerceAdminController, OrderActionsController],
+  controllers: [
+    StorefrontCommerceController,
+    CommerceAdminController,
+    OrderActionsController,
+    PaymentsAdminController,
+    PaymentWebhooksController,
+    StorefrontPaymentsController,
+  ],
   providers: [
     CartService,
     CheckoutService,
@@ -26,6 +41,9 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     OrdersService,
     OrderActionsService,
     OrderMailer,
+    PaymentAccountsService,
+    PaymentHubService,
+    { provide: PAYMENT_HTTP, useValue: fetchHttp },
     ReservationsService,
   ],
   exports: [ReservationsService],

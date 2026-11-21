@@ -5,7 +5,7 @@ import { configureApp } from "./bootstrap";
 import { API_ENV, type ApiEnv } from "./config/env";
 
 async function main(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   configureApp(app);
   const env = app.get<ApiEnv>(API_ENV);
   await app.listen(env.API_PORT);

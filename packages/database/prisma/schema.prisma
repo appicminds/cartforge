@@ -144,6 +144,7 @@ model Store {
   roles               Role[]
   memberships         StoreMembership[]
   invitations         StoreInvitation[]
+  payment_accounts    PaymentAccount[]
   audit_logs          AuditLog[]
   products            Product[]
   variants            ProductVariant[]
@@ -842,13 +843,63 @@ model Payment {
   provider_reference String?       @db.VarChar(200)
   /// Shown to the customer (e.g. bank details) — copied from settings at purchase time.
   instructions       String?       @db.VarChar(1000)
+  /// Next 5 (online providers): "test" or "live", the provider's charge id used for refunds,
+  /// and why the last attempt failed.
+  mode               String?       @db.VarChar(10)
+  provider_charge_id String?       @db.VarChar(200)
+  failure_reason     String?       @db.VarChar(500)
+  paid_at            DateTime?     @db.Timestamptz(3)
   created_at         DateTime      @default(now()) @db.Timestamptz(3)
   updated_at         DateTime      @updatedAt @db.Timestamptz(3)
 
-  order Order @relation(fields: [order_id], references: [id], onDelete: Restrict)
+  order  Order          @relation(fields: [order_id], references: [id], onDelete: Restrict)
+  events PaymentEvent[]
 
   @@index([order_id])
+  @@index([provider, provider_reference])
   @@map("payments")
+}
+
+/// A store's connection to an online payment provider (Next 5). Credentials are
+/// AES-256-GCM encrypted with APP_ENCRYPTION_KEY; the API never returns them.
+model PaymentAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  store_id    String   @db.Uuid
+  /// "stripe" | "safepay" | "jazzcash" | "easypaisa"
+  provider    String   @db.VarChar(40)
+  /// "test" (sandbox) or "live"
+  mode        String   @default("test") @db.VarChar(10)
+  enabled     Boolean  @default(false)
+  credentials String
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+
+  @@unique([store_id, provider])
+  @@map("payment_accounts")
+}
+
+/// Every verified message from a provider (webhook or signed return), recorded once.
+model PaymentEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  store_id     String   @db.Uuid
+  payment_id   String?  @db.Uuid
+  provider     String   @db.VarChar(40)
+  /// Provider's id for this message (event id, or reference + outcome), unique per provider.
+  external_id  String   @db.VarChar(255)
+  /// "paid" | "failed" | "canceled" | "refunded" | "ignored"
+  outcome      String   @db.VarChar(20)
+  source       String   @db.VarChar(20)
+  amount_minor BigInt?
+  payload      Json     @default("{}")
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+
+  payment Payment? @relation(fields: [payment_id], references: [id], onDelete: Restrict)
+
+  @@unique([store_id, provider, external_id])
+  @@index([payment_id])
+  @@map("payment_events")
 }
 
 /// A shipment of some or all of an order's items (Next 6).
@@ -886,14 +937,17 @@ model FulfillmentItem {
 
 /// Money given back (recorded; Payment Hub, Next 5, sends it through the provider). Append-only.
 model Refund {
-  id           String   @id @default(uuid()) @db.Uuid
-  store_id     String   @db.Uuid
-  order_id     String   @db.Uuid
-  amount_minor BigInt
-  currency     String   @db.Char(3)
-  reason       String?  @db.VarChar(500)
-  created_by   String?  @db.Uuid
-  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  id                 String   @id @default(uuid()) @db.Uuid
+  store_id           String   @db.Uuid
+  order_id           String   @db.Uuid
+  amount_minor       BigInt
+  currency           String   @db.Char(3)
+  reason             String?  @db.VarChar(500)
+  /// "manual": money returned outside CartForge · otherwise the provider that sent it back.
+  method             String   @default("manual") @db.VarChar(40)
+  provider_reference String?  @db.VarChar(200)
+  created_by         String?  @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz(3)
 
   order Order        @relation(fields: [order_id], references: [id], onDelete: Restrict)
   items RefundItem[]

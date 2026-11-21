@@ -18,12 +18,17 @@ import { formatMoney } from "../common/money";
 import { InventoryService } from "../inventory/inventory.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { OrderMailer } from "./order-mailer";
+import { PaymentAccountsService } from "./payments/accounts.service";
+import { ProviderError, type ProviderMessage } from "./payments/provider";
+import { ONLINE_PROVIDERS, isOnlineProvider } from "./payments/registry";
+import { PAYMENT_ERROR_CODES, providerInfo } from "@cartforge/types";
 
 type Tx = Prisma.TransactionClient;
 
 export interface OrderActor {
   store_id: string;
-  user_id: string;
+  /** null for automatic changes (e.g. a payment provider confirming a payment). */
+  user_id: string | null;
   can_refund: boolean;
   request_id?: string;
 }
@@ -57,6 +62,7 @@ export class OrderActionsService {
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
     private readonly mail: OrderMailer,
+    private readonly accounts: PaymentAccountsService,
   ) {}
 
   async markPaid(orderId: string, input: OrderMarkPaid, actor: OrderActor): Promise<void> {
@@ -244,6 +250,106 @@ export class OrderActionsService {
     });
   }
 
+  /**
+   * A verified provider message (webhook or signed return). Recorded once (unique
+   * provider + external id); a duplicate returns false and changes nothing.
+   */
+  async applyProviderMessage(
+    storeId: string,
+    provider: string,
+    msg: ProviderMessage,
+    source: "webhook" | "return",
+  ): Promise<{ order_id: string | null; applied: boolean }> {
+    const payment = await this.prisma.payment.findFirst({
+      where: { store_id: storeId, provider, provider_reference: msg.reference },
+      select: { id: true, order_id: true },
+    });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.paymentEvent.create({
+          data: {
+            store_id: storeId,
+            payment_id: payment?.id ?? null,
+            provider,
+            external_id: msg.external_id.slice(0, 255),
+            outcome: payment ? msg.outcome : "ignored",
+            source,
+            amount_minor: msg.amount_minor !== undefined ? BigInt(msg.amount_minor) : null,
+            payload: msg.evidence as Prisma.InputJsonValue,
+          },
+        });
+        if (!payment) return { order_id: null, applied: false };
+        const o = await this.lock(tx, storeId, payment.order_id);
+        const p = o.payments.find((x) => x.id === payment.id)!;
+        const name = providerInfo(provider)?.name ?? provider;
+        const sys: OrderActor = { store_id: storeId, user_id: null, can_refund: false };
+        if (msg.outcome === "paid") {
+          if (p.status !== "pending" && p.status !== "authorized" && p.status !== "failed")
+            return { order_id: o.id, applied: false };
+          const wrongAmount =
+            (msg.amount_minor !== undefined && BigInt(msg.amount_minor) !== p.amount_minor) ||
+            (msg.currency !== undefined && msg.currency.toUpperCase() !== p.currency);
+          if (wrongAmount) {
+            await tx.payment.update({
+              where: { id: p.id },
+              data: {
+                failure_reason: `Amount mismatch: provider reported ${msg.amount_minor} ${msg.currency}`,
+              },
+            });
+            await this.event(
+              tx,
+              o,
+              sys,
+              "payment_mismatch",
+              `${name} reported a different amount (${formatMoney(msg.amount_minor ?? 0, msg.currency ?? o.currency)}). Check the payment before shipping.`,
+              {},
+            );
+            return { order_id: o.id, applied: false };
+          }
+          await tx.payment.update({
+            where: { id: p.id },
+            data: {
+              status: "paid",
+              paid_at: new Date(),
+              failure_reason: null,
+              ...(msg.charge_id ? { provider_charge_id: msg.charge_id } : {}),
+            },
+          });
+          await this.event(
+            tx,
+            o,
+            sys,
+            "payment_received",
+            `Paid ${formatMoney(p.amount_minor, p.currency)} through ${name}${p.mode === "test" ? " (test mode)" : ""}${o.canceled_at ? ". The order was already canceled: refund it" : ""}`,
+            { provider, reference: msg.reference },
+          );
+          await this.settle(tx, o.id, { payment_status: "paid" });
+          return { order_id: o.id, applied: true };
+        }
+        if ((msg.outcome === "failed" || msg.outcome === "canceled") && p.status === "pending") {
+          const reason =
+            msg.outcome === "canceled"
+              ? "The customer left the payment page."
+              : (msg.reason ?? "The payment didn't go through.");
+          await tx.payment.update({
+            where: { id: p.id },
+            data: { failure_reason: reason.slice(0, 500) },
+          });
+          await this.event(tx, o, sys, "payment_failed", `${name}: ${reason}`, { provider });
+          return { order_id: o.id, applied: true };
+        }
+        if (msg.outcome === "pending" && msg.reason && p.status === "pending")
+          await this.event(tx, o, sys, "payment_pending", `${name}: ${msg.reason}`, { provider });
+        return { order_id: o.id, applied: false };
+      });
+    } catch (err) {
+      // Already recorded (provider retried, or return and webhook both arrived).
+      if (err instanceof Error && "code" in err && (err as { code: string }).code === "P2002")
+        return { order_id: payment?.order_id ?? null, applied: false };
+      throw err;
+    }
+  }
+
   // ───────────── Internals ─────────────
 
   private async lock(tx: Tx, storeId: string, id: string): Promise<LockedOrder> {
@@ -319,6 +425,47 @@ export class OrderActionsService {
           ],
         );
     }
+    // Money back through the provider when the order was paid online (inside the order lock:
+    // a failure leaves nothing recorded; the database caps the refunded total).
+    const payment0 = o.payments[0];
+    let method = "manual";
+    let providerRef: string | null = null;
+    const online = payment0 && isOnlineProvider(payment0.provider) && payment0.status !== "pending";
+    const adapter = online
+      ? ONLINE_PROVIDERS[payment0.provider as keyof typeof ONLINE_PROVIDERS]
+      : null;
+    if (input.through_provider === true && !adapter?.refund)
+      throw state(
+        "This payment can't be refunded through a provider. Record it as a manual refund.",
+      );
+    if (adapter?.refund && input.through_provider !== false && input.amount_minor > 0) {
+      const ctx = await this.accounts.context(o.store_id, adapter.key);
+      if (!ctx)
+        throw new AppException(
+          PAYMENT_ERROR_CODES.PAYMENT_NOT_CONFIGURED,
+          `${providerInfo(adapter.key)?.name ?? adapter.key} isn't connected any more. Record a manual refund instead.`,
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      try {
+        providerRef = (
+          await adapter.refund(ctx, {
+            reference: payment0!.provider_reference ?? "",
+            charge_id: payment0!.provider_charge_id,
+            amount_minor: input.amount_minor,
+            currency: o.currency,
+          })
+        ).reference;
+      } catch (err) {
+        if (err instanceof ProviderError)
+          throw new AppException(
+            PAYMENT_ERROR_CODES.PAYMENT_PROVIDER_ERROR,
+            err.message,
+            HttpStatus.BAD_GATEWAY,
+          );
+        throw err;
+      }
+      method = adapter.key;
+    }
     const r = await tx.refund.create({
       data: {
         store_id: o.store_id,
@@ -326,6 +473,8 @@ export class OrderActionsService {
         amount_minor: BigInt(input.amount_minor),
         currency: o.currency,
         reason: input.reason ?? null,
+        method,
+        provider_reference: providerRef,
         created_by: actor.user_id,
         items: {
           create: input.items.map((l) => ({
@@ -356,8 +505,13 @@ export class OrderActionsService {
       o,
       actor,
       "refunded",
-      `Refunded ${formatMoney(input.amount_minor, o.currency)}${qty ? ` for ${plural(qty, "item")}` : ""}${input.reason ? ` — ${input.reason}` : ""}`,
-      { refund_id: r.id, amount_minor: input.amount_minor },
+      `Refunded ${formatMoney(input.amount_minor, o.currency)}${method !== "manual" ? ` through ${providerInfo(method)?.name ?? method}` : ""}${qty ? ` for ${plural(qty, "item")}` : ""}${input.reason ? ` — ${input.reason}` : ""}`,
+      {
+        refund_id: r.id,
+        amount_minor: input.amount_minor,
+        method,
+        provider_reference: providerRef,
+      },
     );
     return r.id;
   }

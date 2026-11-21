@@ -141,6 +141,11 @@ export const refundCreateSchema = z
     amount_minor: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
     reason: optionalText(500),
     notify_customer: z.boolean().default(true),
+    /**
+     * Send the money back through the payment provider (Stripe…). Omitted: automatic when the
+     * order was paid online with a provider that supports refunds. false: record a manual refund.
+     */
+    through_provider: z.boolean().optional(),
   })
   .strict()
   .refine((v) => v.amount_minor > 0 || v.items.length > 0, {
@@ -154,3 +159,16 @@ export const orderNoteSchema = z
   .object({ message: z.string().trim().min(1, "Write a note").max(500) })
   .strict();
 export type OrderNote = z.output<typeof orderNoteSchema>;
+
+// ───────────── Payment Hub (Next 5) ─────────────
+
+export const paymentAccountSchema = z
+  .object({
+    mode: z.enum(["test", "live"]),
+    enabled: z.boolean(),
+    /** Only the values being set or changed; an omitted or empty secret keeps the saved one. */
+    credentials: z.record(z.string().max(100), z.string().trim().max(2000)).default({}),
+  })
+  .strict();
+export type PaymentAccountInput = z.input<typeof paymentAccountSchema>;
+export type PaymentAccountUpdate = z.output<typeof paymentAccountSchema>;

@@ -16,11 +16,14 @@ import {
   type FieldError,
   type PlacedOrder,
   type ShippingOption,
+  type OnlineProviderKey,
 } from "@cartforge/types";
 import type { CheckoutUpdate } from "@cartforge/validation";
 import { generateToken, sha256 } from "../auth/tokens";
 import { AppException } from "../common/app-exception";
 import { OrderMailer } from "./order-mailer";
+import { PaymentAccountsService } from "./payments/accounts.service";
+import { isOnlineProvider } from "./payments/registry";
 import { OutboxService } from "../common/outbox.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { OrderSnapshotService } from "../orders/order-snapshot.service";
@@ -35,6 +38,8 @@ type Tx = Prisma.TransactionClient;
 interface Built {
   view: CheckoutView;
   settings: CheckoutSettings;
+  /** Connected online providers usable for this cart's currency. */
+  online: OnlineProviderKey[];
   totals: Totals;
   shipping: ShippingOption | null;
   shortfalls: string[];
@@ -77,6 +82,7 @@ export class CheckoutService {
     private readonly snapshots: OrderSnapshotService,
     private readonly outbox: OutboxService,
     private readonly mail: OrderMailer,
+    private readonly accounts: PaymentAccountsService,
   ) {}
 
   /** Starts (or resumes) checkout for a cart and holds its stock. */
@@ -91,6 +97,7 @@ export class CheckoutService {
     return this.prisma.$transaction(async (tx) => {
       const checkout = await this.ensure(tx, cart);
       const settings = await this.settings.get(cart.store_id, tx);
+      const online = (await this.accounts.enabled(cart.store_id, cart.currency)).map((a) => a.key);
       const errors: FieldError[] = [];
       const data: Prisma.CheckoutUpdateInput = {};
 
@@ -115,7 +122,7 @@ export class CheckoutService {
         data.custom_fields = r.values;
       }
       if (input.payment_method !== undefined) {
-        if (input.payment_method && !providerFor(settings, input.payment_method))
+        if (input.payment_method && !providerFor(settings, input.payment_method, online))
           errors.push({
             path: "payment_method",
             message: "This payment method isn't available.",
@@ -185,7 +192,7 @@ export class CheckoutService {
         WHERE l.cart_id = ${cart.id}::uuid FOR SHARE OF v`;
 
       const built = await this.build(tx, cart, checkout, true);
-      const { view, settings, totals, shipping } = built;
+      const { view, settings, totals, shipping, online } = built;
       if (view.missing.length) {
         throw new AppException(
           COMMERCE_ERROR_CODES.CHECKOUT_NOT_READY,
@@ -201,7 +208,7 @@ export class CheckoutService {
           HttpStatus.CONFLICT,
         );
       }
-      const provider = providerFor(settings, view.payment_method)!;
+      const provider = providerFor(settings, view.payment_method, online)!;
       const number = await this.nextOrderNumber(tx, cart.store_id);
       const accessKey = generateToken(24);
       const labels = new Map(settings.custom_fields.map((f) => [f.key, f.label]));
@@ -328,6 +335,7 @@ export class CheckoutService {
         access_key: accessKey,
         total_minor: totals.total_minor,
         currency: cart.currency,
+        pay_online: isOnlineProvider(provider.key),
       };
     }, TX_OPTIONS);
     // Only here, once per order (idempotent replays return the stored response instead).
@@ -378,6 +386,7 @@ export class CheckoutService {
   /** Re-validates the cart, refreshes stock holds and recomputes everything. */
   private async build(tx: Tx, cart: Cart, checkout: Checkout, hold: boolean): Promise<Built> {
     const settings = await this.settings.get(cart.store_id, tx);
+    const online = (await this.accounts.enabled(cart.store_id, cart.currency)).map((a) => a.key);
     const cartView = await this.carts.viewIn(tx, cart);
 
     let shortfalls: string[] = [];
@@ -414,8 +423,8 @@ export class CheckoutService {
     const shipping = cartView.requires_shipping
       ? (quotes.find((q) => q.id === checkout.shipping_method_id) ?? null)
       : null;
-    const payments = enabledProviders(settings);
-    const payment = providerFor(settings, checkout.payment_method);
+    const payments = enabledProviders(settings, online);
+    const payment = providerFor(settings, checkout.payment_method, online);
     const totals = computeTotals({
       lines: cartView.lines.map((l) => ({
         key: l.id,
@@ -485,7 +494,7 @@ export class CheckoutService {
       reserved_until: reservedUntil?.toISOString() ?? null,
       missing,
     };
-    return { view, settings, totals, shipping, shortfalls };
+    return { view, settings, online, totals, shipping, shortfalls };
   }
 
   private async nextOrderNumber(tx: Tx, storeId: string): Promise<string> {

@@ -1,5 +1,10 @@
 import type { CheckoutSettings } from "@cartforge/checkout-engine";
-import type { PaymentOption, PaymentStatus } from "@cartforge/types";
+import {
+  providerInfo,
+  type OnlineProviderKey,
+  type PaymentOption,
+  type PaymentStatus,
+} from "@cartforge/types";
 
 /**
  * Payment Hub adapter boundary (PRD §14.1). Checkout only talks to this
@@ -69,13 +74,40 @@ export const PAYMENT_PROVIDERS: PaymentProvider[] = [
   ),
 ];
 
-export function enabledProviders(settings: CheckoutSettings): PaymentProvider[] {
-  return PAYMENT_PROVIDERS.filter((p) => p.enabled(settings));
+/**
+ * Online providers (Next 5): the shopper pays on the provider's page after the order
+ * is placed, so placing it only records a pending payment.
+ */
+function online(key: OnlineProviderKey): PaymentProvider {
+  const info = providerInfo(key)!;
+  return {
+    key,
+    label: info.checkout_label,
+    enabled: () => true,
+    describe: () => ({ key, label: info.checkout_label, description: info.checkout_description }),
+    async initiate() {
+      return {
+        status: "pending",
+        instructions: null,
+        provider_reference: null,
+        redirect_url: null,
+      };
+    },
+  };
+}
+
+/** Offline methods switched on in settings, then the store's connected online providers. */
+export function enabledProviders(
+  settings: CheckoutSettings,
+  onlineKeys: readonly OnlineProviderKey[] = [],
+): PaymentProvider[] {
+  return [...PAYMENT_PROVIDERS.filter((p) => p.enabled(settings)), ...onlineKeys.map(online)];
 }
 
 export function providerFor(
   settings: CheckoutSettings,
   key: string | null,
+  onlineKeys: readonly OnlineProviderKey[] = [],
 ): PaymentProvider | null {
-  return enabledProviders(settings).find((p) => p.key === key) ?? null;
+  return enabledProviders(settings, onlineKeys).find((p) => p.key === key) ?? null;
 }
