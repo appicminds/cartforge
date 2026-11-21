@@ -33,7 +33,7 @@ test.beforeAll(async () => {
   const login = await fetch(`${API}/api/v1/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: ORIGIN },
-    body: JSON.stringify({ email: "platform@cartforge.test", password: "CartForge!dev1" }),
+    body: JSON.stringify({ email: "other@cartforge.test", password: "CartForge!dev1" }),
   });
   const cookies = login.headers.getSetCookie().map((c) => c.split(";")[0]!);
   const csrf = cookies.find((c) => c.startsWith("cf_csrf="))!.split("=")[1]!;

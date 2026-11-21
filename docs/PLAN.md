@@ -23,7 +23,8 @@ No work on later modules starts before Products Management is accepted.
 (Next 2) runs next, ahead of auth hardening (Next 1), followed by cart and checkout (Next 4),
 then the SaaS platform (P1: sign-up, separate stores, domains, platform admin) and auth hardening
 (Next 1: team and invitations, email verification, devices, two-factor sign-in), then order
-processing (Next 6, ahead of card payments); see `TASKS.md`.
+processing (Next 6) and the Payment Hub (Next 5, Pakistani providers first); see `TASKS.md` and
+`PAYMENTS.md`.
 
 ## 2. Technical decisions (where the PRD is open)
 

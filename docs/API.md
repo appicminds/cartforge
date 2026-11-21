@@ -277,6 +277,28 @@ the order total.
 with the private status link, new-order notice to the store's contact email, shipped (with
 tracking), canceled, refunded. Replies go to the store's contact email.
 
+## Payment Hub (Next 5)
+
+See `PAYMENTS.md` for the merchant view.
+
+| Method & path                                | Auth / permission  | Purpose                                                                                                                                                                                                        |
+| -------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /payments/providers`                    | store.read         | Provider catalogue and this store's connections (`values` = non-secret fields, `set_fields`, `webhook_url`, `return_url`)                                                                                      |
+| `PUT /payments/accounts/:provider`           | payments.secrets   | `{ mode: test·live, enabled, credentials: {…} }` — empty/omitted secrets keep the saved ones; Stripe keys must match the mode                                                                                  |
+| `DELETE /payments/accounts/:provider`        | payments.secrets   | Disconnect and delete credentials                                                                                                                                                                              |
+| `POST /storefront/orders/:id/payment`        | `X-Order-Key`      | Start or retry paying → `{ method: GET·POST, url, fields }`. Optional `X-Shopper-Origin` (used for the return trip if it's one of the store's addresses). `409` if paid/canceled, `502 PAYMENT_PROVIDER_ERROR` |
+| `POST /storefront/payments/:provider/return` | public             | `{ params }` the provider sent back → verified → `{ order_id, outcome, redirect }` (`redirect` for multi-step providers). `400 PAYMENT_SIGNATURE_INVALID`                                                      |
+| `POST /payments/webhooks/:provider/:storeId` | provider signature | Webhook / IPN. Raw body verified (Stripe-Signature with 5-minute window; JazzCash secure hash with signed acknowledgement)                                                                                     |
+
+Checkout: connected providers that accept the store's currency appear in `payment_options`;
+`POST /storefront/checkout/complete` returns `pay_online: true` for them. Customer order view adds
+`payment.online`, `payment.can_pay` and `payment.failure_reason`. `POST /orders/:id/refunds` accepts
+`through_provider` (default: automatic when the provider supports refunds). Provider messages are
+recorded once per store in `payment_events`; amounts must match before an order is marked paid.
+
+Offline method `wallet_transfer` (Checkout settings `wallet_*`): JazzCash/Easypaisa/Raast numbers
+(`03XXXXXXXXX`) and Pakistani IBAN, shown to customers with the order number as reference.
+
 ## Quick example
 
 ```bash

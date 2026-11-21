@@ -394,3 +394,35 @@ owner's request, so offline orders don't stay "pending" forever.
   added on top) but the merchant decides; shipping can be included.
 - A canceled order is never deleted; its money fields stay as placed (DB trigger), refunds are
   separate rows.
+
+## Next 5 — Payment Hub
+
+Goal (PRD §14): online payments behind one adapter boundary, with Pakistani options first (the
+product owner's market; Stripe doesn't onboard Pakistani businesses). See `PAYMENTS.md`.
+
+| ID    | Task                                                                                                                                  | Status | Evidence                                              |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------- |
+| PH-01 | Provider accounts per store: encrypted, write-only credentials, test/live, audited                                                    | ✅     | `payment-hub.e2e`, admin `payments.spec`              |
+| PH-02 | Online flow: pending payment at order time, start/retry with order key, return verification, webhooks, once-only events, amount check | ✅     | `payment-hub.e2e`                                     |
+| PH-03 | Stripe: Checkout Session, signed webhooks, session check on return, refunds to card                                                   | ✅     | `payment-hub.e2e`                                     |
+| PH-04 | Safepay (beta): tracker, signed redirect                                                                                              | ✅     | `payment-hub.e2e`                                     |
+| PH-05 | JazzCash (beta): Page Redirection v1.1, HMAC-SHA256 secure hash, signed return + IPN with signed acknowledgement                      | ✅     | `payment-hub.e2e`, storefront `payments.spec`         |
+| PH-06 | Easypaisa (beta): hosted checkout with AES request hash, two-step return, paid only after status inquiry                              | ✅     | `payment-hub.e2e`                                     |
+| PH-07 | Wallet / Raast / IBAN transfer method with Pakistani format validation                                                                | ✅     | `payment-hub.e2e`, admin + storefront `payments.spec` |
+| PH-08 | Admin Settings → Payments; storefront pay step, Pay now, cookie-free return route                                                     | ✅     | admin + storefront `payments.spec`                    |
+
+**Deliberately later**
+
+- Confirm the beta adapters against each provider's real sandbox (needs merchant credentials).
+- PayFast (APPS), Raast QR / Request-to-Pay through a bank, card tokenization, saved cards.
+- Refunds through JazzCash/Easypaisa/Safepay APIs (recorded manually for now).
+- SaaS plan billing for stores.
+- Auto-cancel unpaid online orders after a time limit (they stay pending; the merchant cancels).
+
+**Decisions**
+
+- Money is converted at each adapter's boundary (CartForge keeps ISO/CLDR minor units; PKR has 0
+  decimals there; JazzCash counts paisa; Stripe uses its own decimal table).
+- Provider returns are cookie-free (store id in the URL) because gateways post back cross-site;
+  a second same-site hop uses the browser's order cookie.
+- Unsigned provider claims are never trusted: Easypaisa is confirmed by inquiry or by the merchant.
