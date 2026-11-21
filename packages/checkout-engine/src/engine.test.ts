@@ -5,7 +5,10 @@ import {
   checkoutSettingsSchema,
   computeTotals,
   quoteShipping,
+  describeEstimate,
+  regionKey,
   shippingCountries,
+  shippingMethodSchema,
   taxOn,
   validateCustomFields,
   type ShippingMethodConfig,
@@ -122,6 +125,112 @@ describe("shipping", () => {
   it("lists shippable countries", () => {
     expect(shippingCountries(methods)).toBeNull();
     expect(shippingCountries(methods.slice(0, 2))).toEqual(["CA", "US"]);
+  });
+
+  describe("by region (Next 7)", () => {
+    const pk = [
+      m({
+        id: "khi",
+        name: "Karachi same-day",
+        price_minor: 150,
+        countries: ["PK"],
+        cities: ["Karachi"],
+      }),
+      m({
+        id: "pb",
+        name: "Punjab",
+        price_minor: 200,
+        countries: ["PK"],
+        regions: ["Punjab", "Islamabad"],
+      }),
+      m({
+        id: "kp",
+        name: "KP & north",
+        price_minor: 400,
+        countries: ["PK"],
+        regions: ["PK-KP", "GB"],
+      }),
+      m({
+        id: "all",
+        name: "Nationwide",
+        price_minor: 300,
+        countries: ["PK"],
+        per_item_minor: 50,
+        min_days: 3,
+        max_days: 5,
+      }),
+    ];
+    const ids = (dest: Parameters<typeof quoteShipping>[1], qty = 1, sub = 1000) =>
+      quoteShipping(pk, dest, sub, qty).map((q) => q.id);
+
+    it("matches provinces by name, code or alias", () => {
+      expect(regionKey("PK", "Khyber Pakhtunkhwa")).toBe("KP");
+      expect(regionKey("PK", "kpk")).toBe("KP");
+      expect(regionKey("PK", "PK-KP")).toBe("KP");
+      expect(regionKey("PK", "Islamabad Capital Territory")).toBe("IS");
+      expect(regionKey("FR", "Île-de-France")).toBe("ile de france");
+      expect(ids({ country: "PK", region: "KPK", city: "Peshawar" })).toEqual(["all", "kp"]);
+      expect(ids({ country: "PK", region: "Islamabad Capital Territory" })).toEqual(["pb", "all"]);
+      expect(ids({ country: "PK", region: "Sindh", city: " karachi " })).toEqual(["khi", "all"]);
+      expect(ids({ country: "PK", region: "Sindh", city: "Hyderabad" })).toEqual(["all"]);
+      expect(ids({ country: "PK" })).toEqual(["all"]);
+      expect(ids("AE")).toEqual([]);
+    });
+
+    it("adds a charge per extra item and shows the estimate", () => {
+      const q = quoteShipping(pk, { country: "PK", region: "Sindh" }, 1000, 3)[0]!;
+      expect(q).toMatchObject({
+        id: "all",
+        price_minor: 400,
+        estimate: { min_days: 3, max_days: 5 },
+      });
+      expect(describeEstimate(q.estimate)).toBe("3–5 days");
+      expect(describeEstimate({ min_days: 1, max_days: 1 })).toBe("1 day");
+      expect(describeEstimate({ min_days: null, max_days: 7 })).toBe("Up to 7 days");
+      expect(describeEstimate(null)).toBeNull();
+    });
+
+    it("respects minimum and maximum order value", () => {
+      const list = [
+        m({ id: "cod", name: "COD courier", min_order_minor: 500, max_order_minor: 20000 }),
+        m({ id: "big", name: "Freight", min_order_minor: 20001 }),
+      ];
+      expect(quoteShipping(list, "PK", 499).map((q) => q.id)).toEqual([]);
+      expect(quoteShipping(list, "PK", 500).map((q) => q.id)).toEqual(["cod"]);
+      expect(quoteShipping(list, "PK", 20000).map((q) => q.id)).toEqual(["cod"]);
+      expect(quoteShipping(list, "PK", 25000).map((q) => q.id)).toEqual(["big"]);
+    });
+
+    it("free-over threshold also waives the per-item charge", () => {
+      const list = [m({ id: "a", per_item_minor: 100, free_over_minor: 2000 })];
+      expect(quoteShipping(list, "PK", 2000, 5)[0]).toMatchObject({ price_minor: 0, free: true });
+    });
+
+    it("validates region rules", () => {
+      const base = { name: "Zone", price_minor: 100 };
+      expect(shippingMethodSchema.safeParse({ ...base, regions: ["Punjab"] }).success).toBe(false);
+      expect(
+        shippingMethodSchema.safeParse({ ...base, countries: ["PK", "AE"], cities: ["Lahore"] })
+          .success,
+      ).toBe(false);
+      expect(
+        shippingMethodSchema.safeParse({ ...base, min_order_minor: 10, max_order_minor: 5 })
+          .success,
+      ).toBe(false);
+      expect(shippingMethodSchema.safeParse({ ...base, min_days: 5, max_days: 2 }).success).toBe(
+        false,
+      );
+      const ok = shippingMethodSchema.parse({
+        ...base,
+        countries: ["pk"],
+        cities: ["Lahore", "lahore", " Multan "],
+      });
+      expect(ok).toMatchObject({
+        countries: ["PK"],
+        cities: ["Lahore", "Multan"],
+        per_item_minor: 0,
+      });
+    });
   });
 });
 

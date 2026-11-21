@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma, type ShippingMethod } from "@cartforge/database";
 import {
   checkoutSettingsSchema,
+  shippingMethodSchema,
   DEFAULT_CHECKOUT_SETTINGS,
   type CheckoutSettings,
   type ShippingMethodConfig,
@@ -11,6 +12,7 @@ import { COMMERCE_ERROR_CODES, type ShippingMethodView } from "@cartforge/types"
 import { HttpStatus } from "@nestjs/common";
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
+import { zodIssuesToFields } from "../common/zod-validation.pipe";
 import { PrismaService } from "../prisma/prisma.service";
 
 export interface SettingsActor {
@@ -36,8 +38,36 @@ export function toShippingView(m: ShippingMethod): ShippingMethodView {
     price_minor: Number(m.price_minor),
     free_over_minor: m.free_over_minor === null ? null : Number(m.free_over_minor),
     countries: m.countries,
+    regions: m.regions,
+    cities: m.cities,
+    min_order_minor: m.min_order_minor === null ? null : Number(m.min_order_minor),
+    max_order_minor: m.max_order_minor === null ? null : Number(m.max_order_minor),
+    per_item_minor: Number(m.per_item_minor),
+    min_days: m.min_days,
+    max_days: m.max_days,
     active: m.active,
     position: m.position,
+  };
+}
+
+const big = (v: number | null) => (v === null ? null : BigInt(v));
+
+/** Column values for a validated method. */
+function shippingData(input: ShippingMethodData) {
+  return {
+    name: input.name,
+    description: input.description ?? null,
+    price_minor: BigInt(input.price_minor),
+    free_over_minor: big(input.free_over_minor),
+    countries: input.countries,
+    regions: input.regions,
+    cities: input.cities,
+    min_order_minor: big(input.min_order_minor),
+    max_order_minor: big(input.max_order_minor),
+    per_item_minor: BigInt(input.per_item_minor),
+    min_days: input.min_days,
+    max_days: input.max_days,
+    active: input.active,
   };
 }
 
@@ -109,13 +139,8 @@ export class CommerceSettingsService {
     const m = await this.prisma.$transaction(async (tx) => {
       const created = await tx.shippingMethod.create({
         data: {
+          ...shippingData(input),
           store_id: actor.store_id,
-          name: input.name,
-          description: input.description ?? null,
-          price_minor: BigInt(input.price_minor),
-          free_over_minor: input.free_over_minor == null ? null : BigInt(input.free_over_minor),
-          countries: input.countries ?? [],
-          active: input.active ?? true,
           position: (max._max.position ?? -1) + 1,
         },
       });
@@ -127,7 +152,8 @@ export class CommerceSettingsService {
 
   async updateShipping(
     id: string,
-    input: Partial<ShippingMethodData>,
+    /** The fields the client sent (already type-checked); merged over the saved method. */
+    input: Record<string, unknown>,
     actor: SettingsActor,
   ): Promise<ShippingMethodView> {
     const m = await this.prisma.$transaction(async (tx) => {
@@ -135,18 +161,17 @@ export class CommerceSettingsService {
         where: { id, store_id: actor.store_id },
       });
       if (!existing) throw notFound();
+      // Rules span fields (e.g. regions need one country), so check the merged result.
+      const { id: _i, position: _p, ...current } = toShippingView(existing);
+      const merged = shippingMethodSchema.safeParse({
+        ...current,
+        description: current.description ?? undefined,
+        ...input,
+      });
+      if (!merged.success) throw AppException.validation(zodIssuesToFields(merged.error.issues));
       const updated = await tx.shippingMethod.update({
         where: { id },
-        data: {
-          ...(input.name !== undefined && { name: input.name }),
-          ...(input.description !== undefined && { description: input.description ?? null }),
-          ...(input.price_minor !== undefined && { price_minor: BigInt(input.price_minor) }),
-          ...(input.free_over_minor !== undefined && {
-            free_over_minor: input.free_over_minor === null ? null : BigInt(input.free_over_minor),
-          }),
-          ...(input.countries !== undefined && { countries: input.countries }),
-          ...(input.active !== undefined && { active: input.active }),
-        },
+        data: shippingData(merged.data),
       });
       await this.record(tx, actor, "shipping_method.updated", id, { name: updated.name });
       return updated;

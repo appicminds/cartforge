@@ -571,6 +571,13 @@ function ShippingDialog({
   const [price, setPrice] = useState("");
   const [freeOver, setFreeOver] = useState("");
   const [countries, setCountries] = useState("");
+  const [regions, setRegions] = useState("");
+  const [cities, setCities] = useState("");
+  const [perItem, setPerItem] = useState("");
+  const [minOrder, setMinOrder] = useState("");
+  const [maxOrder, setMaxOrder] = useState("");
+  const [minDays, setMinDays] = useState("");
+  const [maxDays, setMaxDays] = useState("");
   const [active, setActive] = useState(true);
   useEffect(() => {
     if (!open) return;
@@ -581,6 +588,19 @@ function ShippingDialog({
       method?.free_over_minor != null ? minorToDecimalString(method.free_over_minor, currency) : "",
     );
     setCountries(method?.countries.join(", ") ?? "");
+    setRegions(method?.regions.join(", ") ?? "");
+    setCities(method?.cities.join(", ") ?? "");
+    const dec = (v: number | null | undefined) =>
+      v != null && v !== 0 ? minorToDecimalString(v, currency) : "";
+    setPerItem(dec(method?.per_item_minor));
+    setMinOrder(
+      method?.min_order_minor != null ? minorToDecimalString(method.min_order_minor, currency) : "",
+    );
+    setMaxOrder(
+      method?.max_order_minor != null ? minorToDecimalString(method.max_order_minor, currency) : "",
+    );
+    setMinDays(method?.min_days != null ? String(method.min_days) : "");
+    setMaxDays(method?.max_days != null ? String(method.max_days) : "");
     setActive(method?.active ?? true);
     save.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when (re)opened
@@ -598,6 +618,33 @@ function ShippingDialog({
     .filter(Boolean);
   if (codes.some((c) => !/^[A-Z]{2}$/.test(c)))
     local.countries = "Use two-letter country codes like US, CA, GB";
+  const list = (v: string) =>
+    v
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  const regionList = list(regions);
+  const cityList = list(cities);
+  if ((regionList.length || cityList.length) && codes.length !== 1)
+    local[regionList.length ? "regions" : "cities"] =
+      "Enter exactly one country above to limit by province or city";
+  const optMoney = (v: string, key: string, example: string) => {
+    if (!v.trim()) return null;
+    const m = parseMoneyToMinor(v, currency);
+    if (m === null || Number.isNaN(m)) local[key] = `Enter an amount like ${example}`;
+    return m;
+  };
+  const perItemMinor = optMoney(perItem, "per_item_minor", "1.00") ?? 0;
+  const minOrderMinor = optMoney(minOrder, "min_order_minor", "10.00");
+  const maxOrderMinor = optMoney(maxOrder, "max_order_minor", "500.00");
+  const optDays = (v: string, key: string) => {
+    if (!v.trim()) return null;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 365) local[key] = "Enter whole days, 0–365";
+    return n;
+  };
+  const minDaysN = optDays(minDays, "min_days");
+  const maxDaysN = optDays(maxDays, "max_days");
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -611,6 +658,13 @@ function ShippingDialog({
           price_minor: priceMinor,
           free_over_minor: freeMinor,
           countries: codes,
+          regions: regionList,
+          cities: cityList,
+          per_item_minor: perItemMinor,
+          min_order_minor: minOrderMinor,
+          max_order_minor: maxOrderMinor,
+          min_days: minDaysN,
+          max_days: maxDaysN,
           active,
         },
       },
@@ -660,9 +714,9 @@ function ShippingDialog({
           )}
         </Field>
         <Field
-          label="Delivery estimate"
+          label="Description"
           error={e.description}
-          hint="Optional, e.g. 3–5 business days."
+          hint="Optional, e.g. Tracked courier, cash on delivery available."
         >
           {({ id, describedBy }) => (
             <Input
@@ -720,10 +774,120 @@ function ShippingDialog({
             />
           )}
         </Field>
+        <Field
+          label="Provinces / states"
+          error={e.regions}
+          hint="Comma-separated, e.g. Punjab, Islamabad. Needs one country above. Leave empty for the whole country."
+        >
+          {({ id, describedBy, invalid }) => (
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              invalid={invalid}
+              value={regions}
+              onChange={(ev) => setRegions(ev.target.value)}
+            />
+          )}
+        </Field>
+        <Field
+          label="Cities"
+          error={e.cities}
+          hint="Comma-separated, e.g. Karachi, Hyderabad. Leave empty for every city."
+        >
+          {({ id, describedBy, invalid }) => (
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              invalid={invalid}
+              value={cities}
+              onChange={(ev) => setCities(ev.target.value)}
+            />
+          )}
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field
+            label={`Extra per item (${currency})`}
+            error={e.per_item_minor}
+            hint="Added for each item after the first."
+          >
+            {({ id, describedBy, invalid }) => (
+              <Input
+                id={id}
+                inputMode="decimal"
+                aria-describedby={describedBy}
+                invalid={invalid}
+                value={perItem}
+                onChange={(ev) => setPerItem(ev.target.value)}
+              />
+            )}
+          </Field>
+          <Field label={`Minimum order (${currency})`} error={e.min_order_minor}>
+            {({ id, describedBy, invalid }) => (
+              <Input
+                id={id}
+                inputMode="decimal"
+                aria-describedby={describedBy}
+                invalid={invalid}
+                value={minOrder}
+                onChange={(ev) => setMinOrder(ev.target.value)}
+              />
+            )}
+          </Field>
+          <Field label={`Maximum order (${currency})`} error={e.max_order_minor}>
+            {({ id, describedBy, invalid }) => (
+              <Input
+                id={id}
+                inputMode="decimal"
+                aria-describedby={describedBy}
+                invalid={invalid}
+                value={maxOrder}
+                onChange={(ev) => setMaxOrder(ev.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Delivery from (days)" error={e.min_days}>
+            {({ id, describedBy, invalid }) => (
+              <Input
+                id={id}
+                inputMode="numeric"
+                aria-describedby={describedBy}
+                invalid={invalid}
+                value={minDays}
+                onChange={(ev) => setMinDays(ev.target.value)}
+              />
+            )}
+          </Field>
+          <Field
+            label="Delivery up to (days)"
+            error={e.max_days}
+            hint="Shown at checkout, e.g. 2–4 days."
+          >
+            {({ id, describedBy, invalid }) => (
+              <Input
+                id={id}
+                inputMode="numeric"
+                aria-describedby={describedBy}
+                invalid={invalid}
+                value={maxDays}
+                onChange={(ev) => setMaxDays(ev.target.value)}
+              />
+            )}
+          </Field>
+        </div>
         <Toggle label="Offer at checkout" checked={active} onChange={setActive} />
       </form>
     </Dialog>
   );
+}
+
+function days(m: ShippingMethodView): string | null {
+  const { min_days: lo, max_days: hi } = m;
+  if (lo !== null && hi !== null) return lo === hi ? `${lo} days` : `${lo}–${hi} days`;
+  if (hi !== null) return `up to ${hi} days`;
+  if (lo !== null) return `${lo}+ days`;
+  return null;
 }
 
 function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: string }) {
@@ -737,7 +901,7 @@ function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: strin
     <Card>
       <CardHeader
         title="Shipping"
-        description="Flat rates by destination. Checkout only offers methods that ship to the customer’s country."
+        description="Rates by country, province or city. Checkout only offers methods that fit the customer’s address and order."
         actions={
           canEdit ? (
             <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
@@ -771,6 +935,12 @@ function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: strin
                     {m.free_over_minor !== null && ` · free over ${money(m.free_over_minor)}`}
                     {" · "}
                     {m.countries.length ? m.countries.join(", ") : "All countries"}
+                    {m.regions.length > 0 && ` (${m.regions.join(", ")})`}
+                    {m.cities.length > 0 && ` · ${m.cities.join(", ")}`}
+                    {m.per_item_minor > 0 && ` · +${money(m.per_item_minor)} per extra item`}
+                    {m.min_order_minor !== null && ` · orders from ${money(m.min_order_minor)}`}
+                    {m.max_order_minor !== null && ` · orders up to ${money(m.max_order_minor)}`}
+                    {days(m) && ` · ${days(m)}`}
                     {m.description && ` · ${m.description}`}
                   </p>
                 </div>

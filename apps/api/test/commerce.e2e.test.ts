@@ -408,6 +408,98 @@ describe("cart and checkout (Next 4)", () => {
       expect(ca.missing).toContain("shipping_method");
     });
 
+    it("offers province-limited methods with per-item charge, order limits and estimate", async () => {
+      // A province needs exactly one country, and the check also runs on partial updates.
+      await owner
+        .post("/shipping-methods", { name: "Bad", price_minor: 100, regions: ["Ontario"] })
+        .expect(422);
+      const local = (
+        await owner
+          .post("/shipping-methods", {
+            name: `Ontario courier ${RUN}`,
+            price_minor: 300,
+            countries: ["CA"],
+            regions: ["Ontario"],
+            cities: ["Toronto", "Ottawa"],
+            per_item_minor: 100,
+            min_order_minor: 3000,
+            max_order_minor: 50000,
+            min_days: 1,
+            max_days: 2,
+          })
+          .expect(201)
+      ).body.data;
+      expect(local).toMatchObject({ regions: ["Ontario"], per_item_minor: 100, min_days: 1 });
+      await owner.patch(`/shipping-methods/${local.id}`, { countries: ["CA", "US"] }).expect(422);
+      await owner.patch(`/shipping-methods/${local.id}`, { min_order_minor: 60000 }).expect(422);
+      // A method without a description can still be edited.
+      const ok = await owner.patch(`/shipping-methods/${local.id}`, { per_item_minor: 100 });
+      expect(ok.body.data).toMatchObject({ per_item_minor: 100, description: null });
+      // Partial edits keep the fields that weren't sent.
+      const kept = (
+        await owner.patch(`/shipping-methods/${local.id}`, { active: true }).expect(200)
+      ).body.data;
+      expect(kept).toMatchObject({
+        regions: ["Ontario"],
+        cities: ["Toronto", "Ottawa"],
+        max_days: 2,
+      });
+      try {
+        const p = await product("Lamp", { price_minor: 2000 });
+        const s = shop();
+        await s.start();
+        const line = (
+          await s.post("/cart/lines", { variant_id: p.variant_id, quantity: 1 }).expect(201)
+        ).body.data.lines[0];
+        await s.post("/checkout").expect(200);
+        const toronto = {
+          ...US,
+          country: "CA",
+          region: "ON",
+          city: "toronto",
+          postal_code: "M5V 1J1",
+        };
+        const ids = (v: { shipping_options: { id: string }[] }) =>
+          v.shipping_options.map((o) => o.id);
+        // Below the minimum order: not offered.
+        let v = (await s.patch("/checkout", { shipping_address: toronto }).expect(200)).body.data;
+        expect(ids(v)).not.toContain(local.id);
+        await s.patch(`/cart/lines/${line.id}`, { quantity: 3 }).expect(200);
+        v = (await s.post("/checkout").expect(200)).body.data;
+        expect(v.shipping_options.find((o: { id: string }) => o.id === local.id)).toMatchObject({
+          price_minor: 500, // 300 + 2 extra items × 100
+          estimate: { min_days: 1, max_days: 2 },
+        });
+        // Another city or province in Canada: only the country-wide method.
+        v = (
+          await s
+            .patch("/checkout", { shipping_address: { ...toronto, city: "Hamilton" } })
+            .expect(200)
+        ).body.data;
+        expect(ids(v)).toEqual([standard.id]);
+        v = (
+          await s
+            .patch("/checkout", {
+              shipping_address: { ...toronto, region: "British Columbia", city: "Ottawa" },
+            })
+            .expect(200)
+        ).body.data;
+        expect(ids(v)).toEqual([standard.id]);
+        // Choosing it, then moving out of the area, clears the choice.
+        await s
+          .patch("/checkout", { shipping_address: toronto, shipping_method_id: local.id })
+          .expect(200);
+        v = (
+          await s
+            .patch("/checkout", { shipping_address: { ...toronto, city: "Hamilton" } })
+            .expect(200)
+        ).body.data;
+        expect(v.shipping_method_id).toBeNull();
+      } finally {
+        await owner.delete(`/shipping-methods/${local.id}`).expect(204);
+      }
+    });
+
     it("holds the last unit for one shopper and releases it when the hold expires", async () => {
       const p = await product("Last one", { inventory_quantity: 1 });
       const a = shop();

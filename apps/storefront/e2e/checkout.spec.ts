@@ -55,7 +55,7 @@ async function fillInformation(page: Page) {
   await page.getByLabel("Last name").fill("Lovelace");
   await page.getByLabel("Address", { exact: true }).fill("1 Analytical Way");
   await page.getByLabel("City").fill("Springfield");
-  await page.getByLabel("State / province").fill("IL");
+  await page.getByLabel("State / province").selectOption("Illinois");
   await page.getByLabel("Postal code").fill("62701");
 }
 

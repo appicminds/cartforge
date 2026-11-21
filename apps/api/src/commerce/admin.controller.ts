@@ -26,6 +26,7 @@ import {
 import {
   checkoutSettingsSchema,
   orderListQuerySchema,
+  shippingMethodFields,
   shippingMethodSchema,
   type CheckoutSettings,
   type OrderListQuery,
@@ -49,7 +50,7 @@ const shippingId = new ParseUUIDPipe({
     ),
 });
 const orderId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFound("Order") });
-const shippingUpdateSchema = shippingMethodSchema.partial().strict();
+const shippingUpdateSchema = shippingMethodFields.partial().strict();
 
 const actor = (auth: AuthContext, store: StoreContext, req: Request): SettingsActor => ({
   store_id: store.store_id,
@@ -133,11 +134,17 @@ export class CommerceAdminController {
     @CurrentStore() store: StoreContext,
     @Req() req: Request,
     @Param("id", shippingId) id: string,
-    @Body(new ZodValidationPipe(shippingUpdateSchema))
-    body: ReturnType<typeof shippingUpdateSchema.parse>,
+    @Body() raw: unknown,
   ): Promise<DetailResponse<ShippingMethodView>> {
+    // Types and unknown keys are checked here; only the keys actually sent are then
+    // merged over the saved method (parsing would fill defaults for missing ones).
+    new ZodValidationPipe(shippingUpdateSchema).transform(raw);
     return {
-      data: await this.settings.updateShipping(id, body, actor(auth, store, req)),
+      data: await this.settings.updateShipping(
+        id,
+        raw as Record<string, unknown>,
+        actor(auth, store, req),
+      ),
       request_id: String(req.id),
     };
   }

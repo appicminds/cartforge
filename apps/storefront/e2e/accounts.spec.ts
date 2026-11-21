@@ -57,7 +57,26 @@ test.beforeAll(async () => {
     bank_transfer_enabled: false,
     bank_transfer_instructions: "",
   });
-  await call("POST", "/shipping-methods", { name: "Leopards", price_minor: 200, countries: [] });
+  await call("POST", "/shipping-methods", {
+    name: "Leopards",
+    price_minor: 200,
+    countries: [],
+    min_days: 2,
+    max_days: 4,
+  });
+  await call("POST", "/shipping-methods", {
+    name: "Karachi rider",
+    price_minor: 100,
+    countries: ["PK"],
+    regions: ["Sindh"],
+    cities: ["Karachi"],
+  });
+  await call("POST", "/shipping-methods", {
+    name: "Lahore rider",
+    price_minor: 100,
+    countries: ["PK"],
+    regions: ["Punjab"],
+  });
   productHandle = (
     await call<{ handle: string }>("POST", "/products", {
       title: `Shawl ${RUN}`,
@@ -99,8 +118,7 @@ test("sign up, save an address, check out with it, see the order in the account"
   await page.getByLabel("Last name").fill("Malik");
   await page.getByLabel("Address", { exact: true }).fill("7 Saffron Lane");
   await page.getByLabel("City").fill("Karachi");
-  const region = page.getByLabel("State / province");
-  if (await region.count()) await region.fill("Sindh");
+  await page.getByLabel("State / province").selectOption("Sindh");
   await page.getByLabel("Postal code").fill("75500");
   await page.getByRole("button", { name: "Save address" }).click();
   await expect(page).toHaveURL(/\/account$/);
@@ -116,7 +134,12 @@ test("sign up, save an address, check out with it, see the order in the account"
   await expect(page.getByRole("textbox", { name: "Email", exact: true })).toHaveValue(EMAIL);
   await expect(page.getByLabel("Address", { exact: true })).toHaveValue("7 Saffron Lane");
   await expect(page.getByText("Have an account?")).toHaveCount(0);
+  await expect(page.getByLabel("State / province")).toHaveValue("Sindh");
   await page.getByRole("button", { name: "Continue to shipping" }).click();
+  // Only methods for Karachi, Sindh; with the delivery estimate.
+  await expect(page.getByLabel(/Karachi rider/)).toBeVisible();
+  await expect(page.getByLabel(/Lahore rider/)).toHaveCount(0);
+  await expect(page.getByText("Delivery in 2–4 days")).toBeVisible();
   await page.getByLabel(/Leopards/).check();
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await page.getByRole("radio", { name: /Cash on delivery/ }).check();

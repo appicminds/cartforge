@@ -73,6 +73,7 @@ export type OrderListQuery = z.output<typeof orderListQuerySchema>;
 
 export {
   checkoutSettingsSchema,
+  shippingMethodFields,
   shippingMethodSchema,
   type CheckoutSettings,
   type CheckoutSettingsInput,

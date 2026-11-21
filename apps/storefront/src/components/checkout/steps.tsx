@@ -1,5 +1,6 @@
 "use client";
 
+import { describeEstimate } from "@cartforge/checkout-engine/shipping";
 import Link from "next/link";
 import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { placeOrder, saveInformation, saveShipping } from "@/app/actions/checkout";
@@ -112,6 +113,11 @@ export function ShippingStep({ view, locale }: { view: CheckoutView; locale?: st
                   <span className="block font-medium">{o.name}</span>
                   {o.description && (
                     <span className="block text-sm text-muted">{o.description}</span>
+                  )}
+                  {describeEstimate(o.estimate) && (
+                    <span className="block text-sm text-muted">
+                      Delivery in {describeEstimate(o.estimate)}
+                    </span>
                   )}
                 </span>
                 <span className="font-medium">

@@ -134,7 +134,7 @@ export class CheckoutService {
       // Shipping choice must be valid for the (possibly new) destination and cart.
       const address = input.shipping_address ?? asAddress(checkout.shipping_address) ?? null;
       const cartView = await this.carts.viewIn(tx, cart);
-      const quotes = await this.quotes(tx, cart.store_id, address?.country, cartView);
+      const quotes = await this.quotes(tx, cart.store_id, address, cartView);
       const wanted =
         input.shipping_method_id !== undefined
           ? input.shipping_method_id
@@ -408,15 +408,15 @@ export class CheckoutService {
   private async quotes(
     tx: Tx,
     storeId: string,
-    country: string | null | undefined,
+    address: { country: string; region?: string | null; city?: string | null } | null | undefined,
     cart: CartView,
   ): Promise<ShippingOption[]> {
-    if (!cart.requires_shipping) return [];
+    if (!cart.requires_shipping || !address) return [];
     const methods = (await this.settings.shippingMethods(storeId, tx)).map(toShippingConfig);
-    const shippable = cart.lines
-      .filter((l) => l.requires_shipping)
-      .reduce((a, l) => a + l.line_total_minor, 0);
-    return quoteShipping(methods, country, shippable);
+    const lines = cart.lines.filter((l) => l.requires_shipping);
+    const shippable = lines.reduce((a, l) => a + l.line_total_minor, 0);
+    const items = lines.reduce((a, l) => a + l.quantity, 0);
+    return quoteShipping(methods, address, shippable, items);
   }
 
   /** Re-validates the cart, refreshes stock holds and recomputes everything. */
@@ -455,7 +455,7 @@ export class CheckoutService {
 
     const shippingAddress = asAddress(checkout.shipping_address);
     const billingAddress = asAddress(checkout.billing_address);
-    const quotes = await this.quotes(tx, cart.store_id, shippingAddress?.country, cartView);
+    const quotes = await this.quotes(tx, cart.store_id, shippingAddress, cartView);
     const shipping = cartView.requires_shipping
       ? (quotes.find((q) => q.id === checkout.shipping_method_id) ?? null)
       : null;

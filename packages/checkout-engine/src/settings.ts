@@ -111,7 +111,23 @@ export type CheckoutSettingsInput = z.input<typeof checkoutSettingsSchema>;
 
 export const DEFAULT_CHECKOUT_SETTINGS: CheckoutSettings = checkoutSettingsSchema.parse({});
 
-export const shippingMethodSchema = z.object({
+const placeList = (max: number) =>
+  z
+    .array(z.string().trim().min(1).max(80))
+    .max(max)
+    .default([])
+    .transform((list) => {
+      const seen = new Set<string>();
+      return list.filter((v) => {
+        const k = v.toLowerCase();
+        return seen.has(k) ? false : (seen.add(k), true);
+      });
+    });
+const optionalMinor = z.number().int().min(0).max(1_000_000_000).nullable().default(null);
+const optionalDays = z.number().int().min(0).max(365).nullable().default(null);
+
+/** The fields alone (for partial updates); validate the merged result with shippingMethodSchema. */
+export const shippingMethodFields = z.object({
   name: z.string().trim().min(1, "Enter a name").max(80),
   description: z
     .string()
@@ -120,13 +136,46 @@ export const shippingMethodSchema = z.object({
     .optional()
     .transform((v) => v || null),
   price_minor: z.number().int().min(0).max(100_000_000),
-  free_over_minor: z.number().int().min(0).max(1_000_000_000).nullable().default(null),
+  free_over_minor: optionalMinor,
   countries: z
     .array(z.string().trim().toUpperCase().length(2))
     .max(250)
     .default([])
     .transform((c) => [...new Set(c)].sort()),
+  /** Provinces/states; needs exactly one country to be meaningful. */
+  regions: placeList(100),
+  cities: placeList(200),
+  min_order_minor: optionalMinor,
+  max_order_minor: optionalMinor,
+  per_item_minor: z.number().int().min(0).max(100_000_000).default(0),
+  min_days: optionalDays,
+  max_days: optionalDays,
   active: z.boolean().default(true),
+});
+
+export const shippingMethodSchema = shippingMethodFields.superRefine((m, ctx) => {
+  if ((m.regions.length || m.cities.length) && m.countries.length !== 1)
+    ctx.addIssue({
+      code: "custom",
+      path: [m.regions.length ? "regions" : "cities"],
+      message: "Choose exactly one country to limit by province or city",
+    });
+  if (
+    m.min_order_minor != null &&
+    m.max_order_minor != null &&
+    m.min_order_minor > m.max_order_minor
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["max_order_minor"],
+      message: "Must be at least the minimum order",
+    });
+  if (m.min_days != null && m.max_days != null && m.min_days > m.max_days)
+    ctx.addIssue({
+      code: "custom",
+      path: ["max_days"],
+      message: "Must be at least the minimum days",
+    });
 });
 export type ShippingMethodInput = z.input<typeof shippingMethodSchema>;
 export type ShippingMethodData = z.output<typeof shippingMethodSchema>;

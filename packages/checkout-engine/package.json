@@ -8,6 +8,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./regions": {
+      "types": "./dist/regions.d.ts",
+      "default": "./dist/regions.js"
+    },
+    "./shipping": {
+      "types": "./dist/shipping.d.ts",
+      "default": "./dist/shipping.js"
     }
   },
   "files": [

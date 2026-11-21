@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { REGIONS, regionKey } from "@cartforge/checkout-engine/regions";
 import type { CommerceAddress } from "@/lib/commerce-types";
 
 export function FieldError({ id, message }: { id: string; message?: string }) {
@@ -54,6 +55,52 @@ export function Field({
         className={`sf-field w-full ${err ? "border-sale" : ""}`}
       />
       <FieldError id={`${id}-err`} message={err} />
+    </div>
+  );
+}
+
+/** A province/state list for countries where shipping and tax often differ by region. */
+function RegionSelect({
+  id,
+  name,
+  regions,
+  value,
+  autoComplete,
+  error,
+}: {
+  id: string;
+  name: string;
+  regions: { code: string; name: string }[];
+  value: string;
+  autoComplete: string;
+  error?: string;
+}) {
+  const known = regions.some((r) => r.code === value);
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-sm">
+        State / province
+      </label>
+      <select
+        id={id}
+        name={name}
+        defaultValue={known ? regions.find((r) => r.code === value)!.name : ""}
+        autoComplete={autoComplete}
+        required
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-err` : undefined}
+        className="sf-field sf-select w-full"
+      >
+        <option value="" disabled>
+          Choose…
+        </option>
+        {regions.map((r) => (
+          <option key={r.code} value={r.name}>
+            {r.name}
+          </option>
+        ))}
+      </select>
+      <FieldError id={`${id}-err`} message={error} />
     </div>
   );
 }
@@ -171,14 +218,26 @@ export function AddressFields({
         errors={errors}
         required
       />
-      <Field
-        name={n("region")}
-        label="State / province"
-        defaultValue={value?.region}
-        autoComplete={`${ac} address-level1`}
-        errors={errors}
-        required={REGION_REQUIRED.has(country)}
-      />
+      {REGIONS[country] ? (
+        <RegionSelect
+          key={country}
+          id={`f-${prefix}-region`}
+          name={n("region")}
+          regions={REGIONS[country]!}
+          value={value?.country === country ? regionKey(country, value?.region) : ""}
+          autoComplete={`${ac} address-level1`}
+          error={errors?.[n("region")]}
+        />
+      ) : (
+        <Field
+          name={n("region")}
+          label="State / province"
+          defaultValue={value?.region}
+          autoComplete={`${ac} address-level1`}
+          errors={errors}
+          required={REGION_REQUIRED.has(country)}
+        />
+      )}
       <Field
         name={n("postal_code")}
         label="Postal code"

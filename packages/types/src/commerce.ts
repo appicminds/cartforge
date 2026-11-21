@@ -94,6 +94,7 @@ export interface ShippingOption {
   description: string | null;
   price_minor: number;
   free: boolean;
+  estimate: { min_days: number | null; max_days: number | null } | null;
 }
 
 export interface PaymentOption {
@@ -307,6 +308,13 @@ export interface ShippingMethodView {
   price_minor: number;
   free_over_minor: number | null;
   countries: string[];
+  regions: string[];
+  cities: string[];
+  min_order_minor: number | null;
+  max_order_minor: number | null;
+  per_item_minor: number;
+  min_days: number | null;
+  max_days: number | null;
   active: boolean;
   position: number;
 }

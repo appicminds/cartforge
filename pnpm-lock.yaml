@@ -223,6 +223,9 @@ importers:
 
   apps/storefront:
     dependencies:
+      '@cartforge/checkout-engine':
+        specifier: workspace:*
+        version: link:../../packages/checkout-engine
       '@cartforge/theme-engine':
         specifier: workspace:*
         version: link:../../packages/theme-engine

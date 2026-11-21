@@ -53,6 +53,29 @@ test("checkout settings: shipping methods and payment toggles", async ({ page })
   const item = page.getByRole("listitem").filter({ hasText: `Pigeon ${RUN}` });
   await expect(item).toContainText("$3.50 · CA, US");
 
+  // Limit to a province: needs exactly one country.
+  await item.getByRole("button", { name: `Edit Pigeon ${RUN}` }).click();
+  const edit = page.getByRole("dialog", { name: "Edit shipping method" });
+  await edit.getByLabel("Provinces / states").fill("Ontario, Quebec");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(
+    edit.getByText("Enter exactly one country above to limit by province or city"),
+  ).toBeVisible();
+  await edit.getByLabel("Countries").fill("CA");
+  await edit.getByLabel("Cities").fill("Toronto");
+  await edit.getByLabel("Extra per item (USD)").fill("1");
+  await edit.getByLabel("Minimum order (USD)").fill("20");
+  await edit.getByLabel("Delivery from (days)").fill("2");
+  await edit.getByLabel("Delivery up to (days)").fill("1");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(edit.getByText("Must be at least the minimum days")).toBeVisible();
+  await edit.getByLabel("Delivery up to (days)").fill("4");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Shipping method saved")).toBeVisible();
+  await expect(item).toContainText(
+    "$3.50 · CA (Ontario, Quebec) · Toronto · +$1.00 per extra item · orders from $20.00 · 2–4 days",
+  );
+
   await item.getByRole("button", { name: `Delete Pigeon ${RUN}` }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Shipping method deleted")).toBeVisible();

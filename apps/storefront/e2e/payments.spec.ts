@@ -105,8 +105,7 @@ async function checkoutWith(page: Page, method: RegExp) {
   await page.getByLabel("Last name").fill("Khan");
   await page.getByLabel("Address", { exact: true }).fill("12 Mall Road");
   await page.getByLabel("City").fill("Lahore");
-  const region = page.getByLabel("State / province");
-  if (await region.count()) await region.fill("Punjab");
+  await page.getByLabel("State / province").selectOption("Punjab");
   await page.getByLabel("Postal code").fill("54000");
   await page.getByRole("button", { name: "Continue to shipping" }).click();
   await page.getByLabel(/TCS/).check();
