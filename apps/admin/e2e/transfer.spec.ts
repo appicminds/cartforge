@@ -63,3 +63,35 @@ test("a platform admin moves every product to another store", async ({ page, bro
   await page.getByRole("searchbox", { name: "Search stores" }).fill(RUN);
   await expect(page.getByRole("row").filter({ hasText: `New Shop ${RUN}` })).toContainText("2");
 });
+
+test("a platform admin switches a store to PKR, keeping the shown prices", async ({
+  page,
+  browser,
+}) => {
+  const ctx = await browser.newContext();
+  const merchant = await ctx.newPage();
+  await signIn(merchant, "other@cartforge.test");
+  const store = await apiCall(merchant, "POST", "/stores", {
+    store_name: `Dollar Shop ${RUN}`,
+    currency: "USD",
+  });
+  const product = await apiCall(
+    merchant,
+    "POST",
+    "/products",
+    { title: `Shawl ${RUN}`, price_minor: 479900, status: "active" },
+    store.store_id,
+  );
+  await signIn(page, "platform@cartforge.test");
+  await page.getByRole("searchbox", { name: "Search stores" }).fill(`Dollar Shop ${RUN}`);
+  await page.getByRole("button", { name: `Change currency of Dollar Shop ${RUN}` }).click();
+  const dialog = page.getByRole("dialog", { name: `Change currency of Dollar Shop ${RUN}` });
+  await expect(dialog.getByLabel("New currency")).toHaveValue("PKR");
+  await dialog.getByRole("button", { name: "Change to PKR" }).click();
+  await expect(page.getByText(`Dollar Shop ${RUN} now sells in PKR`)).toBeVisible();
+  const after = await merchant.request.get(`/api/v1/products/${product.id}`, {
+    headers: { "X-Store-Id": store.store_id },
+  });
+  expect((await after.json()).data.variants[0].price_minor).toBe(4799);
+  await ctx.close();
+});

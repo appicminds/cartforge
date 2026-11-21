@@ -35,6 +35,7 @@ import {
 import { useSession } from "@/lib/session";
 import { useDebounced } from "@/lib/use-debounced";
 import { ResetLinkDialog } from "./reset-link-dialog";
+import { CurrencyDialog } from "./currency-dialog";
 import { TransferDialog } from "./transfer-dialog";
 
 type Tab = "all" | "active" | "suspended";
@@ -133,6 +134,7 @@ export default function PlatformStoresPage() {
   const toast = useToast();
   const [suspending, setSuspending] = useState<PlatformStoreRow | null>(null);
   const [moving, setMoving] = useState<PlatformStoreRow | null>(null);
+  const [recurrency, setRecurrency] = useState<PlatformStoreRow | null>(null);
   const [resetting, setResetting] = useState<PlatformStoreRow | null>(null);
 
   if (!user.is_platform_admin) {
@@ -268,6 +270,17 @@ export default function PlatformStoresPage() {
                             )}
                           </Td>
                           <Td className="whitespace-nowrap text-right">
+                            {s.order_count === 0 && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="mr-2"
+                                onClick={() => setRecurrency(s)}
+                                aria-label={`Change currency of ${s.name}`}
+                              >
+                                Currency
+                              </Button>
+                            )}
                             {s.product_count > 0 && (
                               <Button
                                 size="sm"
@@ -332,6 +345,7 @@ export default function PlatformStoresPage() {
       </Card>
       <SuspendDialog store={suspending} onClose={() => setSuspending(null)} />
       <TransferDialog store={moving} onClose={() => setMoving(null)} />
+      <CurrencyDialog store={recurrency} onClose={() => setRecurrency(null)} />
       <ResetLinkDialog store={resetting} onClose={() => setResetting(null)} />
     </div>
   );

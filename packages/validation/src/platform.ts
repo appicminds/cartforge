@@ -150,3 +150,15 @@ export const storeTransferSchema = z
   .strict();
 export type StoreTransferInput = z.input<typeof storeTransferSchema>;
 export type StoreTransfer = z.output<typeof storeTransferSchema>;
+
+/** Platform admin: change a store's currency before its first order, keeping the shown prices. */
+export const storeCurrencySchema = z
+  .object({
+    currency: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{3}$/, "Choose a currency"),
+  })
+  .strict();
+export type StoreCurrencyInput = z.input<typeof storeCurrencySchema>;

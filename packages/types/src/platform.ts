@@ -13,7 +13,22 @@ export const PLATFORM_ERROR_CODES = {
   PRICE_RATE_REQUIRED: "PRICE_RATE_REQUIRED",
   SAME_STORE: "SAME_STORE",
   EMAIL_NOT_VERIFIED: "EMAIL_NOT_VERIFIED",
+  STORE_HAS_ORDERS: "STORE_HAS_ORDERS",
 } as const;
+
+/** Result of changing a store's currency (platform admin). */
+export interface StoreCurrencyResult {
+  store_id: string;
+  from: string;
+  to: string;
+  /** Variants and shipping methods whose amounts were re-stored. */
+  variants: number;
+  shipping_methods: number;
+  /** Amounts that had fractions the new currency can't hold, rounded to the nearest unit. */
+  rounded: number;
+  /** Open carts emptied (they were priced in the old currency). */
+  carts_cleared: number;
+}
 
 export type Edition = "saas" | "self_hosted";
 

@@ -332,6 +332,11 @@ rule per place). The order's destination — shipping address, or billing addres
 ships — uses the province rule, then the country rule (`region: ""`), then `tax_rate_bps`.
 Checkout `totals.tax_rate_bps`/`tax_label` and the order record show what applied.
 
+**Changing a store's currency** (platform admin): `POST /platform/stores/:id/currency`
+`{ currency }` keeps the prices people see (4,799.00 USD → Rs 4,799; amounts are re-stored for the
+new currency's decimals, fractions that don't fit are rounded) and empties open carts. Only before
+the store's first order (`409 STORE_HAS_ORDERS`). Admin: Platform → Stores → **Currency**.
+
 ## Quick example
 
 ```bash
