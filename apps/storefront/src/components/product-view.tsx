@@ -161,11 +161,6 @@ export function ProductView({
               <span>{formatMoney(price, currency, locale)}</span>
             )}
           </div>
-          {onSale && product.sale_title && (
-            <p className="mt-1 text-sm text-sale" data-testid="sale-title">
-              {product.sale_title} applied
-            </p>
-          )}
         </div>
 
         {hasOptions &&

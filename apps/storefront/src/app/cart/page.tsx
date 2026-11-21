@@ -149,20 +149,6 @@ export default async function CartPage({ searchParams }: Props) {
                 {money(cart.subtotal_minor)}
               </dd>
             </div>
-            {cart.discounts.map((d) => (
-              <div key={d.title} className="flex justify-between text-sale">
-                <dt>{d.title}</dt>
-                <dd className="font-medium">−{money(d.amount_minor)}</dd>
-              </div>
-            ))}
-            {cart.discount_minor > 0 && (
-              <div className="flex justify-between border-t border-line pt-2 text-base">
-                <dt className="font-semibold">Total</dt>
-                <dd className="font-semibold" data-testid="cart-total">
-                  {money(cart.subtotal_minor - cart.discount_minor)}
-                </dd>
-              </div>
-            )}
           </dl>
           <p className="mt-2 text-sm text-muted">Shipping and taxes are calculated at checkout.</p>
           <form action={startCheckout} className="mt-6">

@@ -20,7 +20,6 @@ import { AppException } from "../../common/app-exception";
 import { ApiZodBody } from "../../common/openapi";
 import type { AuthContext, StoreContext } from "../../common/request-context";
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
-import { InvalidatesStorefront } from "../../storefront/revalidation";
 import { DiscountsService } from "./discounts.service";
 
 const discountId = new ParseUUIDPipe({
@@ -36,8 +35,6 @@ const actor = (auth: AuthContext, req: Request) => ({
 @ApiCookieAuth()
 @ApiHeader({ name: "X-Store-Id", required: true })
 @Controller("discounts")
-// Automatic product discounts show as sale prices in the storefront.
-@InvalidatesStorefront()
 export class DiscountsController {
   constructor(private readonly discounts: DiscountsService) {}
 

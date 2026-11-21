@@ -308,8 +308,6 @@ export interface StorefrontProduct {
   price_min_minor: number | null;
   price_max_minor: number | null;
   compare_at_min_minor: number | null;
-  /** An automatic discount already taken off the prices shown (e.g. "Eid Sale"). */
-  sale_title?: string | null;
   available: boolean;
   images: StorefrontImage[];
   options: { name: string; values: string[] }[];
