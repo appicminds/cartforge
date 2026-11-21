@@ -21,6 +21,7 @@ import {
   Th,
   Tr,
 } from "@cartforge/ui";
+import { DiscountTabs } from "@/components/discounts/discount-tabs";
 import { useDiscounts } from "@/lib/discounts";
 import { formatDate } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -40,7 +41,7 @@ const STATUS: Record<
 /** Admin: discount codes and automatic discounts (Next 8). */
 export default function DiscountsPage() {
   const { can } = useSession();
-  const canEdit = can(PERMISSIONS.STORE_SETTINGS_WRITE);
+  const canEdit = can(PERMISSIONS.DISCOUNTS_WRITE);
   const [search, setSearch] = useState("");
   const q = useDebounced(search.trim(), 300);
   const [status, setStatus] = useState("");
@@ -61,6 +62,7 @@ export default function DiscountsPage() {
           ) : undefined
         }
       />
+      <DiscountTabs />
       <Card>
         <div className="flex flex-wrap gap-3 border-b border-border p-4">
           <div className="relative min-w-56 flex-1">

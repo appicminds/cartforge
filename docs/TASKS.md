@@ -480,3 +480,16 @@ Goal (PRD §19): discount codes and automatic discounts, as merchants know them 
 | DS-03 | Checkout: code entry with reasons and hints, per-line allocation, market conversion; orders record them | ✅     | `discounts.e2e`, storefront `discounts.spec` |
 | DS-04 | Usage counted at order time with row locks (no overshoot)                                               | ✅     | `discounts.e2e`                              |
 | DS-05 | Admin list and Shopify-style editor; order page discount lines                                          | ✅     | admin `discounts.spec`                       |
+
+## Sales — bulk price changes
+
+Goal: take 20% (or an amount) off many products at once by changing their prices, with the old
+prices kept and put back on an end date or by hand. See `SALES.md`.
+
+| ID    | Task                                                                                            | Status | Evidence                         |
+| ----- | ----------------------------------------------------------------------------------------------- | ------ | -------------------------------- |
+| SL-01 | Engine: sale price, three ways to treat already-discounted products, rounding down              | ✅     | engine `sales.test`              |
+| SL-02 | Sales API: preview, run now or scheduled, one running sale per variant, saved prices, audit     | ✅     | `sales.e2e`                      |
+| SL-03 | Ending: on the end date (as the store is used, plus cron), by hand, per product; edits are kept | ✅     | `sales.e2e`                      |
+| SL-04 | Admin: Discounts → Sales tab, run-a-sale form with review, sale page, product page banner       | ✅     | admin `sales.spec`               |
+| SL-05 | `discounts.write` permission for discounts and sales (owners and administrators)                | ✅     | migration `20261122220000_sales` |

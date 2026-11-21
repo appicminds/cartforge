@@ -11,6 +11,9 @@ Codes customers type at checkout and discounts that apply by themselves — mode
 | **Buy X get Y**         | Buy 2 suits, get a dupatta free | The cheapest eligible "get" items, % off or free; optional uses per order |
 | **Free shipping**       | Free delivery over Rs 3,000     | The chosen shipping charge                                                |
 
+To change the prices themselves for a while (struck-through old price everywhere, put back
+when it ends), use a **sale** instead: see [SALES.md](SALES.md).
+
 Each discount is a **code** (EID20 — typed by the customer) or **automatic** (applies on its
 own, shown with its title).
 

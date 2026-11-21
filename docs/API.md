@@ -359,18 +359,36 @@ rate for manual markets, live mode only when `FX_PROVIDER` is configured.
 
 See `DISCOUNTS.md`.
 
-| Method & path                           | Auth / permission    | Purpose                                                                                                                                                                                                                            |
-| --------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /discounts`                        | store.read           | List with `status`, `used_count`, `summary` (`q`: title or code, `status`)                                                                                                                                                         |
-| `GET /discounts/:id`                    | store.read           | One discount                                                                                                                                                                                                                       |
-| `POST /discounts`, `PUT /discounts/:id` | store.settings.write | `{ title, method: code·automatic, code, kind: order·products·bxgy·shipping, value_type, value, target, buy, min_subtotal_minor, min_quantity, starts_at, ends_at, usage_limit, once_per_customer, combines, market_ids, enabled }` |
-| `DELETE /discounts/:id`                 | store.settings.write | Delete (orders keep their record)                                                                                                                                                                                                  |
+| Method & path                           | Auth / permission | Purpose                                                                                                                                                                                                                            |
+| --------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /discounts`                        | store.read        | List with `status`, `used_count`, `summary` (`q`: title or code, `status`)                                                                                                                                                         |
+| `GET /discounts/:id`                    | store.read        | One discount                                                                                                                                                                                                                       |
+| `POST /discounts`, `PUT /discounts/:id` | discounts.write   | `{ title, method: code·automatic, code, kind: order·products·bxgy·shipping, value_type, value, target, buy, min_subtotal_minor, min_quantity, starts_at, ends_at, usage_limit, once_per_customer, combines, market_ids, enabled }` |
+| `DELETE /discounts/:id`                 | discounts.write   | Delete (orders keep their record)                                                                                                                                                                                                  |
 
 Checkout: `PATCH /storefront/checkout { discount_code }` (null removes) → `422` on
 `discount_code` with the reason. The view adds `discount_code`, `discounts[]` (`{ id, title,
 code, kind, amount_minor }`), `discount_note` and `totals.shipping_discount_minor`
 (`totals.shipping_minor` is after it). Placing the order can answer `409 DISCOUNT_USED_UP` if a
 limit was reached meanwhile. Order views (customer and admin) include `discounts[]`.
+
+### Sales
+
+See `SALES.md`. Viewing needs `store.read`; everything else `discounts.write`.
+
+| Method & path                     | Notes                                                                                                 |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET /sales`                      | Sales with `status`, `summary`, product counts (starts/ends due sales first)                          |
+| `POST /sales/preview`             | Same body as create; returns counts, skip reasons and example prices. Changes nothing                 |
+| `POST /sales`                     | `{ title, value_type, value, target, existing: skip·original·current, rounding, starts_at, ends_at }` |
+| `GET /sales/:id`                  | With its items: old, sale and current prices, status (active · restored · kept · removed)             |
+| `PATCH /sales/:id`                | Scheduled: same body as create. Running: `{ title, ends_at }` only                                    |
+| `POST /sales/:id/end`             | Running: put prices back now (`{ restored, kept[] }`). Scheduled: cancel                              |
+| `POST /sales/:id/remove-products` | `{ product_ids }` — their prices go back                                                              |
+| `POST /sales/:id/apply-new`       | Adds matching products not in the sale yet                                                            |
+| `DELETE /sales/:id`               | Not while running (409)                                                                               |
+| `GET /sales/product/:productId`   | The running or scheduled sale a product is in                                                         |
+| `GET /internal/cron/sales`        | `Authorization: Bearer $CRON_SECRET`; 404 without it                                                  |
 
 ## Quick example
 

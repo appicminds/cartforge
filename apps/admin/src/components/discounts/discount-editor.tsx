@@ -59,25 +59,25 @@ const KINDS: { key: DiscountKindKey; label: string; hint: string; icon: ReactNod
   },
 ];
 
-type Scope = "all" | "collections" | "products";
+export type Scope = "all" | "collections" | "products";
 type Target = { all: boolean; product_ids: string[]; collection_ids: string[] };
-const scopeOf = (t: Target | undefined): Scope =>
+export const scopeOf = (t: Target | undefined): Scope =>
   !t || t.all ? "all" : t.collection_ids.length ? "collections" : "products";
-const toTarget = (scope: Scope, products: string[], collections: string[]): Target => ({
+export const toTarget = (scope: Scope, products: string[], collections: string[]): Target => ({
   all: scope === "all",
   product_ids: scope === "products" ? products : [],
   collection_ids: scope === "collections" ? collections : [],
 });
 
 /** Local date-time input value (yyyy-mm-ddThh:mm). */
-const localInput = (iso: string | null | undefined) => {
+export const localInput = (iso: string | null | undefined) => {
   if (!iso) return "";
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-function TargetPicker({
+export function TargetPicker({
   label,
   scope,
   setScope,
@@ -153,7 +153,7 @@ export function DiscountEditor({ discount }: { discount: DiscountView | null }) 
   const router = useRouter();
   const toast = useToast();
   const { can } = useSession();
-  const canEdit = can(PERMISSIONS.STORE_SETTINGS_WRITE);
+  const canEdit = can(PERMISSIONS.DISCOUNTS_WRITE);
   const store = useStoreSettings();
   const currency = store.data?.currency ?? "PKR";
   const markets = useMarkets();

@@ -33,6 +33,9 @@ export const PERMISSIONS = {
   CUSTOMERS_READ: "customers.read",
   CUSTOMERS_WRITE: "customers.write",
 
+  /** Discount codes, automatic discounts and sales (bulk price changes). */
+  DISCOUNTS_WRITE: "discounts.write",
+
   CONTENT_WRITE: "content.write",
   THEMES_WRITE: "themes.write",
 

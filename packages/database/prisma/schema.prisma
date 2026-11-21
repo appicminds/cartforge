@@ -150,6 +150,7 @@ model Store {
   products            Product[]
   markets             Market[]
   discounts           Discount[]
+  sales               Sale[]
   variants            ProductVariant[]
   media               MediaAsset[]
   inventory_locations InventoryLocation[]
@@ -340,7 +341,8 @@ model ProductVariant {
   cart_lines    CartLine[]
   reservations  InventoryReservation[]
 
-  market_prices      MarketPrice[]
+  market_prices MarketPrice[]
+
   @@index([product_id, position])
   @@index([store_id, barcode])
   @@map("product_variants")
@@ -1410,17 +1412,74 @@ model Discount {
 
 /// One use of a discount by an order (usage limits, once per customer).
 model DiscountRedemption {
-  id          String   @id @default(uuid()) @db.Uuid
-  discount_id String   @db.Uuid
-  order_id    String   @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  discount_id  String   @db.Uuid
+  order_id     String   @db.Uuid
   /// Lower-cased customer email.
-  email       String   @db.VarChar(254)
+  email        String   @db.VarChar(254)
   amount_minor BigInt
-  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
 
   discount Discount @relation(fields: [discount_id], references: [id], onDelete: Cascade)
 
   @@unique([discount_id, order_id])
   @@index([discount_id, email])
   @@map("discount_redemptions")
+}
+
+/// A bulk price change (e.g. 20% off everything) written to the variants,
+/// with the old prices kept in sale_items so it can be ended and put back.
+model Sale {
+  id         String    @id @default(uuid()) @db.Uuid
+  store_id   String    @db.Uuid
+  title      String    @db.VarChar(120)
+  /// percent | fixed
+  value_type String    @default("percent") @db.VarChar(10)
+  /// Basis points (percent) or store-currency minor units (fixed).
+  value      BigInt
+  /// {all, product_ids, collection_ids}
+  target     Json
+  /// skip | original | current — products already discounted
+  existing   String    @default("skip") @db.VarChar(10)
+  /// none | whole | x9 | ten | hundred
+  rounding   String    @default("none") @db.VarChar(10)
+  starts_at  DateTime  @default(now()) @db.Timestamptz(3)
+  /// null = runs until ended by hand.
+  ends_at    DateTime? @db.Timestamptz(3)
+  /// scheduled | running | ended | canceled
+  status     String    @default("scheduled") @db.VarChar(10)
+  started_at DateTime? @db.Timestamptz(3)
+  ended_at   DateTime? @db.Timestamptz(3)
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at DateTime  @updatedAt @db.Timestamptz(3)
+
+  store Store      @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  items SaleItem[]
+
+  @@index([store_id, status])
+  @@map("sales")
+}
+
+/// One variant's price change in a sale, with the prices to put back.
+model SaleItem {
+  id                 String    @id @default(uuid()) @db.Uuid
+  sale_id            String    @db.Uuid
+  store_id           String    @db.Uuid
+  product_id         String    @db.Uuid
+  variant_id         String    @db.Uuid
+  old_price_minor    BigInt
+  old_compare_minor  BigInt?
+  sale_price_minor   BigInt
+  sale_compare_minor BigInt
+  /// active | restored | kept (edited during the sale) | removed (variant gone)
+  status             String    @default("active") @db.VarChar(10)
+  created_at         DateTime  @default(now()) @db.Timestamptz(3)
+  ended_at           DateTime? @db.Timestamptz(3)
+
+  sale Sale @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+
+  @@index([sale_id, status])
+  @@index([store_id, product_id])
+  @@index([variant_id])
+  @@map("sale_items")
 }

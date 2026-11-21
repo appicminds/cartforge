@@ -16,6 +16,7 @@ import { AppException } from "../common/app-exception";
 import { mediaUrls } from "../media/media.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import { MarketsService, type ResolvedMarket } from "../commerce/markets/markets.service";
+import { SalesService } from "../commerce/sales/sales.service";
 
 const PRODUCT_INCLUDE = {
   variants: {
@@ -71,6 +72,7 @@ export class StorefrontService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly markets: MarketsService,
+    private readonly sales: SalesService,
   ) {}
 
   /** The shopper's market from a request's `market` value ("primary"/unknown → primary). */
@@ -127,6 +129,8 @@ export class StorefrontService {
     if (!store) {
       throw new AppException(ERROR_CODES.NOT_FOUND, "Store not found.", HttpStatus.NOT_FOUND);
     }
+    // Scheduled sales start and end as shoppers visit (throttled; cron is the backup).
+    await this.sales.catchUp(store.id);
     return {
       id: store.id,
       name: store.name,

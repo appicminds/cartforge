@@ -94,6 +94,10 @@ export const apiEnvSchema = z
     /** App ID from openexchangerates.org (free plan is enough). */
     FX_API_KEY: z.string().optional(),
 
+    // ── Scheduled jobs ──
+    /** Vercel Cron sends it as a Bearer token; jobs also run as pages are visited. */
+    CRON_SECRET: z.string().min(16).optional(),
+
     // ── Email (password reset) ──
     /** "log": no email is sent (development prints the link) · "resend": send through Resend. */
     EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
