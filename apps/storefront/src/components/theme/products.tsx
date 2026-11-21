@@ -150,7 +150,7 @@ function Tiles({
           {tiles.map((t) => (
             <li
               key={t.key}
-              className="group relative overflow-hidden rounded-[calc(var(--sf-radius)/2)] bg-surface"
+              className="group relative overflow-hidden rounded-[var(--sf-card-radius)] bg-surface"
             >
               <div className={RATIO[ratio] ?? RATIO.landscape}>
                 {t.image && (

@@ -149,10 +149,10 @@ export function HeaderSection({
     <Shell section={section} className={`z-30 ${bool(s, "sticky") ? "sticky top-0" : "relative"}`}>
       <header className="border-b border-line bg-bg/95 backdrop-blur">
         <div
-          className={`sf-container flex h-16 items-center gap-6 md:h-20 ${center ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""}`}
+          className={`sf-container flex h-16 items-center gap-6 md:h-20 ${center ? "lg:grid lg:grid-cols-[1fr_auto_1fr]" : ""}`}
         >
           {/* Mobile menu: <details> works without JavaScript. */}
-          <details className="group md:hidden">
+          <details className="group lg:hidden">
             <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center [&::-webkit-details-marker]:hidden">
               <svg
                 aria-hidden
@@ -177,9 +177,9 @@ export function HeaderSection({
 
           <nav
             aria-label="Main"
-            className={`hidden md:block ${center ? "md:order-1" : "md:order-2 md:flex-1"}`}
+            className={`hidden min-w-0 lg:block ${center ? "lg:order-1" : "lg:order-2 lg:flex-1"}`}
           >
-            <ul className="flex flex-wrap gap-6 text-[0.95rem]">
+            <ul className="flex flex-wrap gap-x-6 whitespace-nowrap text-[0.95rem]">
               {items.map((l, i) => (
                 <li key={`${l.url}-${i}`} className="group/item relative">
                   <ThemeLink
@@ -194,7 +194,7 @@ export function HeaderSection({
                     )}
                   </ThemeLink>
                   {l.children.length > 0 && (
-                    <ul className="invisible absolute left-0 top-full z-40 min-w-52 rounded-[calc(var(--sf-radius)/2)] border border-line bg-bg p-2 opacity-0 shadow-lg transition-opacity group-focus-within/item:visible group-focus-within/item:opacity-100 group-hover/item:visible group-hover/item:opacity-100">
+                    <ul className="invisible absolute left-0 top-full z-40 min-w-52 rounded-[var(--sf-card-radius)] border border-line bg-bg p-2 opacity-0 shadow-lg transition-opacity group-focus-within/item:visible group-focus-within/item:opacity-100 group-hover/item:visible group-hover/item:opacity-100">
                       {l.children.map((c, j) => (
                         <li key={`${c.url}-${j}`}>
                           <ThemeLink
@@ -223,7 +223,7 @@ export function HeaderSection({
 
           <Link
             href="/"
-            className={`font-heading text-xl font-semibold tracking-tight md:text-2xl ${center ? "md:order-2 md:text-center" : "md:order-1"}`}
+            className={`shrink-0 font-heading text-xl font-semibold tracking-tight md:text-2xl ${center ? "lg:order-2 lg:text-center" : "lg:order-1"}`}
           >
             {logo ? (
               <img
@@ -238,9 +238,9 @@ export function HeaderSection({
             )}
           </Link>
 
-          <div className="ml-auto flex items-center gap-3 md:order-3 md:justify-self-end">
+          <div className="ml-auto flex items-center gap-3 lg:order-3 lg:justify-self-end">
             {bool(s, "show_search") && (
-              <div className="hidden md:block">
+              <div className="hidden lg:block">
                 <SearchForm id="search-desktop" />
               </div>
             )}

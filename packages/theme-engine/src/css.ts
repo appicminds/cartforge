@@ -29,6 +29,8 @@ export function themeCss(t: ThemeData): string {
     `--sf-heading-case:${s.heading_case === "uppercase" ? "uppercase" : "none"}`,
     `--sf-max-width:${Number(s.max_width)}px`,
     `--sf-radius:${radius >= 40 ? 999 : radius}px`,
+    // Cards and images round gently even when buttons are pills.
+    `--sf-card-radius:${Math.min(Math.round(radius / 2), 12)}px`,
     `--sf-card-ratio:${RATIOS[s.card_image_ratio as keyof typeof RATIOS] ?? RATIOS.portrait}`,
     `--sf-card-fit:${s.card_image_fit === "contain" ? "contain" : "cover"}`,
     `--sf-section-space:${SECTION_SPACE[s.section_spacing as keyof typeof SECTION_SPACE] ?? SECTION_SPACE.comfortable}`,

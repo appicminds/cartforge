@@ -38,7 +38,7 @@ export default async function Collections() {
               {cols.map((c) => (
                 <li
                   key={c.id}
-                  className="relative rounded-[calc(var(--sf-radius)/2)] border border-line p-6 transition-colors hover:bg-surface"
+                  className="relative rounded-[var(--sf-card-radius)] border border-line p-6 transition-colors hover:bg-surface"
                 >
                   <h2 className="text-xl">
                     <Link

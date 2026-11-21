@@ -44,7 +44,7 @@ export function ImageWithText({ section, ctx }: { section: SectionInstance; ctx:
     <Shell section={section} as="section">
       <div className="sf-section sf-container grid items-center gap-8 md:grid-cols-2 md:gap-14">
         <div
-          className={`overflow-hidden rounded-[calc(var(--sf-radius)/2)] ${right ? "md:order-2" : ""}`}
+          className={`overflow-hidden rounded-[var(--sf-card-radius)] ${right ? "md:order-2" : ""}`}
         >
           <ThemeImg
             ctx={ctx}
@@ -87,7 +87,7 @@ export function Multicolumn({ section, ctx }: { section: SectionInstance; ctx: S
               >
                 {withImages && (
                   <div
-                    className={`w-full overflow-hidden ${RATIO[ratio] ?? RATIO.landscape} ${ratio === "circle" ? "mx-auto max-w-40" : "rounded-[calc(var(--sf-radius)/2)]"}`}
+                    className={`w-full overflow-hidden ${RATIO[ratio] ?? RATIO.landscape} ${ratio === "circle" ? "mx-auto max-w-40" : "rounded-[var(--sf-card-radius)]"}`}
                   >
                     <ThemeImg
                       ctx={ctx}
@@ -162,7 +162,7 @@ export function Testimonials({ section }: { section: SectionInstance; ctx: Secti
               <li
                 key={b.id}
                 data-cf-block={b.id}
-                className="flex flex-col gap-4 rounded-[calc(var(--sf-radius)/2)] border border-line bg-bg p-6"
+                className="flex flex-col gap-4 rounded-[var(--sf-card-radius)] border border-line bg-bg p-6"
               >
                 {stars > 0 && (
                   <p className="text-accent" aria-label={`${stars} out of 5 stars`}>

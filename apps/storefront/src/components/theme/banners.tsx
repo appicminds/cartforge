@@ -90,14 +90,15 @@ export function SlideshowSection({ section, ctx }: { section: SectionInstance; c
           return (
             <div key={b.id} data-cf-block={b.id} className="relative grid h-full w-full">
               <div className="absolute inset-0">
-                <ThemeImg
-                  ctx={ctx}
-                  id={bs.image}
-                  sizes="100vw"
-                  eager={ctx.first && i === 0}
-                  className="h-full w-full object-cover"
-                />
-                {!hasImage && (
+                {hasImage ? (
+                  <ThemeImg
+                    ctx={ctx}
+                    id={bs.image}
+                    sizes="100vw"
+                    eager={ctx.first && i === 0}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
                   <div
                     aria-hidden
                     className="absolute inset-0 bg-gradient-to-br from-accent/80 to-ink/90"

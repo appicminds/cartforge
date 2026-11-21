@@ -14,12 +14,12 @@ export function OrderSummary({ view, locale }: { view: CheckoutView; locale?: st
       <ul className="mt-4 divide-y divide-line">
         {view.cart.lines.map((l) => (
           <li key={l.id} className="flex items-center gap-3 py-3">
-            <div className="relative h-16 w-14 shrink-0 rounded-[calc(var(--sf-radius)/2)] bg-bg">
+            <div className="relative h-16 w-14 shrink-0 rounded-[var(--sf-card-radius)] bg-bg">
               {l.image && (
                 <img
                   src={l.image.url}
                   alt=""
-                  className="h-full w-full rounded-[calc(var(--sf-radius)/2)] object-cover"
+                  className="h-full w-full rounded-[var(--sf-card-radius)] object-cover"
                 />
               )}
               <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1 text-[11px] font-semibold text-white">

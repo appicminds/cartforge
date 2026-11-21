@@ -70,7 +70,7 @@ describe("theme engine", () => {
     expect(lenient.errors).toEqual([]);
     expect(lenient.theme.templates.home[0]!.settings).toMatchObject({
       button_link: "/products",
-      color_scheme: "scheme-2" // the field default,
+      color_scheme: "scheme-2", // the field default,
     });
     expect(lenient.theme.templates.home).toHaveLength(4);
   });

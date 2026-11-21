@@ -155,6 +155,13 @@ to call `/api/v1/internal/cron/sales` once a day (the most the Hobby plan allows
    (e.g. `openssl rand -hex 24`). Vercel sends it to the cron call automatically.
 2. Redeploy the API. Without it the endpoint answers 404 and only visits run sales.
 
+## 5e. Theme editor preview (store builder)
+
+The theme editor shows the storefront in a frame. On the single-URL demo both are on one address,
+so nothing is needed. If the admin runs on a different address from the storefront, set
+`ADMIN_URL` on `cartforge-storefront` (comma-separated if several). It is used for the
+storefront's `Content-Security-Policy: frame-ancestors`, so rebuild the storefront after changing it.
+
 ## 6. Sign in
 
 Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your

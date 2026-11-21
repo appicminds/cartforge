@@ -74,7 +74,7 @@ async function CartContent({ searchParams, heading }: Props & { heading: string 
           <ul className="divide-y divide-line border-y border-line">
             {cart.lines.map((l) => (
               <li key={l.id} className="flex gap-4 py-6">
-                <div className="h-24 w-20 shrink-0 overflow-hidden rounded-[calc(var(--sf-radius)/2)] bg-surface sm:h-32 sm:w-28">
+                <div className="h-24 w-20 shrink-0 overflow-hidden rounded-[var(--sf-card-radius)] bg-surface sm:h-32 sm:w-28">
                   {l.image && (
                     <img
                       src={l.image.url}

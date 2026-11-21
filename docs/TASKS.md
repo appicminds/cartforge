@@ -493,3 +493,17 @@ prices kept and put back on an end date or by hand. See `SALES.md`.
 | SL-03 | Ending: on the end date (as the store is used, plus cron), by hand, per product; edits are kept | ✅     | `sales.e2e`                      |
 | SL-04 | Admin: Discounts → Sales tab, run-a-sale form with review, sale page, product page banner       | ✅     | admin `sales.spec`               |
 | SL-05 | `discounts.write` permission for discounts and sales (owners and administrators)                | ✅     | migration `20261122220000_sales` |
+
+## Next 3 — Store builder (Round 1)
+
+Goal (PRD §11): merchants design their store like Shopify's theme editor. See `STORE-BUILDER.md`.
+
+| ID    | Task                                                                                                               | Status | Evidence                       |
+| ----- | ------------------------------------------------------------------------------------------------------------------ | ------ | ------------------------------ |
+| SB-01 | Theme engine v2: sections with blocks, color schemes, fonts (incl. Urdu), header/footer groups, all page types     | ✅     | theme-engine `theme.test`      |
+| SB-02 | Presets Foundry, Bazaar, Minimal (valid, WCAG AA)                                                                  | ✅     | theme-engine `theme.test`      |
+| SB-03 | Themes API: library (6, one live), draft save (strict), publish, versions, restore, discard, preview tokens        | ✅     | `online-store.e2e`             |
+| SB-04 | Storefront renders the live theme or a previewed draft; 17 sections; product information blocks; `/pages/:handle`  | ✅     | storefront e2e (44)            |
+| SB-05 | Editor: section/block tree, drag and arrows, click to select, undo/redo, autosave, desktop/phone, publish, history | ✅     | admin `online-store.spec`      |
+| SB-06 | Theme settings: typography, layout, buttons, cards, color schemes with contrast warnings, favicon, social links    | ✅     | admin `online-store.spec`      |
+| SB-07 | Menus (3 levels, linked by id) and content pages with templates                                                    | ✅     | `online-store.e2e`, admin spec |

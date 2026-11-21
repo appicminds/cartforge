@@ -29,7 +29,7 @@ export function ProductCard({
     product.compare_at_min_minor > product.price_min_minor;
   return (
     <li className="group relative flex flex-col">
-      <div className="sf-card-media relative rounded-[calc(var(--sf-radius)/2)]">
+      <div className="sf-card-media relative rounded-[var(--sf-card-radius)]">
         {img ? (
           // Plain <img>: sizes come from the API's derivatives, no optimizer needed.
           <img

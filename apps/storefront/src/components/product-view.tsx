@@ -23,14 +23,14 @@ function Gallery({
   const img = images[active];
   if (!img) {
     return (
-      <div className="sf-card-media flex items-center justify-center rounded-[calc(var(--sf-radius)/2)] text-muted">
+      <div className="sf-card-media flex items-center justify-center rounded-[var(--sf-card-radius)] text-muted">
         <span>No image</span>
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-hidden rounded-[calc(var(--sf-radius)/2)] bg-surface">
+      <div className="overflow-hidden rounded-[var(--sf-card-radius)] bg-surface">
         <img
           key={img.url}
           src={img.large_url ?? img.url}
@@ -55,7 +55,7 @@ function Gallery({
                 type="button"
                 onClick={() => onSelect(i)}
                 aria-current={i === active ? "true" : undefined}
-                className={`block w-full overflow-hidden rounded-[calc(var(--sf-radius)/3)] border-2 bg-surface ${i === active ? "border-ink" : "border-transparent hover:border-line"}`}
+                className={`block w-full overflow-hidden rounded-[var(--sf-card-radius)] border-2 bg-surface ${i === active ? "border-ink" : "border-transparent hover:border-line"}`}
               >
                 <img
                   src={im.thumb_url ?? im.url}

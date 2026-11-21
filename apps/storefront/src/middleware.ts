@@ -146,13 +146,18 @@ async function startOrEndPreview(
   const res = NextResponse.redirect(url, 307);
   res.headers.set("Cache-Control", "no-store");
   if (themeToken !== null) {
+    // The theme editor shows the store in a frame, possibly on another site (the
+    // admin's domain vs. the store's own), so the cookie must work in a frame:
+    // SameSite=None, Secure, and partitioned per top-level site (CHIPS).
+    const secureContext = url.protocol === "https:" || /(^|\.)localhost$/.test(url.hostname);
     if (TOKEN_RE.test(themeToken))
       res.cookies.set(THEME_PREVIEW_COOKIE, themeToken, {
         httpOnly: true,
-        sameSite: "lax",
-        secure: url.protocol === "https:",
         path: "/",
         maxAge: 60 * 60,
+        ...(secureContext
+          ? { sameSite: "none" as const, secure: true, partitioned: true }
+          : { sameSite: "lax" as const }),
       });
     else res.cookies.delete(THEME_PREVIEW_COOKIE);
   }
