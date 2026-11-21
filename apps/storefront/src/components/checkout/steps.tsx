@@ -115,9 +115,7 @@ export function ShippingStep({ view, locale }: { view: CheckoutView; locale?: st
                     <span className="block text-sm text-muted">{o.description}</span>
                   )}
                   {describeEstimate(o.estimate) && (
-                    <span className="block text-sm text-muted">
-                      Delivery in {describeEstimate(o.estimate)}
-                    </span>
+                    <span className="block text-sm text-muted">{describeEstimate(o.estimate)}</span>
                   )}
                 </span>
                 <span className="font-medium">

@@ -74,8 +74,8 @@ test.describe("Accessibility (WCAG 2.1 AA)", () => {
     await page.goto("/admin/settings/checkout");
     await expect(page.getByRole("button", { name: "Save settings" })).toBeVisible();
     await scan(page, "checkout settings");
-    await page.getByRole("button", { name: "Add method" }).click();
-    await expect(page.getByRole("dialog", { name: "Add shipping method" })).toBeVisible();
+    await page.getByRole("button", { name: "Add shipping option" }).click();
+    await expect(page.getByRole("dialog", { name: "Add shipping option" })).toBeVisible();
     await scan(page, "shipping dialog");
   });
 

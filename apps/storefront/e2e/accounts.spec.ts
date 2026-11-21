@@ -158,7 +158,7 @@ test("sign up, save an address, check out with it, see the order in the account"
   // Only methods for Karachi, Sindh; with the delivery estimate.
   await expect(page.getByLabel(/Karachi rider/)).toBeVisible();
   await expect(page.getByLabel(/Lahore rider/)).toHaveCount(0);
-  await expect(page.getByText("Delivery in 2–4 days")).toBeVisible();
+  await expect(page.getByText("2 to 4 business days")).toBeVisible();
   await page.getByLabel(/Leopards/).check();
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await page.getByRole("radio", { name: /Cash on delivery/ }).check();

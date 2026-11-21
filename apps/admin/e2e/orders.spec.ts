@@ -39,41 +39,52 @@ test("checkout settings: shipping methods and payment toggles", async ({ page })
   await page.goto("/admin/settings/checkout");
   await expect(page.getByRole("heading", { level: 1, name: "Checkout" })).toBeVisible();
 
-  // Add a shipping method, with client-side validation first.
-  await page.getByRole("button", { name: "Add method" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add shipping method" });
-  await dialog.getByLabel("Name").fill(`Pigeon ${RUN}`);
-  await dialog.getByLabel("Rate (USD)").fill("3.50");
+  // Add a shipping option: the preview shows what customers will see.
+  await page.getByRole("button", { name: "Add shipping option" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add shipping option" });
+  const preview = dialog.getByTestId("shipping-preview");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog.getByText("Enter an amount (0 for free)")).toBeVisible();
+  await dialog.getByLabel("Option name").fill(`Pigeon ${RUN}`);
+  await dialog.getByLabel(/^Price/).fill("3.50");
+  await dialog.getByLabel("Transit time").selectOption({ label: "3 to 5 business days" });
+  await expect(preview).toContainText(`Pigeon ${RUN}`);
+  await expect(preview).toContainText("3 to 5 business days");
+  await expect(preview).toContainText("$3.50");
+  await dialog.getByLabel("Ships to").selectOption("several");
   await dialog.getByLabel("Countries").fill("United States");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog.getByText("Use two-letter country codes like US, CA, GB")).toBeVisible();
+  await expect(dialog.getByText("Use two-letter country codes like PK, AE")).toBeVisible();
   await dialog.getByLabel("Countries").fill("us, ca");
+  await dialog.getByRole("switch", { name: "Offer free shipping" }).click();
+  await dialog.getByLabel("Minimum order amount").fill("50");
+  await expect(preview).toContainText("Free over $50.00");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Shipping method added")).toBeVisible();
+  await expect(page.getByText("Shipping option added")).toBeVisible();
   const item = page.getByRole("listitem").filter({ hasText: `Pigeon ${RUN}` });
-  await expect(item).toContainText("$3.50 · CA, US");
+  await expect(item).toContainText("$3.50 · free over $50.00 · CA, US");
 
-  // Limit to a province: needs exactly one country.
+  // Limits: provinces need one country; delivery days come from the transit time.
   await item.getByRole("button", { name: `Edit Pigeon ${RUN}` }).click();
-  const edit = page.getByRole("dialog", { name: "Edit shipping method" });
-  await edit.getByLabel("Provinces / states").fill("Ontario, Quebec");
+  const edit = page.getByRole("dialog", { name: "Edit shipping option" });
+  await edit.getByRole("button", { name: "Limit to provinces, cities or order amount" }).click();
+  await edit.getByLabel("Only these provinces / states").fill("Ontario, Quebec");
   await edit.getByRole("button", { name: "Save" }).click();
-  await expect(
-    edit.getByText("Enter exactly one country above to limit by province or city"),
-  ).toBeVisible();
-  await edit.getByLabel("Countries").fill("CA");
-  await edit.getByLabel("Cities").fill("Toronto");
-  await edit.getByLabel("Extra per item (USD)").fill("1");
-  await edit.getByLabel("Minimum order (USD)").fill("20");
-  await edit.getByLabel("Delivery from (days)").fill("2");
-  await edit.getByLabel("Delivery up to (days)").fill("1");
+  await expect(edit.getByText("Choose one country under Ships to first")).toBeVisible();
+  await edit.getByLabel("Ships to").selectOption("CA");
+  await edit.getByLabel("Only these cities").fill("Toronto");
+  await edit.getByLabel("Extra per additional item").fill("1");
+  await edit.getByLabel("Orders from").fill("20");
+  await edit.getByLabel("Transit time").selectOption("custom");
+  await edit.getByLabel("From (days)").fill("4");
+  await edit.getByLabel("To (days)").fill("2");
   await edit.getByRole("button", { name: "Save" }).click();
-  await expect(edit.getByText("Must be at least the minimum days")).toBeVisible();
-  await edit.getByLabel("Delivery up to (days)").fill("4");
+  await expect(edit.getByText("Must be at least the first number")).toBeVisible();
+  await edit.getByLabel("To (days)").fill("6");
   await edit.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Shipping method saved")).toBeVisible();
+  await expect(page.getByText("Shipping option saved")).toBeVisible();
   await expect(item).toContainText(
-    "$3.50 · CA (Ontario, Quebec) · Toronto · +$1.00 per extra item · orders from $20.00 · 2–4 days",
+    "$3.50 · free over $50.00 · CA (Ontario, Quebec) · Toronto · +$1.00 per extra item · orders from $20.00 · 4 to 6 business days",
   );
 
   await item.getByRole("button", { name: `Delete Pigeon ${RUN}` }).click();

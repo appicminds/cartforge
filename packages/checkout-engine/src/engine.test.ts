@@ -185,9 +185,10 @@ describe("shipping", () => {
         price_minor: 400,
         estimate: { min_days: 3, max_days: 5 },
       });
-      expect(describeEstimate(q.estimate)).toBe("3–5 days");
-      expect(describeEstimate({ min_days: 1, max_days: 1 })).toBe("1 day");
-      expect(describeEstimate({ min_days: null, max_days: 7 })).toBe("Up to 7 days");
+      expect(describeEstimate(q.estimate)).toBe("3 to 5 business days");
+      expect(describeEstimate({ min_days: 1, max_days: 1 })).toBe("1 business day");
+      expect(describeEstimate({ min_days: 0, max_days: 0 })).toBe("Same day");
+      expect(describeEstimate({ min_days: null, max_days: 7 })).toBe("Up to 7 business days");
       expect(describeEstimate(null)).toBeNull();
     });
 

@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2, Truck } from "lucide-react";
 import { PERMISSIONS, type ShippingMethodView } from "@cartforge/types";
-import {
-  formatMoney,
-  minorToDecimalString,
-  parseMoneyToMinor,
-  type CheckoutSettings,
-} from "@cartforge/validation";
+import { describeEstimate, formatMoney, type CheckoutSettings } from "@cartforge/validation";
 import {
   Alert,
   Badge,
@@ -17,7 +12,6 @@ import {
   CardBody,
   CardHeader,
   ConfirmDialog,
-  Dialog,
   Field,
   Input,
   PageHeader,
@@ -30,12 +24,12 @@ import {
   useCheckoutSettings,
   useDeleteShippingMethod,
   useSaveCheckoutSettings,
-  useSaveShippingMethod,
   useShippingMethods,
 } from "@/lib/commerce";
 import { useSession } from "@/lib/session";
 import { Toggle } from "@/components/toggle";
 import { useStoreSettings } from "@/lib/store";
+import { ShippingEditor } from "./shipping-editor";
 
 type CustomField = CheckoutSettings["custom_fields"][number];
 
@@ -502,341 +496,12 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
   );
 }
 
-function ShippingDialog({
-  open,
-  method,
-  currency,
-  onClose,
-}: {
-  open: boolean;
-  method: ShippingMethodView | null;
-  currency: string;
-  onClose: () => void;
-}) {
-  const save = useSaveShippingMethod();
-  const toast = useToast();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [freeOver, setFreeOver] = useState("");
-  const [countries, setCountries] = useState("");
-  const [regions, setRegions] = useState("");
-  const [cities, setCities] = useState("");
-  const [perItem, setPerItem] = useState("");
-  const [minOrder, setMinOrder] = useState("");
-  const [maxOrder, setMaxOrder] = useState("");
-  const [minDays, setMinDays] = useState("");
-  const [maxDays, setMaxDays] = useState("");
-  const [active, setActive] = useState(true);
-  useEffect(() => {
-    if (!open) return;
-    setName(method?.name ?? "");
-    setDescription(method?.description ?? "");
-    setPrice(method ? minorToDecimalString(method.price_minor, currency) : "");
-    setFreeOver(
-      method?.free_over_minor != null ? minorToDecimalString(method.free_over_minor, currency) : "",
-    );
-    setCountries(method?.countries.join(", ") ?? "");
-    setRegions(method?.regions.join(", ") ?? "");
-    setCities(method?.cities.join(", ") ?? "");
-    const dec = (v: number | null | undefined) =>
-      v != null && v !== 0 ? minorToDecimalString(v, currency) : "";
-    setPerItem(dec(method?.per_item_minor));
-    setMinOrder(
-      method?.min_order_minor != null ? minorToDecimalString(method.min_order_minor, currency) : "",
-    );
-    setMaxOrder(
-      method?.max_order_minor != null ? minorToDecimalString(method.max_order_minor, currency) : "",
-    );
-    setMinDays(method?.min_days != null ? String(method.min_days) : "");
-    setMaxDays(method?.max_days != null ? String(method.max_days) : "");
-    setActive(method?.active ?? true);
-    save.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when (re)opened
-  }, [open, method]);
-  const priceMinor = parseMoneyToMinor(price || "0", currency);
-  const freeMinor = freeOver.trim() ? parseMoneyToMinor(freeOver, currency) : null;
-  const errs = fieldErrors(save.error);
-  const local: Record<string, string> = {};
-  if (price && Number.isNaN(priceMinor ?? NaN)) local.price_minor = "Enter an amount like 5.00";
-  if (freeOver.trim() && Number.isNaN(freeMinor ?? NaN))
-    local.free_over_minor = "Enter an amount like 75.00";
-  const codes = countries
-    .split(/[\s,]+/)
-    .map((c) => c.trim().toUpperCase())
-    .filter(Boolean);
-  if (codes.some((c) => !/^[A-Z]{2}$/.test(c)))
-    local.countries = "Use two-letter country codes like US, CA, GB";
-  const list = (v: string) =>
-    v
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-  const regionList = list(regions);
-  const cityList = list(cities);
-  if ((regionList.length || cityList.length) && codes.length !== 1)
-    local[regionList.length ? "regions" : "cities"] =
-      "Enter exactly one country above to limit by province or city";
-  const optMoney = (v: string, key: string, example: string) => {
-    if (!v.trim()) return null;
-    const m = parseMoneyToMinor(v, currency);
-    if (m === null || Number.isNaN(m)) local[key] = `Enter an amount like ${example}`;
-    return m;
-  };
-  const perItemMinor = optMoney(perItem, "per_item_minor", "1.00") ?? 0;
-  const minOrderMinor = optMoney(minOrder, "min_order_minor", "10.00");
-  const maxOrderMinor = optMoney(maxOrder, "max_order_minor", "500.00");
-  const optDays = (v: string, key: string) => {
-    if (!v.trim()) return null;
-    const n = Number(v);
-    if (!Number.isInteger(n) || n < 0 || n > 365) local[key] = "Enter whole days, 0–365";
-    return n;
-  };
-  const minDaysN = optDays(minDays, "min_days");
-  const maxDaysN = optDays(maxDays, "max_days");
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (Object.keys(local).length || priceMinor === null) return;
-    save.mutate(
-      {
-        id: method?.id,
-        body: {
-          name,
-          description: description || undefined,
-          price_minor: priceMinor,
-          free_over_minor: freeMinor,
-          countries: codes,
-          regions: regionList,
-          cities: cityList,
-          per_item_minor: perItemMinor,
-          min_order_minor: minOrderMinor,
-          max_order_minor: maxOrderMinor,
-          min_days: minDaysN,
-          max_days: maxDaysN,
-          active,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success(method ? "Shipping method saved" : "Shipping method added");
-          onClose();
-        },
-      },
-    );
-  };
-  const e = { ...errs, ...local };
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={method ? "Edit shipping method" : "Add shipping method"}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="shipping-form" loading={save.isPending}>
-            Save
-          </Button>
-        </>
-      }
-    >
-      <form id="shipping-form" onSubmit={submit} className="flex flex-col gap-4">
-        {save.isError && !Object.keys(errs).length && (
-          <Alert tone="danger" title={save.error.message} />
-        )}
-        <Field
-          label="Name"
-          required
-          error={e.name}
-          hint="Shown at checkout, e.g. Standard or Express."
-        >
-          {({ id, describedBy, invalid }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              invalid={invalid}
-              value={name}
-              onChange={(ev) => setName(ev.target.value)}
-            />
-          )}
-        </Field>
-        <Field
-          label="Description"
-          error={e.description}
-          hint="Optional, e.g. Tracked courier, cash on delivery available."
-        >
-          {({ id, describedBy }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              value={description}
-              onChange={(ev) => setDescription(ev.target.value)}
-            />
-          )}
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={`Rate (${currency})`} required error={e.price_minor}>
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="decimal"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={price}
-                placeholder="0.00"
-                onChange={(ev) => setPrice(ev.target.value)}
-              />
-            )}
-          </Field>
-          <Field
-            label={`Free over (${currency})`}
-            error={e.free_over_minor}
-            hint="Leave empty for never free."
-          >
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="decimal"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={freeOver}
-                onChange={(ev) => setFreeOver(ev.target.value)}
-              />
-            )}
-          </Field>
-        </div>
-        <Field
-          label="Countries"
-          error={e.countries}
-          hint="Two-letter codes, comma-separated. Leave empty to ship everywhere."
-        >
-          {({ id, describedBy, invalid }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              invalid={invalid}
-              value={countries}
-              placeholder="US, CA"
-              onChange={(ev) => setCountries(ev.target.value)}
-            />
-          )}
-        </Field>
-        <Field
-          label="Provinces / states"
-          error={e.regions}
-          hint="Comma-separated, e.g. Punjab, Islamabad. Needs one country above. Leave empty for the whole country."
-        >
-          {({ id, describedBy, invalid }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              invalid={invalid}
-              value={regions}
-              onChange={(ev) => setRegions(ev.target.value)}
-            />
-          )}
-        </Field>
-        <Field
-          label="Cities"
-          error={e.cities}
-          hint="Comma-separated, e.g. Karachi, Hyderabad. Leave empty for every city."
-        >
-          {({ id, describedBy, invalid }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              invalid={invalid}
-              value={cities}
-              onChange={(ev) => setCities(ev.target.value)}
-            />
-          )}
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field
-            label={`Extra per item (${currency})`}
-            error={e.per_item_minor}
-            hint="Added for each item after the first."
-          >
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="decimal"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={perItem}
-                onChange={(ev) => setPerItem(ev.target.value)}
-              />
-            )}
-          </Field>
-          <Field label={`Minimum order (${currency})`} error={e.min_order_minor}>
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="decimal"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={minOrder}
-                onChange={(ev) => setMinOrder(ev.target.value)}
-              />
-            )}
-          </Field>
-          <Field label={`Maximum order (${currency})`} error={e.max_order_minor}>
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="decimal"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={maxOrder}
-                onChange={(ev) => setMaxOrder(ev.target.value)}
-              />
-            )}
-          </Field>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Delivery from (days)" error={e.min_days}>
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="numeric"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={minDays}
-                onChange={(ev) => setMinDays(ev.target.value)}
-              />
-            )}
-          </Field>
-          <Field
-            label="Delivery up to (days)"
-            error={e.max_days}
-            hint="Shown at checkout, e.g. 2–4 days."
-          >
-            {({ id, describedBy, invalid }) => (
-              <Input
-                id={id}
-                inputMode="numeric"
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={maxDays}
-                onChange={(ev) => setMaxDays(ev.target.value)}
-              />
-            )}
-          </Field>
-        </div>
-        <Toggle label="Offer at checkout" checked={active} onChange={setActive} />
-      </form>
-    </Dialog>
-  );
-}
-
 function days(m: ShippingMethodView): string | null {
-  const { min_days: lo, max_days: hi } = m;
-  if (lo !== null && hi !== null) return lo === hi ? `${lo} days` : `${lo}–${hi} days`;
-  if (hi !== null) return `up to ${hi} days`;
-  if (lo !== null) return `${lo}+ days`;
-  return null;
+  return describeEstimate(
+    m.min_days === null && m.max_days === null
+      ? null
+      : { min_days: m.min_days, max_days: m.max_days },
+  );
 }
 
 function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: string }) {
@@ -854,7 +519,7 @@ function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: strin
         actions={
           canEdit ? (
             <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
-              <Plus aria-hidden /> Add method
+              <Plus aria-hidden /> Add shipping option
             </Button>
           ) : undefined
         }
@@ -881,7 +546,10 @@ function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: strin
                   </p>
                   <p className="text-xs text-fg-muted">
                     {m.price_minor === 0 ? "Free" : money(m.price_minor)}
-                    {m.free_over_minor !== null && ` · free over ${money(m.free_over_minor)}`}
+                    {m.free_over_minor !== null &&
+                      (m.free_over_minor === 0
+                        ? " · always free"
+                        : ` · free over ${money(m.free_over_minor)}`)}
                     {" · "}
                     {m.countries.length ? m.countries.join(", ") : "All countries"}
                     {m.regions.length > 0 && ` (${m.regions.join(", ")})`}
@@ -918,7 +586,7 @@ function ShippingCard({ canEdit, currency }: { canEdit: boolean; currency: strin
           </ul>
         )}
       </CardBody>
-      <ShippingDialog
+      <ShippingEditor
         open={editing !== null}
         method={editing === "new" ? null : editing}
         currency={currency}

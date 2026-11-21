@@ -73,6 +73,9 @@ export type OrderListQuery = z.output<typeof orderListQuerySchema>;
 
 export {
   checkoutSettingsSchema,
+  COUNTRY_CODES,
+  describeEstimate,
+  REGIONS,
   shippingMethodFields,
   shippingMethodSchema,
   type CheckoutSettings,

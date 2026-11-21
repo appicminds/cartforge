@@ -104,12 +104,13 @@ export function shippingCountries(methods: ShippingMethodConfig[]): string[] | n
   return [...new Set(active.flatMap((m) => m.countries))].sort();
 }
 
-/** "2–4 business days", "Up to 5 days", "1 day"… or null. */
+/** "3 to 5 business days", "Same day", "Up to 7 business days"… or null. */
 export function describeEstimate(e: ShippingQuote["estimate"]): string | null {
   if (!e) return null;
   const { min_days: lo, max_days: hi } = e;
-  const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
-  if (lo != null && hi != null) return lo === hi ? days(lo) : `${lo}–${days(hi)}`;
+  const days = (n: number) => `${n} business ${n === 1 ? "day" : "days"}`;
+  if (lo === 0 && hi === 0) return "Same day";
+  if (lo != null && hi != null) return lo === hi ? days(lo) : `${lo} to ${days(hi)}`;
   if (hi != null) return `Up to ${days(hi)}`;
   if (lo != null) return `${days(lo)} or more`;
   return null;
