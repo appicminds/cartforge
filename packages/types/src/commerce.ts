@@ -81,6 +81,9 @@ export interface CartView {
   lines: CartLineView[];
   item_count: number;
   subtotal_minor: number;
+  /** Automatic discounts the cart already gets (codes are entered at checkout). */
+  discounts: { title: string; amount_minor: number }[];
+  discount_minor: number;
   requires_shipping: boolean;
   /** Changes since the shopper last looked (price changes, removals, reductions). */
   notices: CartNotice[];

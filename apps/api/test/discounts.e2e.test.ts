@@ -336,4 +336,59 @@ describe("discounts", () => {
     ).body;
     expect(scheduled.error.fields[0].path).toBe("code"); // at least 3 characters
   });
+
+  it("an automatic product discount shows as a sale price in the catalog and cart", async () => {
+    const sale = (
+      await owner
+        .post("/discounts", {
+          title: "Eid Sale",
+          method: "automatic",
+          kind: "products",
+          value_type: "percent",
+          value: 2000,
+          target: { all: true, product_ids: [], collection_ids: [] },
+        })
+        .expect(201)
+    ).body.data;
+    const suitHandle = (await owner.get(`/products/${suit.id}`).expect(200)).body.data.handle;
+    const p = (
+      await http()
+        .get(sf(`/products/${suitHandle}`))
+        .set("X-Store-Id", storeId)
+        .expect(200)
+    ).body.data;
+    expect(p).toMatchObject({
+      price_min_minor: 3200,
+      compare_at_min_minor: 4000,
+      sale_title: "Eid Sale",
+    });
+    expect(p.variants[0]).toMatchObject({ price_minor: 3200, compare_at_minor: 4000 });
+    const list = (await http().get(sf("/products")).set("X-Store-Id", storeId).expect(200)).body
+      .data as { id: string; price_min_minor: number }[];
+    expect(list.find((x) => x.id === dupatta.id)?.price_min_minor).toBe(800);
+
+    const token = (await http().post(sf("/cart")).set("X-Store-Id", storeId).expect(201)).body.data
+      .token as string;
+    const cart = (
+      await http()
+        .post(sf("/cart/lines"))
+        .set("X-Store-Id", storeId)
+        .set("X-Cart-Token", token)
+        .send({ variant_id: suit.variant, quantity: 2 })
+        .expect(201)
+    ).body.data;
+    expect(cart).toMatchObject({
+      subtotal_minor: 8000,
+      discount_minor: 1600,
+      discounts: [{ title: "Eid Sale", amount_minor: 1600 }],
+    });
+    await prisma.discount.update({ where: { id: sale.id }, data: { enabled: false } });
+    const after = (
+      await http()
+        .get(sf(`/products/${suitHandle}`))
+        .set("X-Store-Id", storeId)
+        .expect(200)
+    ).body.data;
+    expect(after).toMatchObject({ price_min_minor: 4000, compare_at_min_minor: null });
+  });
 });

@@ -13,6 +13,8 @@ import { formatMinor } from "./format";
 import { PrismaService } from "../prisma/prisma.service";
 import { MarketsService, type ResolvedMarket } from "./markets/markets.service";
 import { ReservationsService } from "./reservations.service";
+import { DiscountsService } from "./discounts/discounts.service";
+import { selectDiscounts } from "@cartforge/checkout-engine";
 
 type Client = Prisma.TransactionClient;
 
@@ -78,6 +80,7 @@ export class CartService {
     private readonly prisma: PrismaService,
     private readonly reservations: ReservationsService,
     private readonly markets: MarketsService,
+    private readonly discounts: DiscountsService,
   ) {}
 
   /** A cart priced in the shopper's market. */
@@ -307,16 +310,53 @@ export class CartService {
       lines.push(this.toLine(row, quantity, price, max));
     }
     const subtotal = lines.reduce((a, l) => a + l.line_total_minor, 0);
+    const discounts = await this.automaticDiscounts(tx, cart, market, lines);
     return {
       id: cart.id,
       currency: cart.currency,
       lines,
       item_count: lines.reduce((a, l) => a + l.quantity, 0),
       subtotal_minor: subtotal,
+      discounts,
+      discount_minor: discounts.reduce((a, d) => a + d.amount_minor, 0),
       requires_shipping: lines.some((l) => l.requires_shipping),
       notices,
       ready: lines.length > 0 && lines.every((l) => l.available),
     };
+  }
+
+  /** Automatic discounts the cart already qualifies for (codes and shipping come at checkout). */
+  private async automaticDiscounts(
+    tx: Client,
+    cart: Cart,
+    market: ResolvedMarket,
+    lines: CartLineView[],
+  ): Promise<{ title: string; amount_minor: number }[]> {
+    if (!lines.length) return [];
+    const { rules } = await this.discounts.forCheckout(tx, cart.store_id, market, null, null);
+    const auto = rules.filter((r) => r.kind !== "shipping");
+    if (!auto.length) return [];
+    const rows = await tx.collectionProduct.findMany({
+      where: { product_id: { in: [...new Set(lines.map((l) => l.product_id))] } },
+      select: { product_id: true, collection_id: true },
+    });
+    const picked = selectDiscounts(
+      auto,
+      lines.map((l) => ({
+        key: l.id,
+        product_id: l.product_id,
+        collection_ids: rows
+          .filter((r) => r.product_id === l.product_id)
+          .map((r) => r.collection_id),
+        unit_price_minor: l.unit_price_minor,
+        quantity: l.quantity,
+      })),
+      null,
+    );
+    return picked.applied.map((a) => ({
+      title: a.rule.title,
+      amount_minor: a.rule.kind === "order" ? a.order_minor : a.amount_minor,
+    }));
   }
 
   private async ownHeld(tx: Client, cartId: string): Promise<Map<string, number>> {

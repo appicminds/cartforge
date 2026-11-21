@@ -16,6 +16,8 @@ import { AppException } from "../common/app-exception";
 import { mediaUrls } from "../media/media.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import { MarketsService, type ResolvedMarket } from "../commerce/markets/markets.service";
+import { discountStatus } from "../commerce/discounts/discounts.service";
+import { convertAmount } from "@cartforge/checkout-engine";
 
 const PRODUCT_INCLUDE = {
   variants: {
@@ -80,9 +82,116 @@ export class StorefrontService {
 
   /** Re-prices products for a market (fixed prices or converted) and sets its currency. */
   private async inMarket<T extends StorefrontProduct>(
+    storeId: string,
     products: T[],
     market: ResolvedMarket,
     hidden: Set<string> = new Set(),
+  ): Promise<T[]> {
+    return this.withSales(storeId, await this.priceIn(products, market, hidden), market);
+  }
+
+  /**
+   * Automatic "amount off products" discounts that everyone gets (no minimum,
+   * not once per customer) are shown as sale prices: the discounted price, with
+   * the regular price struck through. Checkout applies the same discount.
+   */
+  private async withSales<T extends StorefrontProduct>(
+    storeId: string,
+    products: T[],
+    market: ResolvedMarket,
+  ): Promise<T[]> {
+    if (!products.length) return products;
+    const now = new Date();
+    const rules = (
+      await this.prisma.discount.findMany({
+        where: {
+          store_id: storeId,
+          enabled: true,
+          method: "automatic",
+          kind: "products",
+          min_subtotal_minor: null,
+          min_quantity: null,
+          once_per_customer: false,
+          starts_at: { lte: now },
+        },
+        orderBy: { created_at: "asc" },
+      })
+    ).filter(
+      (d) =>
+        discountStatus(d, now) === "active" &&
+        (!d.market_ids.length || (!!market.id && d.market_ids.includes(market.id))),
+    );
+    if (!rules.length) return products;
+    const targets = rules.map((d) => {
+      const t = (d.target ?? {}) as {
+        all?: boolean;
+        product_ids?: string[];
+        collection_ids?: string[];
+      };
+      return {
+        d,
+        all: !!t.all,
+        products: new Set(t.product_ids ?? []),
+        collections: new Set(t.collection_ids ?? []),
+        value:
+          d.value_type === "fixed"
+            ? convertAmount(Number(d.value), market.pricing)
+            : Number(d.value),
+      };
+    });
+    const inCollections = targets.some((t) => t.collections.size)
+      ? await this.prisma.collectionProduct.findMany({
+          where: { store_id: storeId, product_id: { in: products.map((p) => p.id) } },
+          select: { product_id: true, collection_id: true },
+        })
+      : [];
+    return products.map((p) => {
+      const cols = inCollections.filter((c) => c.product_id === p.id).map((c) => c.collection_id);
+      const mine = targets.filter(
+        (t) => t.all || t.products.has(p.id) || cols.some((c) => t.collections.has(c)),
+      );
+      if (!mine.length) return p;
+      let title: string | null = null;
+      const variants = p.variants.map((v) => {
+        if (v.price_minor === null || v.price_minor <= 0) return v;
+        const price = v.price_minor;
+        let best = 0;
+        for (const t of mine) {
+          const off =
+            t.d.value_type === "percent"
+              ? Math.round((price * t.value) / 10_000)
+              : Math.min(t.value, price);
+          if (off > best) {
+            best = off;
+            title = title ?? t.d.title;
+          }
+        }
+        if (!best) return v;
+        return {
+          ...v,
+          price_minor: price - best,
+          compare_at_minor: Math.max(v.compare_at_minor ?? 0, price),
+        };
+      });
+      const prices = variants.map((v) => v.price_minor).filter((x): x is number => x !== null);
+      const compares = variants
+        .map((v) => v.compare_at_minor)
+        .filter((x): x is number => x !== null);
+      return {
+        ...p,
+        variants,
+        sale_title: title,
+        price_min_minor: prices.length ? Math.min(...prices) : null,
+        price_max_minor: prices.length ? Math.max(...prices) : null,
+        compare_at_min_minor: compares.length ? Math.min(...compares) : null,
+      };
+    });
+  }
+
+  private async priceIn<T extends StorefrontProduct>(
+    products: T[],
+    market: ResolvedMarket,
+    hidden: Set<string>,
   ): Promise<T[]> {
     const identity =
       market.pricing.currency === market.pricing.store_currency && market.pricing.rate === 1;
@@ -200,6 +309,7 @@ export class StorefrontService {
     const cats = rows.length ? await this.visibleCategories(storeId) : new Map();
     return {
       data: await this.inMarket(
+        storeId,
         ids.map((id) => this.toPublic(byId.get(id)!, market.pricing.store_currency, cats)),
         market,
       ),
@@ -225,6 +335,7 @@ export class StorefrontService {
     if (p) {
       const hidden = new Set(market.id && p.hidden_market_ids.includes(market.id) ? [p.id] : []);
       const [out] = await this.inMarket(
+        storeId,
         [this.toPublic(p, market.pricing.store_currency, await this.visibleCategories(storeId))],
         market,
         hidden,
@@ -273,6 +384,7 @@ export class StorefrontService {
     });
     if (!p) throw AppException.notFound("Product");
     const [out] = await this.inMarket(
+      storeId,
       [this.toPublic(p, market.pricing.store_currency, await this.visibleCategories(storeId))],
       market,
     );
