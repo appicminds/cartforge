@@ -1,13 +1,19 @@
-import { RenderSection } from "@/components/sections/sections";
+import { TemplateSections } from "@/components/theme/render";
 import { storefront } from "@/lib/api";
 import { site } from "@/lib/config";
 import { jsonLd } from "@/lib/seo";
-import { getTheme } from "@/lib/theme";
+import { templateSections } from "@/lib/theme";
+
+/** Sections that put the page's h1 in their first heading. */
+const H1_SECTIONS = new Set(["hero", "image_banner", "slideshow", "rich_text", "image_with_text"]);
 
 export default async function Home() {
-  const [store, { siteUrl }] = await Promise.all([storefront.store(), site()]);
-  const { sections } = getTheme().templates.home;
-  const hasHero = sections[0]?.type === "hero";
+  const [store, { siteUrl }, sections] = await Promise.all([
+    storefront.store(),
+    site(),
+    templateSections("home"),
+  ]);
+  const hasH1 = !!sections[0] && H1_SECTIONS.has(sections[0].type);
   const website = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -22,10 +28,8 @@ export default async function Home() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(website) }} />
-      {!hasHero && <h1 className="sr-only">{store.name}</h1>}
-      {sections.map((s, i) => (
-        <RenderSection key={s.id} section={s} ctx={{ store, first: i === 0 }} />
-      ))}
+      {!hasH1 && <h1 className="sr-only">{store.name}</h1>}
+      <TemplateSections template="home" />
     </>
   );
 }

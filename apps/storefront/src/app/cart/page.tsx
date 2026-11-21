@@ -3,6 +3,7 @@ import Link from "next/link";
 import { removeLine, startCheckout, updateLine } from "@/app/actions/cart";
 import { CartNotices } from "@/components/cart-notices";
 import { SubmitButton } from "@/components/submit-button";
+import { mainSection, TemplateSections } from "@/components/theme/render";
 import { storefront } from "@/lib/api";
 import { currentCart } from "@/lib/commerce";
 import { formatMoney } from "@/lib/money";
@@ -11,7 +12,18 @@ export const metadata: Metadata = { title: "Your cart", robots: { index: false, 
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export default async function CartPage({ searchParams }: Props) {
+export default async function CartPage(props: Props) {
+  const main = await mainSection("cart");
+  const heading =
+    typeof main?.settings.heading === "string" && main.settings.heading
+      ? main.settings.heading
+      : "Your cart";
+  return (
+    <TemplateSections template="cart" main={() => <CartContent {...props} heading={heading} />} />
+  );
+}
+
+async function CartContent({ searchParams, heading }: Props & { heading: string }) {
   const [found, store, sp] = await Promise.all([currentCart(), storefront.store(), searchParams]);
   const error = typeof sp.error === "string" ? sp.error.slice(0, 300) : null;
   const cart = found?.cart;
@@ -37,7 +49,7 @@ export default async function CartPage({ searchParams }: Props) {
   return (
     <div className="sf-container py-10 md:py-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-3xl md:text-5xl">Your cart</h1>
+        <h1 className="text-3xl md:text-5xl">{heading}</h1>
         <Link href="/products" className="sf-link text-sm">
           Continue shopping
         </Link>

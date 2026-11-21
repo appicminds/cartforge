@@ -1,6 +1,8 @@
 import "server-only";
 import type {
   ListResponse,
+  StorefrontPage,
+  StorefrontThemePayload,
   StorefrontCategory,
   StorefrontCategoryDetail,
   StorefrontCollectionSummary,
@@ -14,6 +16,7 @@ import { marketForCountry } from "@cartforge/checkout-engine/markets";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { config, site } from "./config";
+import { THEME_PREVIEW_HEADER } from "./site-headers";
 
 /** Every catalog read is filed under this tag; the API purges it on each write. */
 export const CATALOG_TAG = "catalog";
@@ -34,10 +37,13 @@ type Result<T> = { kind: "ok"; data: T } | { kind: "not_found" } | { kind: "move
 /** Cache tags: the store's own (purged on its writes) plus the global one. */
 const tagsFor = (storeId: string) => [CATALOG_TAG, `${CATALOG_TAG}:${storeId}`];
 
-async function get<T>(path: string, opts: { fresh?: boolean } = {}): Promise<Result<T>> {
+async function get<T>(
+  path: string,
+  opts: { fresh?: boolean; headers?: Record<string, string> } = {},
+): Promise<Result<T>> {
   const { storeId } = await site();
   const res = await fetch(`${config.apiUrl}/api/v1/storefront${path}`, {
-    headers: { "X-Store-Id": storeId, Accept: "application/json" },
+    headers: { "X-Store-Id": storeId, Accept: "application/json", ...opts.headers },
     redirect: "manual",
     ...(opts.fresh
       ? { cache: "no-store" as const }
@@ -170,6 +176,23 @@ export const storefront = {
     get<StorefrontCategoryDetail>(`/categories/${encodeURIComponent(handle)}`),
   ),
   sitemap: async () => must(await get<StorefrontSitemap>("/sitemap"), "Sitemap"),
+  /** The live theme, or a draft while previewing (never cached then). */
+  theme: (previewToken: string | null) =>
+    get<StorefrontThemePayload>(
+      "/theme",
+      previewToken ? { fresh: true, headers: { "X-Theme-Preview": previewToken } } : {},
+    ),
+  page: cache(async (handle: string) => {
+    const token = (await headers()).get(THEME_PREVIEW_HEADER);
+    return get<StorefrontPage>(
+      `/pages/${encodeURIComponent(handle)}`,
+      token ? { fresh: true, headers: { "X-Theme-Preview": token } } : {},
+    );
+  }),
+  pages: cache(async () => {
+    const r = await get<{ handle: string; title: string; updated_at: string }[]>("/pages");
+    return r.kind === "ok" ? r.data : [];
+  }),
   /** Never cached: drafts must not leak into the shared cache. */
   preview: (id: string, token: string) =>
     get<StorefrontPreviewProduct>(

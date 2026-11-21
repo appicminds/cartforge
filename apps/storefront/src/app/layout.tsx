@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Footer } from "@/components/footer";
+import { defaultTheme, themeCss } from "@cartforge/theme-engine";
 import { cookies, headers } from "next/headers";
 import { NO_STORE_HEADER, PREVIEW_HEADER } from "@/lib/site-headers";
 import { PreviewBar } from "@/components/preview-bar";
-import { Header } from "@/components/header";
+import { EditorBridge } from "@/components/theme/editor-bridge";
+import { GroupSections } from "@/components/theme/render";
 import { CART_COUNT_COOKIE } from "@/lib/commerce";
 import { storefront } from "@/lib/api";
 import { site } from "@/lib/config";
-import { getTheme, getThemeCss } from "@/lib/theme";
+import { getTheme } from "@/lib/theme";
 import "./globals.css";
 
 /**
@@ -29,13 +30,16 @@ async function previewing(): Promise<boolean> {
 
 export async function generateMetadata(): Promise<Metadata> {
   if (await noStore()) return { title: "Store not found", robots: { index: false, follow: false } };
-  const [store, { siteUrl }, preview] = await Promise.all([
+  const [store, { siteUrl }, preview, theme] = await Promise.all([
     storefront.store(),
     site(),
     previewing(),
+    getTheme(),
   ]);
+  const fav = theme.images[String(theme.data.settings.favicon ?? "")];
   return {
-    ...(preview && { robots: { index: false, follow: false } }),
+    ...((preview || theme.preview) && { robots: { index: false, follow: false } }),
+    ...(fav && { icons: { icon: fav.medium_url ?? fav.url } }),
     metadataBase: new URL(siteUrl),
     title: { default: store.name, template: `%s | ${store.name}` },
     description: `Shop ${store.name} online.`,
@@ -44,14 +48,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = { themeColor: getTheme().settings.colors.background };
+export async function generateViewport(): Promise<Viewport> {
+  if (await noStore()) return { themeColor: "#ffffff" };
+  return { themeColor: (await getTheme()).data.color_schemes[0]!.background };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   if (await noStore()) {
     return (
       <html lang="en">
         <head>
-          <style dangerouslySetInnerHTML={{ __html: getThemeCss() }} />
+          <style dangerouslySetInnerHTML={{ __html: themeCss(defaultTheme()) }} />
         </head>
         <body>
           <main id="main">{children}</main>
@@ -59,19 +66,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </html>
     );
   }
-  const [store, categories, collections, jar, preview] = await Promise.all([
+  const [store, jar, preview, theme] = await Promise.all([
     storefront.store(),
-    storefront.categories(),
-    storefront.collections(),
     cookies(),
     previewing(),
+    getTheme(),
   ]);
   const cartCount = Math.max(0, Number.parseInt(jar.get(CART_COUNT_COOKIE)?.value ?? "0", 10) || 0);
   return (
     <html lang={store.locale}>
       <head>
         {/* Validated, enum/hex-only values (see @cartforge/theme-engine). */}
-        <style dangerouslySetInnerHTML={{ __html: getThemeCss() }} />
+        <style dangerouslySetInnerHTML={{ __html: theme.css }} />
+        {theme.fontsUrl && (
+          <>
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+            <link rel="stylesheet" href={theme.fontsUrl} />
+          </>
+        )}
       </head>
       <body className="flex min-h-screen flex-col">
         <a
@@ -81,11 +94,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to content
         </a>
         {preview && <PreviewBar storeName={store.name} />}
-        <Header store={store} categories={categories} cartCount={cartCount} />
+        {theme.preview && <EditorBridge />}
+        <GroupSections group="header" cartCount={cartCount} />
         <main id="main" className="flex-1">
           {children}
         </main>
-        <Footer store={store} categories={categories} collections={collections} />
+        <GroupSections group="footer" />
       </body>
     </html>
   );

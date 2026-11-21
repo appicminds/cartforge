@@ -16,6 +16,7 @@
     "@cartforge/checkout-engine": "workspace:*",
     "@cartforge/config": "workspace:*",
     "@cartforge/database": "workspace:*",
+    "@cartforge/theme-engine": "workspace:*",
     "@cartforge/types": "workspace:*",
     "@cartforge/validation": "workspace:*",
     "@nestjs/common": "11.1.9",

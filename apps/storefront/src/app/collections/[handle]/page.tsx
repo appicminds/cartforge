@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { parseListParams, ProductListing } from "@/components/product-listing";
+import { gridSettings, parseListParams, ProductListing } from "@/components/product-listing";
+import { mainSection, TemplateSections } from "@/components/theme/render";
 import { lastSegment, PRODUCT_SORTS, storefront } from "@/lib/api";
 
 type Props = {
@@ -32,35 +33,52 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function CollectionPage({ params, searchParams }: Props) {
   const { handle } = await params;
   const { sort, page } = parseListParams(await searchParams);
-  const [c, store] = await Promise.all([load(handle), storefront.store()]);
-  const result = await storefront.products({ collection: c.handle, sort, page });
+  const [c, store, main] = await Promise.all([
+    load(handle),
+    storefront.store(),
+    mainSection("collection"),
+  ]);
+  const g = gridSettings(main?.settings);
+  const result = await storefront.products({
+    collection: c.handle,
+    sort,
+    page,
+    page_size: g.perPage,
+  });
   return (
-    <div className="sf-container py-10 md:py-14">
-      <Breadcrumbs
-        items={[
-          { name: "Home", href: "/" },
-          { name: "Collections", href: "/collections" },
-          { name: c.title },
-        ]}
-      />
-      <h1 className="mt-4 text-3xl md:text-5xl">{c.title}</h1>
-      {c.description_html && (
-        <div
-          className="sf-prose mt-4 max-w-2xl text-muted"
-          // Sanitized by the API against an allow-list when saved.
-          dangerouslySetInnerHTML={{ __html: c.description_html }}
-        />
+    <TemplateSections
+      template="collection"
+      main={() => (
+        <div className="sf-container py-10 md:py-14">
+          <Breadcrumbs
+            items={[
+              { name: "Home", href: "/" },
+              { name: "Collections", href: "/collections" },
+              { name: c.title },
+            ]}
+          />
+          <h1 className="mt-4 text-3xl md:text-5xl">{c.title}</h1>
+          {g.showDescription && c.description_html && (
+            <div
+              className="sf-prose mt-4 max-w-2xl text-muted"
+              // Sanitized by the API against an allow-list when saved.
+              dangerouslySetInnerHTML={{ __html: c.description_html }}
+            />
+          )}
+          <div className="mt-10">
+            <ProductListing
+              result={result}
+              sort={sort}
+              basePath={`/collections/${c.handle}`}
+              locale={store.locale}
+              sorts={PRODUCT_SORTS}
+              columns={g.columns}
+              showSort={g.showSort}
+              empty={<p>This collection is empty right now.</p>}
+            />
+          </div>
+        </div>
       )}
-      <div className="mt-10">
-        <ProductListing
-          result={result}
-          sort={sort}
-          basePath={`/collections/${c.handle}`}
-          locale={store.locale}
-          sorts={PRODUCT_SORTS}
-          empty={<p>This collection is empty right now.</p>}
-        />
-      </div>
-    </div>
+    />
   );
 }

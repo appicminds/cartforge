@@ -151,6 +151,9 @@ model Store {
   markets             Market[]
   discounts           Discount[]
   sales               Sale[]
+  themes              Theme[]
+  menus               Menu[]
+  pages               Page[]
   variants            ProductVariant[]
   media               MediaAsset[]
   inventory_locations InventoryLocation[]
@@ -1482,4 +1485,78 @@ model SaleItem {
   @@index([store_id, product_id])
   @@index([variant_id])
   @@map("sale_items")
+}
+
+/// A storefront theme (Online store → Themes). One per store is live; `data`
+/// is what the editor saves, `live_data` what shoppers see (set on publish).
+model Theme {
+  id           String    @id @default(uuid()) @db.Uuid
+  store_id     String    @db.Uuid
+  name         String    @db.VarChar(80)
+  /// The preset it started from (foundry | bazaar | minimal).
+  preset       String    @db.VarChar(20)
+  /// live | unpublished
+  role         String    @default("unpublished") @db.VarChar(12)
+  data         Json
+  live_data    Json?
+  published_at DateTime? @db.Timestamptz(3)
+  created_at   DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime  @updatedAt @db.Timestamptz(3)
+
+  store    Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  versions ThemeVersion[]
+
+  @@index([store_id, role])
+  @@map("themes")
+}
+
+/// What a theme looked like each time it was published (restore = roll back).
+model ThemeVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  theme_id   String   @db.Uuid
+  store_id   String   @db.Uuid
+  data       Json
+  created_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+
+  theme Theme @relation(fields: [theme_id], references: [id], onDelete: Cascade)
+
+  @@index([theme_id, created_at])
+  @@map("theme_versions")
+}
+
+/// Navigation menus (main menu, footer, …), linked from the header and footer.
+model Menu {
+  id         String   @id @default(uuid()) @db.Uuid
+  store_id   String   @db.Uuid
+  handle     String   @db.VarChar(60)
+  title      String   @db.VarChar(80)
+  /// [{id, title, link: {type, id?, url?}, children: [...]}], two levels deep.
+  items      Json
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  updated_at DateTime @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+
+  @@unique([store_id, handle])
+  @@map("menus")
+}
+
+/// Content pages: About us, Contact, policies (shown at /pages/:handle).
+model Page {
+  id              String   @id @default(uuid()) @db.Uuid
+  store_id        String   @db.Uuid
+  title           String   @db.VarChar(200)
+  handle          String   @db.VarChar(255)
+  body_html       String   @default("")
+  seo_title       String?  @db.VarChar(200)
+  seo_description String?  @db.VarChar(320)
+  published       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamptz(3)
+  updated_at      DateTime @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+
+  @@unique([store_id, handle])
+  @@map("pages")
 }

@@ -42,10 +42,12 @@ test.describe("storefront catalog", () => {
   test("product page: content, price, stock, breadcrumbs and SEO", async ({ page }) => {
     await page.goto(`/products/${live.handle}`);
     await expect(page.getByRole("heading", { level: 1, name: t("Arc Lamp") })).toBeVisible();
-    await expect(page.getByText("$129.00")).toBeVisible();
-    await expect(page.locator("s", { hasText: "$159.00" })).toBeVisible();
-    await expect(page.getByText("In stock")).toBeVisible();
-    await expect(page.getByText("Warm light for")).toBeVisible();
+    // The product's own section (related products may show the same prices).
+    const info = page.locator('[data-cf-type="main_product"]');
+    await expect(info.getByText("$129.00")).toBeVisible();
+    await expect(info.locator("s", { hasText: "$159.00" })).toBeVisible();
+    await expect(info.getByText("In stock")).toBeVisible();
+    await expect(info.getByText("Warm light for")).toBeVisible();
     const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
     await expect(crumbs.getByRole("link", { name: t("Lamps") })).toHaveAttribute(
       "href",
@@ -182,27 +184,29 @@ test.describe("variant selection", () => {
 
   test("choosing options updates price, stock and the URL", async ({ page }) => {
     await page.goto(`/products/${handle}`);
-    await expect(page.getByText("From $20.00")).toHaveCount(0); // detail shows the selected variant
-    await expect(page.getByText("Color: Linen")).toBeVisible();
-    await expect(page.getByText("$20.00", { exact: true })).toBeVisible();
+    // The product's own section (related products may show other prices).
+    const info = page.locator('[data-cf-type="main_product"]');
+    await expect(info.getByText("From $20.00")).toHaveCount(0); // detail shows the selected variant
+    await expect(info.getByText("Color: Linen")).toBeVisible();
+    await expect(info.getByText("$20.00", { exact: true })).toBeVisible();
 
-    const option = (name: string) => page.locator("label", { hasText: new RegExp(`^${name}`) });
+    const option = (name: string) => info.locator("label", { hasText: new RegExp(`^${name}`) });
     await option("Ink").click();
-    await expect(page.getByText("Color: Ink")).toBeVisible();
-    await expect(page.getByRole("paragraph").filter({ hasText: /^Sold out$/ })).toBeVisible();
+    await expect(info.getByText("Color: Ink")).toBeVisible();
+    await expect(info.getByRole("paragraph").filter({ hasText: /^Sold out$/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sold out" })).toBeDisabled();
     await expect(page.getByRole("radio", { name: /Small \(sold out\)/ })).toBeChecked();
 
     await option("Large").click();
-    await expect(page.getByText("In stock")).toBeVisible();
-    await expect(page.getByText("$26.00", { exact: true })).toBeVisible();
-    await expect(page.locator("s", { hasText: "$30.00" })).toBeVisible();
+    await expect(info.getByText("In stock")).toBeVisible();
+    await expect(info.getByText("$26.00", { exact: true })).toBeVisible();
+    await expect(info.locator("s", { hasText: "$30.00" })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("variant")).toBeTruthy();
 
     // The variant in the URL is restored on reload.
     await page.reload();
-    await expect(page.getByText("Color: Ink")).toBeVisible();
-    await expect(page.getByText("Size: Large")).toBeVisible();
+    await expect(info.getByText("Color: Ink")).toBeVisible();
+    await expect(info.getByText("Size: Large")).toBeVisible();
   });
 
   test("quantity stays within 1–99", async ({ page }) => {
