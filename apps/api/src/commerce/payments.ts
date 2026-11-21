@@ -24,7 +24,7 @@ export interface PaymentInitiation {
 export interface PaymentProvider {
   key: string;
   label: string;
-  enabled(settings: CheckoutSettings): boolean;
+  enabled(settings: CheckoutSettings, currency: string): boolean;
   describe(settings: CheckoutSettings): PaymentOption;
   initiate(args: {
     settings: CheckoutSettings;
@@ -39,7 +39,7 @@ const offline = (
   key: string,
   label: string,
   description: string,
-  enabled: (s: CheckoutSettings) => boolean,
+  enabled: (s: CheckoutSettings, currency: string) => boolean,
   instructions: (s: CheckoutSettings, number: string) => string,
 ): PaymentProvider => ({
   key,
@@ -88,7 +88,8 @@ export const PAYMENT_PROVIDERS: PaymentProvider[] = [
     "wallet_transfer",
     "JazzCash, Easypaisa or Raast transfer",
     "Send the amount from your mobile wallet or banking app. Your order ships once it arrives.",
-    (s) => s.wallet_enabled,
+    // JazzCash, Easypaisa and Raast move rupees only.
+    (s, currency) => s.wallet_enabled && currency === "PKR",
     walletInstructions,
   ),
   offline(
@@ -125,15 +126,20 @@ function online(key: OnlineProviderKey): PaymentProvider {
 /** Offline methods switched on in settings, then the store's connected online providers. */
 export function enabledProviders(
   settings: CheckoutSettings,
-  onlineKeys: readonly OnlineProviderKey[] = [],
+  onlineKeys: readonly OnlineProviderKey[],
+  currency: string,
 ): PaymentProvider[] {
-  return [...PAYMENT_PROVIDERS.filter((p) => p.enabled(settings)), ...onlineKeys.map(online)];
+  return [
+    ...PAYMENT_PROVIDERS.filter((p) => p.enabled(settings, currency)),
+    ...onlineKeys.map(online),
+  ];
 }
 
 export function providerFor(
   settings: CheckoutSettings,
   key: string | null,
-  onlineKeys: readonly OnlineProviderKey[] = [],
+  onlineKeys: readonly OnlineProviderKey[],
+  currency: string,
 ): PaymentProvider | null {
-  return enabledProviders(settings, onlineKeys).find((p) => p.key === key) ?? null;
+  return enabledProviders(settings, onlineKeys, currency).find((p) => p.key === key) ?? null;
 }

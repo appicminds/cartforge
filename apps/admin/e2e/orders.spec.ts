@@ -81,7 +81,8 @@ test("checkout settings: shipping methods and payment toggles", async ({ page })
   await expect(page.getByText("Shipping method deleted")).toBeVisible();
   await expect(item).toHaveCount(0);
 
-  // Payment toggles: bank transfer needs details; saving persists.
+  // Payment toggles (Settings → Payments): bank transfer needs details; saving persists.
+  await page.goto("/admin/settings/payments");
   const bank = page.getByRole("checkbox", { name: /Bank transfer/ });
   const wasOn = await bank.isChecked();
   if (wasOn) {
@@ -90,8 +91,8 @@ test("checkout settings: shipping methods and payment toggles", async ({ page })
     await bank.check();
     await page.getByLabel(/Bank details shown to customers/).fill(`IBAN ${RUN}`);
   }
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText("Checkout settings saved")).toBeVisible();
+  await page.getByRole("button", { name: "Save payment methods" }).click();
+  await expect(page.getByText("Payment methods saved")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("checkbox", { name: /Bank transfer/ })).toBeChecked({
     checked: !wasOn,
@@ -104,11 +105,11 @@ test("checkout settings: shipping methods and payment toggles", async ({ page })
     const details = page.getByLabel(/Bank details shown to customers/);
     if (!(await details.inputValue())) await details.fill(`IBAN ${RUN}`);
   } else await again.uncheck();
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText("Checkout settings saved").last()).toBeVisible();
+  await page.getByRole("button", { name: "Save payment methods" }).click();
+  await expect(page.getByText("Payment methods saved").last()).toBeVisible();
 
   // Regional tax: a province rule, saved and shown after reload, then removed.
-  await page.reload();
+  await page.goto("/admin/settings/checkout");
   await page.getByRole("button", { name: "Add rate" }).click();
   const rule = page.getByRole("list", { name: "Tax rules" }).getByRole("listitem").last();
   await rule.getByLabel("Country").fill("pk");

@@ -126,7 +126,10 @@ export class CheckoutService {
         data.custom_fields = r.values;
       }
       if (input.payment_method !== undefined) {
-        if (input.payment_method && !providerFor(settings, input.payment_method, online))
+        if (
+          input.payment_method &&
+          !providerFor(settings, input.payment_method, online, cart.currency)
+        )
           errors.push({
             path: "payment_method",
             message: "This payment method isn't available.",
@@ -212,7 +215,7 @@ export class CheckoutService {
           HttpStatus.CONFLICT,
         );
       }
-      const provider = providerFor(settings, view.payment_method, online)!;
+      const provider = providerFor(settings, view.payment_method, online, cart.currency)!;
       const number = await this.nextOrderNumber(tx, cart.store_id);
       const accessKey = generateToken(24);
       const labels = new Map(settings.custom_fields.map((f) => [f.key, f.label]));
@@ -468,8 +471,8 @@ export class CheckoutService {
       settings,
       cartView.requires_shipping ? shippingAddress : (billingAddress ?? shippingAddress),
     );
-    const payments = enabledProviders(settings, online);
-    const payment = providerFor(settings, checkout.payment_method, online);
+    const payments = enabledProviders(settings, online, cart.currency);
+    const payment = providerFor(settings, checkout.payment_method, online, cart.currency);
     const totals = computeTotals({
       lines: cartView.lines.map((l) => ({
         key: l.id,

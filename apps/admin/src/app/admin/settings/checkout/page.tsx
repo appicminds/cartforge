@@ -23,7 +23,6 @@ import {
   PageHeader,
   Select,
   Skeleton,
-  Textarea,
   useToast,
 } from "@cartforge/ui";
 import { ApiError } from "@/lib/api-client";
@@ -35,6 +34,7 @@ import {
   useShippingMethods,
 } from "@/lib/commerce";
 import { useSession } from "@/lib/session";
+import { Toggle } from "@/components/toggle";
 import { useStoreSettings } from "@/lib/store";
 
 type CustomField = CheckoutSettings["custom_fields"][number];
@@ -44,36 +44,6 @@ const fieldErrors = (err: unknown): Record<string, string> => {
   if (err instanceof ApiError) for (const f of err.fields) out[f.path] ??= f.message;
   return out;
 };
-
-function Toggle({
-  label,
-  description,
-  checked,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="flex items-start gap-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 size-4 accent-[var(--cf-color-primary)]"
-      />
-      <span>
-        <span className="block text-sm font-medium">{label}</span>
-        {description && <span className="block text-xs text-fg-muted">{description}</span>}
-      </span>
-    </label>
-  );
-}
 
 const slug = (s: string) =>
   s
@@ -153,165 +123,6 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
   return (
     <form onSubmit={submit} className="flex flex-col gap-6">
       <fieldset disabled={!canEdit || save.isPending} className="flex flex-col gap-6">
-        <Card>
-          <CardHeader
-            title="Payment methods"
-            description="Methods you confirm yourself. Card and wallet gateways are under Settings → Payments."
-          />
-          <CardBody className="flex flex-col gap-5">
-            <div className="flex flex-col gap-3">
-              <Toggle
-                label="Bank transfer"
-                description="Customers pay by transfer; you mark the order paid when the money arrives."
-                checked={s.bank_transfer_enabled}
-                onChange={(v) => set("bank_transfer_enabled", v)}
-              />
-              {s.bank_transfer_enabled && (
-                <Field
-                  label="Bank details shown to customers"
-                  required
-                  error={errors.bank_transfer_instructions}
-                  hint="The order number is added automatically as the payment reference."
-                >
-                  {({ id, describedBy, invalid }) => (
-                    <Textarea
-                      id={id}
-                      aria-describedby={describedBy}
-                      aria-invalid={invalid || undefined}
-                      rows={3}
-                      value={s.bank_transfer_instructions}
-                      onChange={(e) => set("bank_transfer_instructions", e.target.value)}
-                    />
-                  )}
-                </Field>
-              )}
-            </div>
-            <div className="flex flex-col gap-3">
-              <Toggle
-                label="JazzCash, Easypaisa or Raast transfer"
-                description="Customers send money to your wallet, Raast ID or bank account; you mark the order paid when it arrives. No gateway fees."
-                checked={s.wallet_enabled}
-                onChange={(v) => set("wallet_enabled", v)}
-              />
-              {s.wallet_enabled && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="JazzCash number"
-                    error={errors.wallet_jazzcash}
-                    hint="e.g. 0300 1234567"
-                  >
-                    {({ id, describedBy, invalid }) => (
-                      <Input
-                        id={id}
-                        inputMode="tel"
-                        aria-describedby={describedBy}
-                        invalid={invalid}
-                        value={s.wallet_jazzcash}
-                        onChange={(e) => set("wallet_jazzcash", e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Easypaisa number" error={errors.wallet_easypaisa}>
-                    {({ id, describedBy, invalid }) => (
-                      <Input
-                        id={id}
-                        inputMode="tel"
-                        aria-describedby={describedBy}
-                        invalid={invalid}
-                        value={s.wallet_easypaisa}
-                        onChange={(e) => set("wallet_easypaisa", e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    label="Raast ID"
-                    error={errors.wallet_raast_id}
-                    hint="The mobile number linked to Raast."
-                  >
-                    {({ id, describedBy, invalid }) => (
-                      <Input
-                        id={id}
-                        inputMode="tel"
-                        aria-describedby={describedBy}
-                        invalid={invalid}
-                        value={s.wallet_raast_id}
-                        onChange={(e) => set("wallet_raast_id", e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    label="IBAN"
-                    error={errors.wallet_iban}
-                    hint="PK followed by 22 characters."
-                  >
-                    {({ id, describedBy, invalid }) => (
-                      <Input
-                        id={id}
-                        aria-describedby={describedBy}
-                        invalid={invalid}
-                        value={s.wallet_iban}
-                        onChange={(e) => set("wallet_iban", e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Account title" required error={errors.wallet_account_title}>
-                    {({ id, describedBy, invalid }) => (
-                      <Input
-                        id={id}
-                        aria-describedby={describedBy}
-                        invalid={invalid}
-                        value={s.wallet_account_title}
-                        onChange={(e) => set("wallet_account_title", e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    label="Note for customers"
-                    error={errors.wallet_note}
-                    hint="Optional, e.g. where to send the receipt."
-                  >
-                    {({ id, describedBy }) => (
-                      <Input
-                        id={id}
-                        aria-describedby={describedBy}
-                        value={s.wallet_note}
-                        onChange={(e) => set("wallet_note", e.target.value)}
-                      />
-                    )}
-                  </Field>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-3">
-              <Toggle
-                label="Cash on delivery"
-                description="Customers pay the courier when the order arrives."
-                checked={s.cod_enabled}
-                onChange={(v) => set("cod_enabled", v)}
-              />
-              {s.cod_enabled && (
-                <Field label="Note for customers" error={errors.cod_instructions}>
-                  {({ id, describedBy }) => (
-                    <Textarea
-                      id={id}
-                      aria-describedby={describedBy}
-                      rows={2}
-                      value={s.cod_instructions}
-                      onChange={(e) => set("cod_instructions", e.target.value)}
-                    />
-                  )}
-                </Field>
-              )}
-            </div>
-            {!s.cod_enabled && !s.bank_transfer_enabled && !s.wallet_enabled && (
-              <Alert tone="warning" title="Checkout is closed">
-                Turn on at least one payment method here or under Settings → Payments so customers
-                can place orders.
-              </Alert>
-            )}
-          </CardBody>
-        </Card>
-
         <Card>
           <CardHeader
             title="Taxes"
@@ -1146,7 +957,7 @@ export default function CheckoutSettingsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Checkout"
-        description="How customers pay and what they see when they check out."
+        description="Shipping, taxes and what customers fill in at checkout. Payment methods are under Settings → Payments."
       />
       {!canEdit && (
         <Alert tone="info" title="View only">

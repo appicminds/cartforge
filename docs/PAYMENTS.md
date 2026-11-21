@@ -5,14 +5,14 @@ businesses, so Pakistani stores use the local options below.
 
 ## The options
 
-| Method                                          | Customers pay with                                     | Confirmation                                          | Fees / contract                        | Status in CartForge              |
-| ----------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- | -------------------------------------- | -------------------------------- |
-| **Wallet / Raast transfer** (Checkout settings) | JazzCash, Easypaisa, any bank app via Raast ID or IBAN | Merchant clicks **Mark as paid** on the order         | None (no gateway)                      | ✅ Ready                         |
-| Bank transfer, cash on delivery                 | Bank transfer, cash                                    | Merchant marks paid                                   | None                                   | ✅ Ready                         |
-| **Safepay** (Settings → Payments)               | Cards, wallets, Raast                                  | Signed redirect (automatic)                           | Safepay merchant agreement             | Beta: verify in Safepay sandbox  |
-| **JazzCash** (Settings → Payments)              | JazzCash wallet, cards                                 | Signed return + IPN (automatic)                       | JazzCash merchant account              | Beta: verify in JazzCash sandbox |
-| **Easypaisa** (Settings → Payments)             | Easypaisa wallet, cards                                | Server-side status inquiry (automatic with API login) | Easypay merchant account               | Beta: verify in Easypay sandbox  |
-| **Stripe** (Settings → Payments)                | Cards, Apple Pay, Google Pay                           | Signed webhook + session check (automatic)            | Stripe account (not for PK businesses) | ✅ Ready                         |
+| Method                                            | Customers pay with                                     | Confirmation                                          | Fees / contract                        | Status in CartForge              |
+| ------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- | -------------------------------------- | -------------------------------- |
+| **Wallet / Raast transfer** (Settings → Payments) | JazzCash, Easypaisa, any bank app via Raast ID or IBAN | Merchant clicks **Mark as paid** on the order         | None (no gateway)                      | ✅ Ready                         |
+| Bank transfer, cash on delivery                   | Bank transfer, cash                                    | Merchant marks paid                                   | None                                   | ✅ Ready                         |
+| **Safepay** (Settings → Payments)                 | Cards, wallets, Raast                                  | Signed redirect (automatic)                           | Safepay merchant agreement             | Beta: verify in Safepay sandbox  |
+| **JazzCash** (Settings → Payments)                | JazzCash wallet, cards                                 | Signed return + IPN (automatic)                       | JazzCash merchant account              | Beta: verify in JazzCash sandbox |
+| **Easypaisa** (Settings → Payments)               | Easypaisa wallet, cards                                | Server-side status inquiry (automatic with API login) | Easypay merchant account               | Beta: verify in Easypay sandbox  |
+| **Stripe** (Settings → Payments)                  | Cards, Apple Pay, Google Pay                           | Signed webhook + session check (automatic)            | Stripe account (not for PK businesses) | ✅ Ready                         |
 
 "Beta" means the adapter is built to the provider's published integration guide and covered by
 tests that simulate the provider, but it hasn't been run against that provider's real sandbox yet.
@@ -20,7 +20,14 @@ Do one test payment in **test mode** with your sandbox credentials before switch
 
 ## Setting up
 
-1. **Settings → Checkout → JazzCash, Easypaisa or Raast transfer** works immediately: enter any of
+All payment options are on **Settings → Payments**: online gateways at the top, manual methods
+(bank transfer, wallet/Raast transfer, cash on delivery) below. JazzCash, Easypaisa, Safepay and
+the wallet/Raast transfer only work for stores that sell in PKR; the page says so for other
+currencies. Checkout also needs at least one shipping method (Settings → Checkout) for physical
+products.
+
+1. **Settings → Payments → Manual payment methods → JazzCash, Easypaisa or Raast transfer** works
+   immediately for stores that sell in PKR (it's switched off for other currencies): enter any of
    your JazzCash number, Easypaisa number, Raast ID or IBAN, plus the account title. Customers see
    exactly where to send the money, with the order number as reference. When it arrives, open the
    order and click **Mark as paid** (add the transaction ID as the reference).

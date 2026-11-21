@@ -428,6 +428,17 @@ describe("payment hub (Next 5)", () => {
           credentials: { merchant_id: "x", password: "y", integrity_salt: "z" },
         })
         .expect(200);
+      // Wallet / Raast transfers are rupees only, even if switched on.
+      const current = (await usd.owner.get("/settings/checkout").expect(200)).body.data;
+      await usd.owner
+        .put("/settings/checkout", {
+          ...current,
+          cod_enabled: true,
+          wallet_enabled: true,
+          wallet_jazzcash: "03001234567",
+          wallet_account_title: "Test",
+        })
+        .expect(200);
       const cart = await http()
         .post("/api/v1/storefront/cart")
         .set("X-Store-Id", usd.id)
@@ -444,9 +455,10 @@ describe("payment hub (Next 5)", () => {
         .set("X-Store-Id", usd.id)
         .set("X-Cart-Token", t)
         .expect(200);
-      expect(view.body.data.payment_options.map((o: { key: string }) => o.key)).not.toContain(
-        "jazzcash",
-      );
+      const keys = view.body.data.payment_options.map((o: { key: string }) => o.key);
+      expect(keys).not.toContain("jazzcash");
+      expect(keys).not.toContain("wallet_transfer");
+      expect(keys).toContain("cod");
     });
 
     it("JazzCash: signed form to JazzCash, signed return marks paid, tampering is refused", async () => {

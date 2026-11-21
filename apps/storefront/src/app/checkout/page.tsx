@@ -75,6 +75,13 @@ export default async function CheckoutPage({ searchParams }: Props) {
     { key: "payment", label: "Payment" },
   ];
   const current = steps.findIndex((s) => s.key === step);
+  // The store hasn't finished setting up: say so instead of a form that can't be completed.
+  const closed =
+    view.shipping_required && view.shipping_countries?.length === 0
+      ? "This store isn’t shipping orders yet."
+      : view.payment_options.length === 0
+        ? "This store isn’t taking payments yet."
+        : null;
   const holdUntil = view.reserved_until
     ? new Date(view.reserved_until).toLocaleTimeString(store.locale, {
         hour: "numeric",
@@ -130,7 +137,29 @@ export default async function CheckoutPage({ searchParams }: Props) {
               .
             </p>
           )}
-          {step === "information" && !customer && (
+          {closed && (
+            <div
+              role="alert"
+              className="rounded-[var(--sf-radius)] border border-line p-4 text-sm"
+              data-testid="checkout-closed"
+            >
+              <p className="font-semibold">{closed}</p>
+              <p className="mt-1 text-muted">
+                Your cart is saved. Please check back soon
+                {store.contact_email ? (
+                  <>
+                    {" "}
+                    or{" "}
+                    <a href={`mailto:${store.contact_email}`} className="sf-link">
+                      contact {store.name}
+                    </a>
+                  </>
+                ) : null}
+                .
+              </p>
+            </div>
+          )}
+          {!closed && step === "information" && !customer && (
             <p className="text-sm">
               Have an account?{" "}
               <Link href="/account/login?next=/checkout" className="sf-link">
@@ -139,11 +168,11 @@ export default async function CheckoutPage({ searchParams }: Props) {
               to use your saved address.
             </p>
           )}
-          {step === "information" && (
+          {!closed && step === "information" && (
             <InformationStep view={prefill(view, customer)} locale={store.locale} />
           )}
-          {step === "shipping" && <ShippingStep view={view} locale={store.locale} />}
-          {step === "payment" && (
+          {!closed && step === "shipping" && <ShippingStep view={view} locale={store.locale} />}
+          {!closed && step === "payment" && (
             <PaymentStep view={view} locale={store.locale} idempotencyKey={randomUUID()} />
           )}
         </div>

@@ -118,6 +118,7 @@ export function useUpdatePlatformStore() {
 
 export const CURRENCIES = [
   "USD",
+  "PKR",
   "EUR",
   "GBP",
   "CAD",

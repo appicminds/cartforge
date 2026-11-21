@@ -19,7 +19,10 @@ import {
 } from "@cartforge/ui";
 import { ApiError } from "@/lib/api-client";
 import { usePaymentAccountAction, usePaymentProviders } from "@/lib/payments";
+import { useCheckoutSettings } from "@/lib/commerce";
 import { useSession } from "@/lib/session";
+import { useStoreSettings } from "@/lib/store";
+import { anyManualMethod, ManualMethodsCard } from "./manual-methods";
 
 function status(a: PaymentAccountView | undefined) {
   if (!a?.connected) return { label: "Not connected", tone: "neutral" as const };
@@ -225,7 +228,14 @@ function ConnectDialog({
 export default function PaymentsPage() {
   const { can } = useSession();
   const canEdit = can(PERMISSIONS.PAYMENTS_SECRETS);
+  const canEditManual = can(PERMISSIONS.STORE_SETTINGS_WRITE);
   const q = usePaymentProviders();
+  const checkout = useCheckoutSettings();
+  const store = useStoreSettings();
+  const currency = store.data?.currency;
+  const gatewayOn = q.data?.accounts.some((a) => a.connected && a.enabled) ?? false;
+  const closed =
+    checkout.data && currency && q.data && !gatewayOn && !anyManualMethod(checkout.data, currency);
   const action = usePaymentAccountAction();
   const toast = useToast();
   const [editing, setEditing] = useState<string | null>(null);
@@ -237,17 +247,18 @@ export default function PaymentsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Payments"
-        description="Let customers pay online by card, mobile wallet or Raast. Orders are marked paid automatically when the provider confirms."
+        description="Everything customers can pay with: online gateways that confirm payments automatically, and manual methods you confirm yourself."
       />
+      {closed && (
+        <Alert tone="warning" title="Customers can't pay yet">
+          Turn on a manual method below, or connect a gateway, so customers can place orders.
+        </Alert>
+      )}
       {!canEdit && (
         <Alert tone="info" title="View only">
           Only the store owner or an administrator can connect payment providers.
         </Alert>
       )}
-      <Alert tone="info" title="No gateway yet?">
-        Under Settings → Checkout you can take JazzCash, Easypaisa or Raast transfers to your own
-        number or IBAN today, and mark orders paid when the money arrives.
-      </Alert>
       {q.isError ? (
         <Alert tone="danger" title="Couldn't load payment providers">
           {q.error.message}
@@ -259,6 +270,7 @@ export default function PaymentsPage() {
           {q.data.providers.map((info) => {
             const a = accountOf(info.key);
             const st = status(a);
+            const fits = !currency || !info.currencies || info.currencies.includes(currency);
             return (
               <li key={info.key}>
                 <Card className="h-full">
@@ -268,6 +280,12 @@ export default function PaymentsPage() {
                       <Badge tone={st.tone}>{st.label}</Badge>
                       {info.maturity === "beta" && <Badge>Beta</Badge>}
                     </div>
+                    {!fits && (
+                      <p className="text-sm text-warning">
+                        Not available: {info.name} takes {info.currencies!.join(", ")} only, and
+                        this store sells in {currency}.
+                      </p>
+                    )}
                     <p className="text-sm text-fg-muted">{info.notes}</p>
                     <p className="text-xs text-fg-subtle">
                       {info.currencies
@@ -279,7 +297,7 @@ export default function PaymentsPage() {
                         : "Refunds are recorded; send them in the provider's portal"}
                     </p>
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
-                      {canEdit && (
+                      {canEdit && (fits || a?.connected) && (
                         <Button
                           variant={a?.connected ? "secondary" : "primary"}
                           size="sm"
@@ -323,6 +341,20 @@ export default function PaymentsPage() {
           })}
         </ul>
       )}
+      <section aria-labelledby="manual-h" className="flex flex-col gap-3">
+        <h2 id="manual-h" className="sr-only">
+          Manual payment methods
+        </h2>
+        {checkout.isError ? (
+          <Alert tone="danger" title="Couldn't load payment methods">
+            {checkout.error.message}
+          </Alert>
+        ) : checkout.data && currency ? (
+          <ManualMethodsCard settings={checkout.data} currency={currency} canEdit={canEditManual} />
+        ) : (
+          <Skeleton className="h-40 w-full" />
+        )}
+      </section>
       <ConfirmDialog
         open={removing !== null}
         title={`Disconnect ${removing?.name ?? "provider"}?`}

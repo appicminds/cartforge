@@ -69,27 +69,53 @@ test("catalog managers can't open payment settings for editing", async ({ page }
   await expect(page.getByRole("button", { name: /^Connect / })).toHaveCount(0);
 });
 
-test("wallet / Raast transfer in checkout settings", async ({ page }) => {
-  await signIn(page, "admin@cartforge.test");
+test("manual methods live on Payments; PKR-only options are off for a USD store", async ({
+  page,
+}) => {
+  await signIn(page, "admin@cartforge.test"); // the demo store sells in USD
+  await page.goto("/admin/settings/payments");
+  const wallet = page.getByRole("checkbox", { name: /JazzCash, Easypaisa or Raast transfer/ });
+  await expect(wallet).toBeDisabled();
+  await expect(
+    page.getByText("Only for stores that sell in Pakistani rupees (PKR)."),
+  ).toBeVisible();
+  const jazz = page
+    .getByRole("list", { name: "Payment providers" })
+    .getByRole("listitem")
+    .filter({ hasText: "JazzCash" });
+  await expect(jazz.getByText(/Not available: JazzCash takes PKR only/)).toBeVisible();
+  await expect(jazz.getByRole("button", { name: /^Connect/ })).toHaveCount(0);
+  // Checkout settings no longer carry payment methods.
   await page.goto("/admin/settings/checkout");
+  await expect(page.getByRole("checkbox", { name: /Bank transfer/ })).toHaveCount(0);
+});
+
+test("wallet / Raast transfer in a PKR store", async ({ page }) => {
+  await signIn(page, "other@cartforge.test");
+  await page.goto("/admin/stores");
+  await page.getByRole("button", { name: "Create store" }).click();
+  const dialog = page.getByRole("dialog", { name: /Create/ });
+  await dialog.getByLabel("Store name").fill(`Rupee Store ${Date.now().toString(36)}`);
+  await dialog.getByLabel("Currency").selectOption("PKR");
+  await dialog.getByRole("button", { name: "Create store" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.goto("/admin/settings/payments");
+  await expect(page.getByText("Customers can't pay yet")).toBeVisible();
   const toggle = page.getByLabel(/JazzCash, Easypaisa or Raast transfer/);
-  if (!(await toggle.isChecked())) await toggle.check();
+  await toggle.check();
   await page.getByLabel("JazzCash number").fill("12345");
   await page.getByLabel("IBAN").fill("PK00");
-  await page.getByLabel("Account title").fill("");
-  await page.getByRole("button", { name: "Save settings" }).click();
+  await page.getByRole("button", { name: "Save payment methods" }).click();
   await expect(page.getByText("Use a mobile number like 0300 1234567")).toBeVisible();
   await expect(page.getByText(/Use an IBAN like/)).toBeVisible();
+  await expect(page.getByText("Add the account title customers will see")).toBeVisible();
   await page.getByLabel("JazzCash number").fill("0300 1234567");
   await page.getByLabel("IBAN").fill("PK36 SCBL 0000 0011 2345 6702");
-  await page.getByLabel("Account title").fill("Northwind Goods");
+  await page.getByLabel("Account title").fill("Rupee Store");
   await scan(page, "wallet settings");
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText(/saved/i).first()).toBeVisible();
+  await page.getByRole("button", { name: "Save payment methods" }).click();
+  await expect(page.getByText("Payment methods saved")).toBeVisible();
+  await expect(page.getByText("Customers can't pay yet")).toHaveCount(0);
   await page.reload();
   await expect(page.getByLabel("JazzCash number")).toHaveValue("03001234567");
-  // Leave the shared demo store as other tests expect it.
-  await page.getByLabel(/JazzCash, Easypaisa or Raast transfer/).uncheck();
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText(/saved/i).first()).toBeVisible();
 });

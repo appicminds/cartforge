@@ -12,6 +12,9 @@ const PASSWORD = "Saffron-Lane-2026";
 
 let handle = "";
 let productHandle = "";
+/** A store with a product but no shipping methods yet. */
+let bareHandle = "";
+let bareProduct = "";
 
 test.beforeAll(async () => {
   const login = await fetch(`${API}/api/v1/auth/login`, {
@@ -77,6 +80,22 @@ test.beforeAll(async () => {
     countries: ["PK"],
     regions: ["Punjab"],
   });
+  const bare = await call<{ store_id: string; handle: string }>("POST", "/stores", {
+    store_name: `Unready ${RUN}`,
+    currency: "PKR",
+  });
+  bareHandle = bare.handle;
+  const mainId = storeId;
+  storeId = bare.store_id;
+  bareProduct = (
+    await call<{ handle: string }>("POST", "/products", {
+      title: `Cushion ${RUN}`,
+      price_minor: 1000,
+      status: "active",
+      inventory_quantity: 5,
+    })
+  ).handle;
+  storeId = mainId;
   productHandle = (
     await call<{ handle: string }>("POST", "/products", {
       title: `Shawl ${RUN}`,
@@ -176,4 +195,17 @@ test("forgot password always answers the same", async ({ page }) => {
   await page.getByRole("textbox", { name: "Email", exact: true }).fill(`nobody+${RUN}@example.com`);
   await page.getByRole("button", { name: "Send link" }).click();
   await expect(page.getByRole("status")).toContainText(/link/i);
+});
+
+test("a store that can't ship yet says so at checkout", async ({ page }) => {
+  await page.goto(`/?store=${bareHandle}`);
+  await page.goto(`/products/${bareProduct}`);
+  await page.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.getByText(/Added to your cart/)).toBeVisible();
+  await page.goto("/cart");
+  await page.getByRole("button", { name: "Check out" }).click();
+  await expect(page.getByTestId("checkout-closed")).toContainText(
+    "This store isn’t shipping orders yet.",
+  );
+  await expect(page.getByLabel("Country / region")).toHaveCount(0);
 });
