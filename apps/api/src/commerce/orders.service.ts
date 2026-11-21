@@ -17,6 +17,8 @@ const DETAIL_INCLUDE = {
   items: { orderBy: { created_at: "asc" } },
   events: { orderBy: { created_at: "asc" } },
   payments: { orderBy: { created_at: "asc" } },
+  fulfillments: { orderBy: { shipped_at: "asc" }, include: { items: true } },
+  refunds: { orderBy: { created_at: "asc" }, include: { items: true } },
 } as const satisfies Prisma.OrderInclude;
 type Row = Prisma.OrderGetPayload<{ include: typeof DETAIL_INCLUDE }>;
 
@@ -24,6 +26,10 @@ const notFound = () =>
   new AppException(COMMERCE_ERROR_CODES.ORDER_NOT_FOUND, "Order not found.", HttpStatus.NOT_FOUND);
 const addr = (v: Prisma.JsonValue | null) => (v ? (v as unknown as CommerceAddress) : null);
 const n = (v: bigint) => Number(v);
+const itemTitle = (i: { product_title: string; variant_title: string }) =>
+  i.variant_title && i.variant_title !== "Default"
+    ? `${i.product_title} — ${i.variant_title}`
+    : i.product_title;
 
 @Injectable()
 export class OrdersService {
@@ -88,8 +94,47 @@ export class OrdersService {
       include: DETAIL_INCLUDE,
     });
     if (!o) throw notFound();
+    const actorIds = [
+      ...o.events.map((e) => e.actor_id),
+      ...o.refunds.map((r) => r.created_by),
+    ].filter((x): x is string => !!x);
+    const names = new Map(
+      (
+        await this.prisma.user.findMany({
+          where: { id: { in: [...new Set(actorIds)] } },
+          select: { id: true, name: true },
+        })
+      ).map((u) => [u.id, u.name]),
+    );
+    const title = new Map(o.items.map((i) => [i.id, itemTitle(i)]));
+    const sumBy = (rows: { order_item_id: string; quantity: number }[]) => {
+      const m = new Map<string, number>();
+      for (const r of rows) m.set(r.order_item_id, (m.get(r.order_item_id) ?? 0) + r.quantity);
+      return m;
+    };
+    const fulfilled = sumBy(o.fulfillments.flatMap((f) => f.items));
+    const refunded = sumBy(o.refunds.flatMap((r) => r.items));
     return {
       ...this.confirmation(o),
+      cancel_reason: o.cancel_reason,
+      line_progress: o.items.map((i) => ({
+        order_item_id: i.id,
+        fulfilled: fulfilled.get(i.id) ?? 0,
+        refunded: refunded.get(i.id) ?? 0,
+      })),
+      refunds: o.refunds.map((r) => ({
+        id: r.id,
+        amount_minor: n(r.amount_minor),
+        reason: r.reason,
+        created_at: r.created_at.toISOString(),
+        created_by: r.created_by ? (names.get(r.created_by) ?? null) : null,
+        items: r.items.map((x) => ({
+          order_item_id: x.order_item_id,
+          title: title.get(x.order_item_id) ?? "Item",
+          quantity: x.quantity,
+          restocked: x.restocked,
+        })),
+      })),
       phone: o.phone,
       custom_fields: Array.isArray(o.custom_fields)
         ? (o.custom_fields as { key: string; label: string; value: string | boolean }[])
@@ -101,6 +146,7 @@ export class OrdersService {
         type: e.type,
         message: e.message,
         at: e.created_at.toISOString(),
+        actor: e.actor_id ? (names.get(e.actor_id) ?? null) : null,
       })),
       payments: o.payments.map((p) => ({
         id: p.id,
@@ -163,6 +209,24 @@ export class OrdersService {
         tax_minor: n(i.tax_minor),
         line_total_minor: n(i.unit_price_minor) * i.quantity,
       })),
+      fulfillments: o.fulfillments.map((f) => ({
+        id: f.id,
+        tracking_company: f.tracking_company,
+        tracking_number: f.tracking_number,
+        tracking_url: f.tracking_url,
+        shipped_at: f.shipped_at.toISOString(),
+        delivered_at: f.delivered_at?.toISOString() ?? null,
+        items: f.items.map((x) => {
+          const item = o.items.find((i) => i.id === x.order_item_id);
+          return {
+            order_item_id: x.order_item_id,
+            title: item ? itemTitle(item) : "Item",
+            quantity: x.quantity,
+          };
+        }),
+      })),
+      canceled_at: o.canceled_at?.toISOString() ?? null,
+      refunded_minor: n(o.refunded_minor),
       totals: {
         subtotal_minor: n(o.subtotal_minor),
         discount_minor: n(o.discount_minor),

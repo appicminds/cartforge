@@ -15,6 +15,10 @@ export const COMMERCE_ERROR_CODES = {
   IDEMPOTENCY_KEY_REUSED: "IDEMPOTENCY_KEY_REUSED",
   REQUEST_IN_PROGRESS: "REQUEST_IN_PROGRESS",
   ORDER_NOT_FOUND: "ORDER_NOT_FOUND",
+  ORDER_STATE: "ORDER_STATE",
+  ORDER_PAID: "ORDER_PAID",
+  QUANTITY_TOO_HIGH: "QUANTITY_TOO_HIGH",
+  REFUND_TOO_HIGH: "REFUND_TOO_HIGH",
   SHIPPING_METHOD_NOT_FOUND: "SHIPPING_METHOD_NOT_FOUND",
 } as const;
 
@@ -185,6 +189,17 @@ export interface OrderLineView {
   line_total_minor: number;
 }
 
+/** A shipment, as the customer sees it. */
+export interface FulfillmentView {
+  id: string;
+  tracking_company: string | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  shipped_at: string;
+  delivered_at: string | null;
+  items: { order_item_id: string; title: string; quantity: number }[];
+}
+
 /** What the customer sees on their order-status page. */
 export interface OrderConfirmation {
   id: string;
@@ -200,6 +215,10 @@ export interface OrderConfirmation {
   shipping_method: { name: string; price_minor: number } | null;
   payment: { method: string; label: string; instructions: string | null } | null;
   lines: OrderLineView[];
+  fulfillments: FulfillmentView[];
+  canceled_at: string | null;
+  /** Money given back so far. */
+  refunded_minor: number;
   totals: {
     subtotal_minor: number;
     discount_minor: number;
@@ -230,13 +249,31 @@ export interface OrderEventView {
   type: string;
   message: string;
   at: string;
+  /** Staff member's name, for actions and notes; null for the system or the customer. */
+  actor: string | null;
 }
+
+export interface RefundView {
+  id: string;
+  amount_minor: number;
+  reason: string | null;
+  created_at: string;
+  created_by: string | null;
+  items: { order_item_id: string; title: string; quantity: number; restocked: boolean }[];
+}
+
+export const CANCEL_REASONS = ["customer", "inventory", "fraud", "declined", "other"] as const;
+export type CancelReason = (typeof CANCEL_REASONS)[number];
 
 export interface OrderDetail extends OrderConfirmation {
   phone: string | null;
   custom_fields: { key: string; label: string; value: string | boolean }[];
   terms_accepted_at: string | null;
   source: string;
+  cancel_reason: string | null;
+  /** Per line: how many were shipped and refunded (for the fulfil/refund dialogs). */
+  line_progress: { order_item_id: string; fulfilled: number; refunded: number }[];
+  refunds: RefundView[];
   events: OrderEventView[];
   payments: {
     id: string;

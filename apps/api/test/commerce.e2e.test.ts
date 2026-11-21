@@ -365,10 +365,10 @@ describe("cart and checkout (Next 4)", () => {
         { key: "delivery", label: "Delivery window", value: "Morning" },
         { key: "gift_note", label: "Gift note", value: "Happy birthday" },
       ]);
-      expect(detail.events.map((e: { type: string }) => e.type)).toEqual([
-        "order.placed",
-        "payment.pending",
-      ]);
+      // (Plus the order emails, recorded as "email" events.)
+      expect(
+        detail.events.map((e: { type: string }) => e.type).filter((t: string) => t !== "email"),
+      ).toEqual(["order.placed", "payment.pending"]);
       expect(detail.terms_accepted_at).toEqual(expect.any(String));
       await otherOwner.get(`/orders/${order.order_id}`).expect(404);
       await catalogStaff.get("/orders").expect(403);

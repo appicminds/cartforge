@@ -6,6 +6,8 @@ export interface Email {
   subject: string;
   text: string;
   html: string;
+  /** Replies go here (e.g. the store's contact email) instead of the no-reply sender. */
+  replyTo?: string;
 }
 
 /**
@@ -50,6 +52,7 @@ export class Mailer {
           subject: email.subject,
           text: email.text,
           html: email.html,
+          ...(email.replyTo ? { reply_to: email.replyTo } : {}),
         }),
         signal: AbortSignal.timeout(10_000),
       });

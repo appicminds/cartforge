@@ -71,3 +71,81 @@ export {
   type CheckoutSettingsInput,
   type ShippingMethodInput,
 } from "@cartforge/checkout-engine";
+
+// ───────────── Order processing (Next 6) ─────────────
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((v) => v || undefined);
+
+export const orderMarkPaidSchema = z.object({ reference: optionalText(200) }).strict();
+export type OrderMarkPaid = z.output<typeof orderMarkPaidSchema>;
+
+const lineQty = z.object({
+  order_item_id: z.string().uuid(),
+  quantity: z.number().int().min(1, "At least 1").max(1_000_000),
+});
+
+export const fulfillmentCreateSchema = z
+  .object({
+    /** Omitted = everything still to ship. */
+    items: z.array(lineQty).min(1, "Choose at least one item").max(500).optional(),
+    tracking_company: optionalText(80),
+    tracking_number: optionalText(120),
+    tracking_url: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .transform((v) => v || undefined)
+      .pipe(
+        z
+          .string()
+          .url("Enter a full link starting with https://")
+          .regex(/^https?:\/\//, "Enter a full link starting with https://")
+          .optional(),
+      ),
+    notify_customer: z.boolean().default(true),
+  })
+  .strict();
+export type FulfillmentCreate = z.output<typeof fulfillmentCreateSchema>;
+export type FulfillmentCreateInput = z.input<typeof fulfillmentCreateSchema>;
+
+export const orderCancelSchema = z
+  .object({
+    reason: z.enum(["customer", "inventory", "fraud", "declined", "other"]),
+    restock: z.boolean().default(true),
+    /** Required when the order is paid: give the money back as part of cancelling. */
+    refund: z.boolean().default(false),
+    notify_customer: z.boolean().default(true),
+  })
+  .strict();
+export type OrderCancel = z.output<typeof orderCancelSchema>;
+export type OrderCancelInput = z.input<typeof orderCancelSchema>;
+
+export const refundCreateSchema = z
+  .object({
+    items: z
+      .array(lineQty.extend({ restock: z.boolean().default(false) }))
+      .max(500)
+      .default([]),
+    amount_minor: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    reason: optionalText(500),
+    notify_customer: z.boolean().default(true),
+  })
+  .strict()
+  .refine((v) => v.amount_minor > 0 || v.items.length > 0, {
+    message: "Refund an amount or at least one item",
+    path: ["amount_minor"],
+  });
+export type RefundCreate = z.output<typeof refundCreateSchema>;
+export type RefundCreateInput = z.input<typeof refundCreateSchema>;
+
+export const orderNoteSchema = z
+  .object({ message: z.string().trim().min(1, "Write a note").max(500) })
+  .strict();
+export type OrderNote = z.output<typeof orderNoteSchema>;

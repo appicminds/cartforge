@@ -54,6 +54,7 @@ describe("platform", () => {
       "post /api/v1/auth/email/resend",
       "post /api/v1/auth/sessions/sign-out-others",
       "post /api/v1/auth/mfa/setup",
+      "post /api/v1/orders/{id}/fulfillments/{fulfillmentId}/delivered",
       "post /api/v1/products/{id}/publish",
       "post /api/v1/products/{id}/archive",
       "post /api/v1/products/{id}/preview-link",

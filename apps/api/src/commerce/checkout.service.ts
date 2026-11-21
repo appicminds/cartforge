@@ -20,6 +20,7 @@ import {
 import type { CheckoutUpdate } from "@cartforge/validation";
 import { generateToken, sha256 } from "../auth/tokens";
 import { AppException } from "../common/app-exception";
+import { OrderMailer } from "./order-mailer";
 import { OutboxService } from "../common/outbox.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { OrderSnapshotService } from "../orders/order-snapshot.service";
@@ -75,6 +76,7 @@ export class CheckoutService {
     private readonly inventory: InventoryService,
     private readonly snapshots: OrderSnapshotService,
     private readonly outbox: OutboxService,
+    private readonly mail: OrderMailer,
   ) {}
 
   /** Starts (or resumes) checkout for a cart and holds its stock. */
@@ -161,7 +163,7 @@ export class CheckoutService {
 
   /** Places the order. Wrapped by the idempotency layer in the controller. */
   async complete(cart: Cart, expectedTotal: number | undefined): Promise<PlacedOrder> {
-    return this.prisma.$transaction(async (tx) => {
+    const placed = await this.prisma.$transaction(async (tx) => {
       // One completion at a time per checkout.
       const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM checkouts WHERE cart_id = ${cart.id}::uuid FOR UPDATE`;
@@ -328,6 +330,10 @@ export class CheckoutService {
         currency: cart.currency,
       };
     }, TX_OPTIONS);
+    // Only here, once per order (idempotent replays return the stored response instead).
+    await this.mail.confirmation(cart.store_id, placed.order_id, placed.access_key);
+    await this.mail.newOrder(cart.store_id, placed.order_id);
+    return placed;
   }
 
   // ───────────── Internals ─────────────
