@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { storefront } from "@/lib/api";
 import { commerce } from "@/lib/commerce";
-import type { CommerceAddress } from "@/lib/commerce-types";
+import type { CommerceAddress, OrderConfirmation } from "@/lib/commerce-types";
 import { formatMoney } from "@/lib/money";
 
 export const metadata: Metadata = {
@@ -49,6 +49,24 @@ function Address({ a, locale }: { a: CommerceAddress; locale?: string }) {
   );
 }
 
+/** Where the order is, in the customer's words. */
+function progressOf(o: OrderConfirmation): { title: string; detail: string } {
+  if (o.canceled_at)
+    return { title: "Canceled", detail: "This order was canceled. Questions? Contact the store." };
+  if (o.fulfillment_status === "fulfilled")
+    return o.fulfillments.every((f) => f.delivered_at)
+      ? { title: "Delivered", detail: "Your order has arrived." }
+      : { title: "Shipped", detail: "Your order is on its way." };
+  if (o.fulfillment_status === "partially_fulfilled")
+    return {
+      title: "Partly shipped",
+      detail: "Some items are on their way; the rest will follow.",
+    };
+  if (o.payment_status === "paid")
+    return { title: "Preparing your order", detail: "Payment received — we're getting it ready." };
+  return { title: "Confirmed", detail: "We've got your order." };
+}
+
 /** Order status page, reachable only with the secret key from checkout (PRD §13.2, §16). */
 export default async function OrderPage({ params, searchParams }: Props) {
   const { id } = await params;
@@ -61,12 +79,14 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const money = (m: number) => formatMoney(m, o.currency, store.locale);
   const name = o.shipping_address?.first_name ?? o.billing_address?.first_name;
   const t = o.totals;
+  const status = progressOf(o);
+  const canceled = !!o.canceled_at;
   return (
     <div className="sf-container max-w-4xl py-10 md:py-16">
       <div className="flex items-start gap-4">
         <span
           aria-hidden
-          className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent"
+          className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${canceled ? "bg-line text-ink" : "bg-accent text-on-accent"}`}
         >
           <svg
             width="20"
@@ -76,19 +96,75 @@ export default async function OrderPage({ params, searchParams }: Props) {
             stroke="currentColor"
             strokeWidth="2.5"
           >
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
+            <path d={canceled ? "M7 7l10 10M17 7L7 17" : "M5 12.5l4.5 4.5L19 7.5"} />
           </svg>
         </span>
         <div>
           <p className="text-sm text-muted">Order #{o.number}</p>
-          <h1 className="text-3xl md:text-4xl">Thank you{name ? `, ${name}` : ""}!</h1>
+          <h1 className="text-3xl md:text-4xl">
+            {canceled ? "Order canceled" : <>Thank you{name ? `, ${name}` : ""}!</>}
+          </h1>
           <p className="mt-2 text-muted">
-            Your order is confirmed. {o.email && <>We’ll send updates to {o.email}.</>}
+            {canceled ? "This order won't be shipped." : "Your order is confirmed."}{" "}
+            {o.email && <>We’ll send updates to {o.email}.</>}
           </p>
         </div>
       </div>
 
-      {o.payment && (
+      <section
+        aria-labelledby="status-h"
+        className="mt-8 rounded-[var(--sf-radius)] border border-line p-6"
+        data-testid="order-status"
+      >
+        <h2 id="status-h" className="font-body text-lg font-semibold">
+          {status.title}
+        </h2>
+        <p className="mt-1 text-sm text-muted">{status.detail}</p>
+        {o.refunded_minor > 0 && (
+          <p className="mt-2 text-sm">
+            Refunded: {money(o.refunded_minor)}. It can take a few days to show up, depending on how
+            you paid.
+          </p>
+        )}
+        {o.fulfillments.length > 0 && (
+          <ul className="mt-4 space-y-3 text-sm" aria-label="Shipments">
+            {o.fulfillments.map((f, i) => (
+              <li key={f.id} className="border-t border-line pt-3">
+                <p className="font-medium">
+                  {o.fulfillments.length > 1 ? `Shipment ${i + 1}: ` : ""}
+                  {f.delivered_at ? "delivered" : "shipped"}{" "}
+                  {new Intl.DateTimeFormat(store.locale, { dateStyle: "medium" }).format(
+                    new Date(f.delivered_at ?? f.shipped_at),
+                  )}
+                </p>
+                <p className="text-muted">
+                  {f.items.map((x) => `${x.quantity} × ${x.title}`).join(", ")}
+                </p>
+                {(f.tracking_company || f.tracking_number) && (
+                  <p>
+                    {[f.tracking_company, f.tracking_number].filter(Boolean).join(" ")}
+                    {f.tracking_url && (
+                      <>
+                        {" · "}
+                        <a
+                          href={f.tracking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline underline-offset-2"
+                        >
+                          Track your package
+                        </a>
+                      </>
+                    )}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {o.payment && !canceled && (
         <section
           aria-labelledby="pay-h"
           className="mt-8 rounded-[var(--sf-radius)] border border-line p-6"
@@ -96,7 +172,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
           <h2 id="pay-h" className="font-body text-lg font-semibold">
             {o.payment.label} · {PAYMENT_STATUS[o.payment_status] ?? o.payment_status}
           </h2>
-          {o.payment.instructions && (
+          {o.payment.instructions && o.payment_status === "pending" && (
             <p className="mt-2 whitespace-pre-line text-sm" data-testid="payment-instructions">
               {o.payment.instructions}
             </p>

@@ -113,7 +113,9 @@ test("guest checkout from product page to order confirmation", async ({ page }) 
   await page.getByRole("button", { name: /Place order/ }).click();
 
   await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}\?key=/);
+  const orderUrl = page.url();
   await expect(page.getByRole("heading", { level: 1, name: "Thank you, Ada!" })).toBeVisible();
+  await expect(page.getByTestId("order-status")).toContainText("Confirmed");
   await expect(page.getByText(/Cash on delivery · Awaiting payment/)).toBeVisible();
   await expect(page.getByTestId("payment-instructions")).toHaveText("Pay the courier in cash.");
   await expect(page.getByText("$106.00").first()).toBeVisible();
@@ -123,6 +125,25 @@ test("guest checkout from product page to order confirmation", async ({ page }) 
   // Stock left the warehouse: the product is now sold out.
   await page.goto(`/products/${p.handle}`);
   await expect(page.getByRole("button", { name: "Sold out" })).toBeDisabled();
+
+  // Next 6: the store ships it; the customer's page shows tracking.
+  const orderId = new URL(orderUrl).pathname.split("/").pop()!;
+  await api.post(`/orders/${orderId}/fulfillments`, {
+    tracking_company: "DHL",
+    tracking_number: "JD0042",
+    tracking_url: "https://track.example/JD0042",
+    notify_customer: false,
+  });
+  await page.goto(orderUrl);
+  const status = page.getByTestId("order-status");
+  await expect(status.getByRole("heading", { name: "Shipped" })).toBeVisible();
+  await expect(status).toContainText("DHL JD0042");
+  await expect(status.getByRole("link", { name: "Track your package" })).toHaveAttribute(
+    "href",
+    "https://track.example/JD0042",
+  );
+  // Cash on delivery is still unpaid, so the payment instructions stay.
+  await expect(page.getByTestId("payment-instructions")).toBeVisible();
 });
 
 test("cart reports price changes and sold-out items", async ({ page }) => {
