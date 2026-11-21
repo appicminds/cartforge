@@ -362,3 +362,35 @@ change/reset shipped earlier (SA-12).
   the inviter is told to share it only with that person. Accepting proves the mailbox.
 - When no email service is configured (live demo today), nothing blocks on email: invitation and
   reset links are shown to the person creating them, and the verification banner is hidden.
+
+## Next 6 — Order processing
+
+Goal (PRD §27.7, §15): merchants can take an order from placed to delivered, cancel it or give money
+back, and customers are kept informed. Brought ahead of card payments (Next 5) at the product
+owner's request, so offline orders don't stay "pending" forever.
+
+| ID    | Task                                                                                                                        | Status | Evidence                                              |
+| ----- | --------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------- |
+| OR-01 | Schema: fulfillments (+items), refunds (+items, append-only), cancellation fields, refunded total ≤ order total (DB checks) | ✅     | migration `order_processing`                          |
+| OR-02 | Mark paid; ship all or part with tracking; mark delivered; statuses derived from records; row lock per action               | ✅     | `order-processing.e2e`                                |
+| OR-03 | Cancel unshipped orders with restock; paid orders only with a refund; payment voided when unpaid                            | ✅     | `order-processing.e2e`                                |
+| OR-04 | Refunds: amount up to what's left, items with optional restock, permission `orders.refund`                                  | ✅     | `order-processing.e2e`                                |
+| OR-05 | Staff notes and "who did what" on the timeline                                                                              | ✅     | `order-processing.e2e`, admin `order-processing.spec` |
+| OR-06 | Emails: confirmation with status link, new order to store, shipped, canceled, refunded                                      | ✅     | `order-processing.e2e`                                |
+| OR-07 | Admin order page actions and dialogs, "To ship" view, permission-aware buttons; a11y                                        | ✅     | admin `order-processing.spec`, `orders.spec`          |
+| OR-08 | Customer order page: progress, shipments with tracking, refunds                                                             | ✅     | storefront `checkout.spec`                            |
+
+**Deliberately later**
+
+- Sending refunds through a payment provider, payment webhooks → **Next 5 (Payment Hub)**.
+- Editing orders after placement (add/remove items), draft/manual orders created by staff.
+- Returns portal for customers, packing slips/invoices (PDF), shipping labels and carrier rates.
+- Store notification preferences (which emails the store gets).
+
+**Decisions**
+
+- Shipping before payment is allowed (cash on delivery).
+- Refund amounts are suggested from the returned lines (price after discount, plus tax when it was
+  added on top) but the merchant decides; shipping can be included.
+- A canceled order is never deleted; its money fields stay as placed (DB trigger), refunds are
+  separate rows.

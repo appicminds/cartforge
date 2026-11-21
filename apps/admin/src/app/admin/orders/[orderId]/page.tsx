@@ -97,7 +97,7 @@ function Shipments({ order, canWrite }: { order: OrderDetail; canWrite: boolean 
                   variant="secondary"
                   size="sm"
                   loading={action.isPending && action.variables?.kind === "delivered"}
-                  aria-label={`Mark shipment ${i + 1} as delivered`}
+                  aria-label={`Mark delivered, shipment ${i + 1}`}
                   onClick={() =>
                     action.mutate(
                       { kind: "delivered", fulfillmentId: f.id },

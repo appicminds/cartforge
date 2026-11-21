@@ -245,6 +245,38 @@ New passwords: at least 12 characters, mixing letters with numbers or symbols.
 `store_preview_url` (`<STOREFRONT_URL>/?store=<handle>`). Draft preview links use the store's
 own domain when it has one, otherwise the preview address.
 
+## Order processing (Next 6)
+
+Every action locks the order, writes the timeline (with the staff member) and answers with the
+updated order. Statuses are re-derived from the records each time:
+
+- **payment** `pending` → `paid` → `partially_refunded` / `refunded`; unpaid canceled orders → `voided`
+- **fulfillment** `unfulfilled` → `partially_fulfilled` → `fulfilled` (refunded units don't need shipping)
+- **order** `pending` (nothing done) · `processing` · `completed` (paid and shipped) · `canceled` · `refunded`
+
+| Method & path                                            | Permission    | Purpose                                                                                                                                                                                                              |
+| -------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /orders?to_ship=true`                               | orders.read   | Orders with items still to ship (not canceled)                                                                                                                                                                       |
+| `POST /orders/:id/mark-paid`                             | orders.write  | `{ reference? }` — offline payment arrived. `409` if already recorded or canceled                                                                                                                                    |
+| `POST /orders/:id/fulfillments`                          | orders.write  | `{ items?: [{ order_item_id, quantity }], tracking_company?, tracking_number?, tracking_url?, notify_customer = true }`; omitted `items` = everything left. `422 QUANTITY_TOO_HIGH`                                  |
+| `POST /orders/:id/fulfillments/:fulfillmentId/delivered` | orders.write  | Mark a shipment delivered                                                                                                                                                                                            |
+| `POST /orders/:id/cancel`                                | orders.write  | `{ reason: customer·inventory·fraud·declined·other, restock = true, refund = false, notify_customer = true }`. Only unshipped orders; paid ones need `refund: true` (and orders.refund) → `409 ORDER_PAID` otherwise |
+| `POST /orders/:id/refunds`                               | orders.refund | `{ amount_minor, items?: [{ order_item_id, quantity, restock }], reason?, notify_customer = true }`; paid orders only; never more than what's left (`422 REFUND_TOO_HIGH`)                                           |
+| `POST /orders/:id/notes`                                 | orders.write  | `{ message }` — staff note on the timeline                                                                                                                                                                           |
+
+Order detail adds `fulfillments`, `refunds`, `line_progress` (shipped/refunded per line),
+`canceled_at`, `cancel_reason`, `refunded_minor`; timeline events carry `actor`. The customer's
+order page (`GET /storefront/orders/:id`) gets `fulfillments` (with tracking), `canceled_at` and
+`refunded_minor`.
+
+Refunds are recorded, not sent: until the Payment Hub (Next 5), the merchant returns the money the
+way it was received. `refunds` rows are append-only and the database refuses a refunded total above
+the order total.
+
+**Emails** (through the email provider; each attempt is noted on the timeline): order confirmation
+with the private status link, new-order notice to the store's contact email, shipped (with
+tracking), canceled, refunded. Replies go to the store's contact email.
+
 ## Quick example
 
 ```bash

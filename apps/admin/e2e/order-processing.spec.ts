@@ -44,7 +44,7 @@ test("ship in parts, record payment, refund one item and leave a note", async ({
   const shipments = page.getByRole("list", { name: "Shipments" });
   await expect(shipments).toContainText("DHL JD0001");
   await expect(page.getByText("Partially fulfilled")).toBeVisible();
-  await shipments.getByRole("button", { name: "Mark shipment 1 as delivered" }).click();
+  await shipments.getByRole("button", { name: "Mark delivered, shipment 1" }).click();
   await expect(shipments.getByText("Delivered", { exact: true })).toBeVisible();
 
   // Cash collected on delivery.
