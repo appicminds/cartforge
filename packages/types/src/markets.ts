@@ -63,5 +63,11 @@ export interface MarketPriceRow {
 export interface ProductMarketsView {
   /** Markets this product is hidden from. */
   hidden_market_ids: string[];
-  markets: { id: string; name: string; currency: string; is_primary: boolean; rows: MarketPriceRow[] }[];
+  markets: {
+    id: string;
+    name: string;
+    currency: string;
+    is_primary: boolean;
+    rows: MarketPriceRow[];
+  }[];
 }

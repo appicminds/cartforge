@@ -143,7 +143,8 @@ export const apiEnvSchema = z
     }
     if (env.STOREFRONT_REVALIDATE_URL)
       need("STOREFRONT_REVALIDATE_SECRET", "when STOREFRONT_REVALIDATE_URL is set");
-    if (env.FX_PROVIDER === "openexchangerates") need("FX_API_KEY", "when FX_PROVIDER=openexchangerates");
+    if (env.FX_PROVIDER === "openexchangerates")
+      need("FX_API_KEY", "when FX_PROVIDER=openexchangerates");
     if (env.EMAIL_PROVIDER === "resend") {
       need("RESEND_API_KEY", "when EMAIL_PROVIDER=resend");
       need("EMAIL_FROM", "when EMAIL_PROVIDER=resend");
