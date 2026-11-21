@@ -123,6 +123,16 @@ export class OrdersService {
     return {
       ...this.confirmation(o),
       cancel_reason: o.cancel_reason,
+      store_value:
+        o.store_currency &&
+        o.store_currency.trim() !== o.currency.trim() &&
+        o.store_total_minor !== null
+          ? {
+              currency: o.store_currency.trim(),
+              total_minor: Number(o.store_total_minor),
+              rate: Number(o.fx_rate ?? 1),
+            }
+          : null,
       line_progress: o.items.map((i) => ({
         order_item_id: i.id,
         fulfilled: fulfilled.get(i.id) ?? 0,

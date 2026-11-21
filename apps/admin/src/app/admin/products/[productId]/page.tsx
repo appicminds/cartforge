@@ -6,6 +6,7 @@ import { useState } from "react";
 import { PackageX } from "lucide-react";
 import { Alert, Button, Card, ConfirmDialog, EmptyState, Skeleton, useToast } from "@cartforge/ui";
 import { ProductForm } from "@/components/products/product-form";
+import { ProductMarketsCard } from "@/components/products/product-markets";
 import { ApiError } from "@/lib/api-client";
 import { useBreadcrumbTitle } from "@/lib/breadcrumbs";
 import { lastListUrl, useDeleteProduct, useProduct, useUpdateProduct } from "@/lib/products";
@@ -80,6 +81,7 @@ export default function ProductDetailPage() {
         }}
         onDelete={() => setConfirmDelete(true)}
       />
+      <ProductMarketsCard productId={product.data.id} />
       <ConfirmDialog
         open={confirmDelete}
         title="Delete product?"

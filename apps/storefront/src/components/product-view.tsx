@@ -85,6 +85,8 @@ export function ProductView({
   canBuy?: boolean;
 }) {
   const { variants, options, currency } = product;
+  /** Markets: the merchant doesn't sell this product in the shopper's country. */
+  const inMarket = product.market_available !== false;
   const [variantId, setVariantId] = useState(() => initialVariant(variants)?.id);
   const [imageIndex, setImageIndex] = useState(() => initialVariant(variants)?.image_index ?? 0);
   const [qty, setQty] = useState(1);
@@ -245,7 +247,7 @@ export function ProductView({
           <button
             type="button"
             className="sf-button min-w-56 flex-1"
-            disabled={!canBuy || !available || !variant || price === null || pending}
+            disabled={!canBuy || !inMarket || !available || !variant || price === null || pending}
             aria-busy={pending}
             onClick={() => {
               if (!variant) return;
@@ -257,9 +259,21 @@ export function ProductView({
               });
             }}
           >
-            {!available ? "Sold out" : pending ? "Adding…" : "Add to cart"}
+            {!inMarket
+              ? "Not available in your region"
+              : !available
+                ? "Sold out"
+                : pending
+                  ? "Adding…"
+                  : "Add to cart"}
           </button>
         </div>
+        {!inMarket && (
+          <p role="note" className="-mt-2 text-sm text-muted" data-testid="not-in-market">
+            This product isn&apos;t sold in your country. Change your country at the bottom of the
+            page if you&apos;re shopping for somewhere else.
+          </p>
+        )}
         <div aria-live="polite" className="-mt-2 min-h-6 text-sm">
           {added && (
             <p className={added.ok ? "flex flex-wrap items-center gap-x-3" : "text-sale"}>

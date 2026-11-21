@@ -341,6 +341,17 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
                   <dt>Total</dt>
                   <dd className="tabular-nums">{money(t.total_minor)}</dd>
                 </div>
+                {o.store_value && (
+                  <div className="flex justify-between text-fg-muted" data-testid="store-value">
+                    <dt>
+                      In {o.store_value.currency} (1 {o.currency} ={" "}
+                      {o.store_value.rate.toLocaleString("en", { maximumFractionDigits: 4 })})
+                    </dt>
+                    <dd className="tabular-nums">
+                      ≈ {formatMoney(o.store_value.total_minor, o.store_value.currency)}
+                    </dd>
+                  </div>
+                )}
                 {o.refunded_minor > 0 && (
                   <>
                     <div className="flex justify-between text-fg-muted">

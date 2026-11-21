@@ -5,6 +5,7 @@ import type {
 } from "@cartforge/types";
 import Link from "next/link";
 import { getTheme } from "@/lib/theme";
+import { MarketSelector } from "./market-selector";
 
 export function Footer({
   store,
@@ -83,7 +84,8 @@ export function Footer({
         )}
       </div>
       <div className="border-t border-line">
-        <div className="sf-container flex flex-wrap justify-between gap-2 py-6 text-xs text-muted">
+        <div className="sf-container flex flex-wrap items-center justify-between gap-4 py-6 text-xs text-muted">
+          <MarketSelector />
           <p>
             © {new Date().getFullYear()} {store.name}
           </p>

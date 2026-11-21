@@ -337,6 +337,24 @@ Checkout `totals.tax_rate_bps`/`tax_label` and the order record show what applie
 new currency's decimals, fractions that don't fit are rounded) and empties open carts. Only before
 the store's first order (`409 STORE_HAS_ORDERS`). Admin: Platform → Stores → **Currency**.
 
+## Markets
+
+See `MARKETS.md`.
+
+| Method & path                       | Auth / permission    | Purpose                                                                                                                    |
+| ----------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `GET /markets`                      | store.read           | `{ store_currency, live_rates_available, markets[] }` (creates the primary market on first use)                            |
+| `POST /markets`, `PUT /markets/:id` | store.settings.write | `{ name, currency, countries, active, pricing_mode: manual·live, manual_rate, adjustment_bps, rounding, payment_methods }` |
+| `DELETE /markets/:id`               | store.settings.write | Not the primary market (`409 PRIMARY_MARKET_LOCKED`)                                                                       |
+| `GET·PUT /products/:id/markets`     | products.read/write  | `{ hidden_market_ids, prices: [{ market_id, variant_id, price_minor \| null, compare_at_minor }] }`                        |
+| `GET /storefront/markets`           | public               | Active markets for the selector (`id: "primary"` before any market exists)                                                 |
+| `PUT /storefront/cart/market`       | cart token           | `{ market_id }` — re-price the cart in another market                                                                      |
+
+Catalog reads take `?market=<id>` (products, product, preview); product responses carry the
+market `currency` and `market_available`. `POST /storefront/cart` takes `X-Market`. Validation:
+one market per country (`MARKET_COUNTRY_TAKEN`), PKR-only payment methods only in PKR markets, a
+rate for manual markets, live mode only when `FX_PROVIDER` is configured.
+
 ## Quick example
 
 ```bash

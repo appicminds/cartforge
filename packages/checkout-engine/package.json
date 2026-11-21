@@ -16,6 +16,10 @@
     "./shipping": {
       "types": "./dist/shipping.d.ts",
       "default": "./dist/shipping.js"
+    },
+    "./markets": {
+      "types": "./dist/markets.d.ts",
+      "default": "./dist/markets.js"
     }
   },
   "files": [

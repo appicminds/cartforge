@@ -138,6 +138,14 @@ admin can still give someone a reset link (**All stores → Password reset link*
    `EMAIL_FROM="CartForge <no-reply@yourdomain.com>"` and `ADMIN_URL=https://cartforge-app.vercel.app`.
 3. Redeploy the API.
 
+## 5c. Live exchange rates for Markets (optional)
+
+Markets work with rates you type in yourself. For automatic daily rates:
+
+1. Create a free account at [Open Exchange Rates](https://openexchangerates.org) and copy the App ID.
+2. On `cartforge-api` set `FX_PROVIDER=openexchangerates` and `FX_API_KEY=<App ID>`.
+3. Redeploy the API. **Settings → Markets** then offers "Live exchange rate".
+
 ## 6. Sign in
 
 Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your

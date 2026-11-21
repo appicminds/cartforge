@@ -4,6 +4,7 @@ import {
   Contact,
   CreditCard,
   FolderTree,
+  Earth,
   Globe,
   Home,
   Layers,
@@ -89,6 +90,12 @@ export const NAV: NavSection[] = [
         label: "Payments",
         href: "/admin/settings/payments",
         icon: Wallet,
+        permission: PERMISSIONS.STORE_READ,
+      },
+      {
+        label: "Markets",
+        href: "/admin/settings/markets",
+        icon: Earth,
         permission: PERMISSIONS.STORE_READ,
       },
       {

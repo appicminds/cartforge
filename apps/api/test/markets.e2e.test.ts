@@ -14,6 +14,7 @@ import { TEST_ENV } from "./test-env";
  */
 describe("markets", () => {
   let app: INestApplication;
+  let edition: string | undefined;
   let owner: ReturnType<typeof api>;
   let storeId = "";
   const prisma = createPrismaClient(TEST_ENV.DATABASE_URL);
@@ -51,6 +52,9 @@ describe("markets", () => {
   });
 
   beforeAll(async () => {
+    // Merchants create their own stores here (SaaS edition), whatever ran before.
+    edition = process.env.CARTFORGE_EDITION;
+    process.env.CARTFORGE_EDITION = "saas";
     process.env.FX_PROVIDER = "openexchangerates";
     process.env.FX_API_KEY = "test-key";
     app = await createTestApp([{ provide: FX_HTTP, useValue: fx }]);
@@ -101,6 +105,8 @@ describe("markets", () => {
   });
 
   afterAll(async () => {
+    if (edition === undefined) delete process.env.CARTFORGE_EDITION;
+    else process.env.CARTFORGE_EDITION = edition;
     delete process.env.FX_PROVIDER;
     delete process.env.FX_API_KEY;
     await prisma.$disconnect();

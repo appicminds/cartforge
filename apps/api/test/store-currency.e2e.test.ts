@@ -9,6 +9,7 @@ import { api, createTestApp, login, RUN, type Session } from "./app";
  */
 describe("platform: change a store's currency", () => {
   let app: INestApplication;
+  let edition: string | undefined;
   let platform: Session;
   let merchant: Session;
   let store: { store_id: string };
@@ -21,6 +22,9 @@ describe("platform: change a store's currency", () => {
       .send({ currency });
 
   beforeAll(async () => {
+    // Merchants create their own stores here (SaaS edition), whatever ran before.
+    edition = process.env.CARTFORGE_EDITION;
+    process.env.CARTFORGE_EDITION = "saas";
     app = await createTestApp();
     platform = await login(app, "platform@cartforge.test");
     merchant = await login(app, "other@cartforge.test");
@@ -35,6 +39,8 @@ describe("platform: change a store's currency", () => {
   });
 
   afterAll(async () => {
+    if (edition === undefined) delete process.env.CARTFORGE_EDITION;
+    else process.env.CARTFORGE_EDITION = edition;
     await app.close();
   });
 

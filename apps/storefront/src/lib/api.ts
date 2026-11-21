@@ -6,9 +6,12 @@ import type {
   StorefrontCollectionSummary,
   StorefrontPreviewProduct,
   StorefrontProduct,
+  StorefrontMarket,
   StorefrontSitemap,
   StorefrontStore,
 } from "@cartforge/types";
+import { marketForCountry } from "@cartforge/checkout-engine/markets";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { config, site } from "./config";
 
@@ -92,6 +95,44 @@ export interface ProductQuery {
   page_size?: number;
 }
 
+/** The shopper's chosen market (set by the country selector). */
+export const MARKET_COOKIE = "cf_market";
+
+/**
+ * The shopper's market: their choice, else the one for the country their request
+ * comes from (Vercel / Cloudflare geo header), else the store's primary market.
+ */
+export const currentMarket = cache(async (): Promise<StorefrontMarket> => {
+  const list = await storefront.markets();
+  if (!list.length) {
+    const store = await storefront.store();
+    return {
+      id: "primary",
+      name: store.name,
+      currency: store.currency,
+      countries: [],
+      is_primary: true,
+    };
+  }
+  const chosen = (await cookies()).get(MARKET_COOKIE)?.value;
+  const hit = list.find((m) => m.id === chosen);
+  if (hit) return hit;
+  const h = await headers();
+  const country = h.get("x-vercel-ip-country") ?? h.get("cf-ipcountry");
+  return (
+    marketForCountry(
+      list.map((m) => ({ ...m, active: true })),
+      country,
+    ) ?? list[0]!
+  );
+});
+
+/** `market=<id>` for catalog reads in another market (part of the URL, so caches stay apart). */
+async function marketQuery(): Promise<string> {
+  const m = await currentMarket();
+  return m.is_primary ? "" : m.id;
+}
+
 export const storefront = {
   /** Cached per request so layout, metadata and pages share one call. */
   store: cache(async () => must(await get<StorefrontStore>("/store"), "Store")),
@@ -99,14 +140,23 @@ export const storefront = {
   collections: cache(async () =>
     must(await get<StorefrontCollectionSummary[]>("/collections"), "Collections"),
   ),
-  products: (q: ProductQuery) => {
+  markets: cache(async () => {
+    const r = await get<StorefrontMarket[]>("/markets");
+    return r.kind === "ok" && r.data.length ? r.data : [];
+  }),
+  products: async (q: ProductQuery) => {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    const market = await marketQuery();
+    if (market) qs.set("market", market);
     return list<StorefrontProduct>(`/products?${qs}`);
   },
-  product: cache((handle: string) =>
-    get<StorefrontProduct>(`/products/${encodeURIComponent(handle)}`),
-  ),
+  product: cache(async (handle: string) => {
+    const market = await marketQuery();
+    return get<StorefrontProduct>(
+      `/products/${encodeURIComponent(handle)}${market ? `?market=${market}` : ""}`,
+    );
+  }),
   collection: cache((handle: string) =>
     get<{
       id: string;

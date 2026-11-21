@@ -284,6 +284,8 @@ export interface OrderDetail extends OrderConfirmation {
   terms_accepted_at: string | null;
   source: string;
   cancel_reason: string | null;
+  /** Markets: the order's value in the store currency, when it was paid in another. */
+  store_value: { currency: string; total_minor: number; rate: number } | null;
   /** Per line: how many were shipped and refunded (for the fulfil/refund dialogs). */
   line_progress: { order_item_id: string; fulfilled: number; refunded: number }[];
   refunds: RefundView[];

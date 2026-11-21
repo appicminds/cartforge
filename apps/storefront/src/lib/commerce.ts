@@ -12,6 +12,7 @@ import type {
   AddressInput,
 } from "./commerce-types";
 import { cookies, headers } from "next/headers";
+import { currentMarket } from "./api";
 import { config, site } from "./config";
 
 export const CART_COOKIE = "cf_cart";
@@ -108,9 +109,12 @@ async function shopperOrigin(): Promise<string> {
 export const commerce = {
   createCart: async () =>
     call<{ token: string; cart: CartView }>("POST", "/cart", {
-      headers: { "X-Shopper-IP": await shopperIp() },
+      headers: { "X-Shopper-IP": await shopperIp(), "X-Market": (await currentMarket()).id },
     }),
   getCart: (token: string) => call<CartView>("GET", "/cart", { token }),
+  /** Re-price the cart in another market (the shopper changed country). */
+  setCartMarket: (token: string, marketId: string) =>
+    call<CartView>("PUT", "/cart/market", { token, body: { market_id: marketId } }),
   addLine: (token: string, variant_id: string, quantity: number) =>
     call<CartView>("POST", "/cart/lines", { token, body: { variant_id, quantity } }),
   updateLine: (token: string, id: string, quantity: number) =>

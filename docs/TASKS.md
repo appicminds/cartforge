@@ -453,3 +453,17 @@ where the order goes (provinces and cities matter for Pakistani couriers and pro
   stores; staff accounts are separate from customer accounts.
 - Region matching is by normalised name, ISO 3166-2 code or alias, so free-text addresses from
   other countries still match by name.
+
+## Markets (brought ahead of discounts at the product owner's request)
+
+Goal: sell abroad from one store, Shopify-Markets style, with Pakistani needs first. See
+`MARKETS.md`.
+
+| ID    | Task                                                                                                        | Status | Evidence                                         |
+| ----- | ----------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------ |
+| MK-01 | Markets per store (primary + others), one market per country, admin Settings → Markets                      | ✅     | `markets.e2e`, admin `markets.spec`              |
+| MK-02 | Pricing: own rate or live rate (Open Exchange Rates), adjustment, rounding rules, fixed prices              | ✅     | engine `markets.test`, `markets.e2e`, admin spec |
+| MK-03 | Products hidden per market; listing, product page, cart                                                     | ✅     | `markets.e2e`, storefront `markets.spec`         |
+| MK-04 | Storefront market from choice/location, footer selector, cart re-pricing                                    | ✅     | storefront `markets.spec`                        |
+| MK-05 | Checkout: market countries, converted shipping, payment methods per market; orders valued in store currency | ✅     | `markets.e2e`                                    |
+| MK-06 | Platform admin: change a store's currency before its first order, keeping shown prices                      | ✅     | `store-currency.e2e`, admin `transfer.spec`      |
