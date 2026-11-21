@@ -10,6 +10,8 @@ import { IdempotencyService } from "./idempotency.service";
 import { OrdersService } from "./orders.service";
 import { OrderActionsService } from "./order-actions.service";
 import { OrderMailer } from "./order-mailer";
+import { CustomersController } from "./customers/customers.controller";
+import { CustomersService } from "./customers/customers.service";
 import { PaymentAccountsService } from "./payments/accounts.service";
 import { PaymentHubService } from "./payments/payment-hub.service";
 import {
@@ -32,6 +34,7 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     PaymentsAdminController,
     PaymentWebhooksController,
     StorefrontPaymentsController,
+    CustomersController,
   ],
   providers: [
     CartService,
@@ -41,6 +44,7 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     OrdersService,
     OrderActionsService,
     OrderMailer,
+    CustomersService,
     PaymentAccountsService,
     PaymentHubService,
     { provide: PAYMENT_HTTP, useValue: fetchHttp },

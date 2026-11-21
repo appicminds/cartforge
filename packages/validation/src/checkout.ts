@@ -61,6 +61,8 @@ export const orderListQuerySchema = paginationQuerySchema.extend({
   payment_status: z
     .enum(["pending", "authorized", "paid", "partially_refunded", "refunded", "voided", "failed"])
     .optional(),
+  /** Next 7: one customer's orders. */
+  customer_id: z.string().uuid().optional(),
   /** "true": orders with items still to ship (not canceled). */
   to_ship: z
     .enum(["true", "false"])

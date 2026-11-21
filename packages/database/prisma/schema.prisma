@@ -145,6 +145,7 @@ model Store {
   memberships         StoreMembership[]
   invitations         StoreInvitation[]
   payment_accounts    PaymentAccount[]
+  customers           Customer[]
   audit_logs          AuditLog[]
   products            Product[]
   variants            ProductVariant[]
@@ -806,6 +807,7 @@ model Order {
   payments     Payment[]
   fulfillments Fulfillment[]
   refunds      Refund[]
+  customer     Customer?     @relation(fields: [customer_id], references: [id], onDelete: SetNull)
 
   @@unique([store_id, number])
   @@index([store_id, placed_at])
@@ -1204,4 +1206,84 @@ model OrderItem {
   @@index([order_id])
   @@index([store_id, product_id])
   @@map("order_items")
+}
+
+// ───────────────────────────── Customers (Next 7) ─────────────────────────────
+
+/// A shopper of one store: created by their first order (guest) or by signing up.
+model Customer {
+  id                String   @id @default(uuid()) @db.Uuid
+  store_id          String   @db.Uuid
+  /// Lower-cased; one customer per email per store.
+  email             String   @db.VarChar(254)
+  first_name        String?  @db.VarChar(100)
+  last_name         String?  @db.VarChar(100)
+  phone             String?  @db.VarChar(30)
+  /// Set when they create an account; guests have none.
+  password_hash     String?
+  accepts_marketing Boolean  @default(false)
+  /// Staff-only.
+  note              String?  @db.VarChar(2000)
+  tags              String[] @default([])
+  created_at        DateTime @default(now()) @db.Timestamptz(3)
+  updated_at        DateTime @updatedAt @db.Timestamptz(3)
+
+  store     Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  addresses CustomerAddress[]
+  sessions  CustomerSession[]
+  tokens    CustomerToken[]
+  orders    Order[]
+
+  @@unique([store_id, email])
+  @@index([store_id, created_at])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id          String   @id @default(uuid()) @db.Uuid
+  store_id    String   @db.Uuid
+  customer_id String   @db.Uuid
+  /// Same shape as order addresses (CommerceAddress).
+  address     Json
+  is_default  Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @updatedAt @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@map("customer_addresses")
+}
+
+/// Storefront sign-in, separate from staff sessions. Only the token's hash is stored.
+model CustomerSession {
+  id           String    @id @default(uuid()) @db.Uuid
+  store_id     String    @db.Uuid
+  customer_id  String    @db.Uuid
+  token_hash   String    @unique
+  created_at   DateTime  @default(now()) @db.Timestamptz(3)
+  last_seen_at DateTime  @default(now()) @db.Timestamptz(3)
+  expires_at   DateTime  @db.Timestamptz(3)
+  revoked_at   DateTime? @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@map("customer_sessions")
+}
+
+/// One-time links for customers (password reset). Only the hash is stored.
+model CustomerToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  customer_id String    @db.Uuid
+  purpose     String    @db.VarChar(20)
+  token_hash  String    @unique
+  expires_at  DateTime  @db.Timestamptz(3)
+  used_at     DateTime? @db.Timestamptz(3)
+  created_at  DateTime  @default(now()) @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@map("customer_tokens")
 }

@@ -212,9 +212,11 @@ export class CheckoutService {
       const number = await this.nextOrderNumber(tx, cart.store_id);
       const accessKey = generateToken(24);
       const labels = new Map(settings.custom_fields.map((f) => [f.key, f.label]));
+      const customerId = await this.linkCustomer(tx, cart, view);
       const order = await tx.order.create({
         data: {
           store_id: cart.store_id,
+          customer_id: customerId,
           number,
           currency: cart.currency,
           email: view.email,
@@ -345,6 +347,40 @@ export class CheckoutService {
   }
 
   // ───────────── Internals ─────────────
+
+  /**
+   * Next 7: every order belongs to a customer — the signed-in one, or the one with
+   * this email (created on their first order). Insert-or-ignore keeps concurrent
+   * first orders from the same email on one record.
+   */
+  private async linkCustomer(tx: Tx, cart: Cart, view: CheckoutView): Promise<string | null> {
+    if (cart.customer_id) {
+      const own = await tx.customer.findFirst({
+        where: { id: cart.customer_id, store_id: cart.store_id },
+        select: { id: true },
+      });
+      if (own) return own.id;
+    }
+    const email = view.email?.trim().toLowerCase();
+    if (!email) return null;
+    const a = view.shipping_address ?? view.billing_address;
+    await tx.$executeRaw`
+      INSERT INTO customers (id, store_id, email, first_name, last_name, phone, created_at, updated_at)
+      VALUES (gen_random_uuid(), ${cart.store_id}::uuid, ${email}, ${a?.first_name ?? null},
+              ${a?.last_name ?? null}, ${view.phone ?? null}, now(), now())
+      ON CONFLICT (store_id, email) DO NOTHING`;
+    const c = await tx.customer.findUniqueOrThrow({
+      where: { store_id_email: { store_id: cart.store_id, email } },
+    });
+    // Fill in what we didn't know yet; never overwrite what the customer set.
+    const patch = {
+      ...(!c.first_name && a?.first_name ? { first_name: a.first_name } : {}),
+      ...(!c.last_name && a?.last_name ? { last_name: a.last_name } : {}),
+      ...(!c.phone && view.phone ? { phone: view.phone } : {}),
+    };
+    if (Object.keys(patch).length) await tx.customer.update({ where: { id: c.id }, data: patch });
+    return c.id;
+  }
 
   private async ensure(tx: Tx, cart: Cart): Promise<Checkout> {
     const existing = await tx.checkout.findUnique({ where: { cart_id: cart.id } });

@@ -1,6 +1,7 @@
 import {
   Boxes,
   Building2,
+  Contact,
   CreditCard,
   FolderTree,
   Globe,
@@ -42,6 +43,12 @@ export const NAV: NavSection[] = [
         href: "/admin/orders",
         icon: Receipt,
         permission: PERMISSIONS.ORDERS_READ,
+      },
+      {
+        label: "Customers",
+        href: "/admin/customers",
+        icon: Contact,
+        permission: PERMISSIONS.CUSTOMERS_READ,
       },
       {
         label: "Products",

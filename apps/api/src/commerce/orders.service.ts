@@ -45,6 +45,7 @@ export class OrdersService {
       store_id: storeId,
       ...(q.status && { status: q.status }),
       ...(q.payment_status && { payment_status: q.payment_status }),
+      ...(q.customer_id && { customer_id: q.customer_id }),
       ...(q.to_ship && {
         fulfillment_status: { in: ["unfulfilled", "partially_fulfilled"] },
         canceled_at: null,

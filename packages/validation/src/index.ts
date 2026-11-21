@@ -8,3 +8,4 @@ export * from "./organization.js";
 export * from "./checkout.js";
 export * from "./platform.js";
 export * from "./staff.js";
+export * from "./customers.js";
