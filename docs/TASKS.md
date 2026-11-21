@@ -426,3 +426,30 @@ product owner's market; Stripe doesn't onboard Pakistani businesses). See `PAYME
 - Provider returns are cookie-free (store id in the URL) because gateways post back cross-site;
   a second same-site hop uses the browser's order cookie.
 - Unsigned provider claims are never trusted: Easypaisa is confirmed by inquiry or by the merchant.
+
+## Next 7 — Customers, shipping and tax
+
+Goal (PRD §16–§18): know who buys, let shoppers keep an account, and charge shipping and tax by
+where the order goes (provinces and cities matter for Pakistani couriers and provincial sales tax).
+
+| ID    | Task                                                                                                             | Status | Evidence                                                 |
+| ----- | ---------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------- |
+| CU-01 | Customers per store, created from orders (existing orders backfilled), stats, search/sort, notes and tags        | ✅     | `customers.e2e`, admin `customers.spec`                  |
+| CU-02 | Storefront accounts: sign up, sign in/out, forgot/reset, profile, saved addresses, order history                 | ✅     | `customers.e2e`, storefront `accounts.spec`              |
+| CU-03 | Guest-order claim only via emailed link; signed-in orders linked; checkout prefilled from the account            | ✅     | `customers.e2e`, storefront `accounts.spec`              |
+| SH-01 | Shipping by province/state and city (names, ISO codes and aliases), province list at checkout for PK/AE/US/CA/AU | ✅     | engine tests, `commerce.e2e`, storefront `accounts.spec` |
+| SH-02 | Minimum/maximum order value, per-item charge, delivery estimate shown at checkout                                | ✅     | engine tests, `commerce.e2e`, admin `orders.spec`        |
+| TX-01 | Tax rates by country or province overriding the store rate; most specific wins; recorded on the order            | ✅     | engine tests, `commerce.e2e`, admin `orders.spec`        |
+
+**Deliberately later**
+
+- Weight-based rates and live carrier rates (TCS, Leopards, M&P APIs), shipping labels.
+- Combined taxes (e.g. federal + provincial on one order), tax-exempt customers, per-product tax classes.
+- Cart merge between devices on sign-in; customer segments and marketing email.
+
+**Decisions**
+
+- Customer accounts are per store (like Shopify): the same email can have separate accounts at two
+  stores; staff accounts are separate from customer accounts.
+- Region matching is by normalised name, ISO 3166-2 code or alias, so free-text addresses from
+  other countries still match by name.

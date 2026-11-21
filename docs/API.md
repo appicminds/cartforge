@@ -299,6 +299,39 @@ recorded once per store in `payment_events`; amounts must match before an order 
 Offline method `wallet_transfer` (Checkout settings `wallet_*`): JazzCash/Easypaisa/Raast numbers
 (`03XXXXXXXXX`) and Pakistani IBAN, shown to customers with the order number as reference.
 
+## Customers, shipping and tax (Next 7)
+
+| Method & path                                                                          | Auth / permission | Purpose                                                                                                                |
+| -------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `GET /customers`                                                                       | customers.read    | List with order count, amount spent (paid − refunded, canceled excluded), last order; search and sort                  |
+| `GET /customers/:id`                                                                   | customers.read    | Profile, saved addresses, orders                                                                                       |
+| `PATCH /customers/:id`                                                                 | customers.write   | Names, phone, marketing consent, note, tags                                                                            |
+| `POST /storefront/account/register`                                                    | public            | `{ email, password, first_name?, last_name?, accepts_marketing? }` → `{ token }`, or `{ link_sent: true }` (see below) |
+| `POST /storefront/account/login`                                                       | public            | `{ email, password }` → `{ token }`; `401 CUSTOMER_INVALID_LOGIN` (same answer for unknown emails); rate-limited       |
+| `POST /storefront/account/logout`                                                      | customer token    | Ends that sign-in                                                                                                      |
+| `POST /storefront/account/password/forgot`                                             | public            | Always `204`; emails a 1-hour link to existing customers (max 3 an hour)                                               |
+| `POST /storefront/account/password/reset`                                              | public            | `{ token, password }` → `{ token }`; ends other sign-ins                                                               |
+| `GET·PATCH /storefront/account`                                                        | customer token    | Profile and saved addresses                                                                                            |
+| `POST /storefront/account/addresses`, `PATCH·DELETE /storefront/account/addresses/:id` | customer token    | Up to 10 addresses; one default                                                                                        |
+| `GET /storefront/account/orders`, `GET /storefront/account/orders/:id`                 | customer token    | The customer's own orders (same view as the private order link)                                                        |
+
+Storefront account calls send the store (`X-Store-Id`) and `X-Customer-Token`; sign-ins last 30
+days and belong to one store. Registering with an email that already has guest orders doesn't
+create a session: a link is emailed instead, so order history is only shown to the mailbox owner.
+`POST /storefront/checkout/complete` with `X-Customer-Token` links the order to that customer;
+guest orders are linked by email (customers are created on first order).
+
+**Shipping methods** (`POST /shipping-methods`, `PATCH /shipping-methods/:id`) add `regions`
+(province/state names or codes; needs exactly one country), `cities`, `min_order_minor`,
+`max_order_minor`, `per_item_minor` (each item after the first), `min_days`, `max_days`. A PATCH
+merges only the fields sent and validates the result. Checkout `shipping_options[]` add
+`estimate: { min_days, max_days } | null`.
+
+**Tax rules**: Checkout settings `tax_rules: [{ country, region, rate_bps, label }]` (max 100; one
+rule per place). The order's destination — shipping address, or billing address when nothing
+ships — uses the province rule, then the country rule (`region: ""`), then `tax_rate_bps`.
+Checkout `totals.tax_rate_bps`/`tax_label` and the order record show what applied.
+
 ## Quick example
 
 ```bash
