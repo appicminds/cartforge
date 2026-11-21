@@ -1,5 +1,6 @@
 import type { CheckoutView } from "@/lib/commerce-types";
 import { formatMoney } from "@/lib/money";
+import { DiscountForm } from "./discount-form";
 
 export function OrderSummary({ view, locale }: { view: CheckoutView; locale?: string }) {
   const money = (m: number) => formatMoney(m, view.cart.currency, locale);
@@ -34,27 +35,32 @@ export function OrderSummary({ view, locale }: { view: CheckoutView; locale?: st
           </li>
         ))}
       </ul>
+      <DiscountForm code={view.discount_code} note={view.discount_note} />
       <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
         <div className="flex justify-between">
           <dt>Subtotal</dt>
           <dd>{money(t.subtotal_minor)}</dd>
         </div>
-        {t.discount_minor > 0 && (
-          <div className="flex justify-between">
-            <dt>Discount</dt>
-            <dd>−{money(t.discount_minor)}</dd>
+        {view.discounts.map((d) => (
+          <div key={d.id} className="flex justify-between" data-testid="checkout-discount">
+            <dt>
+              {d.kind === "shipping" ? "Free shipping" : "Discount"}
+              <span className="text-muted"> · {d.code ?? d.title}</span>
+            </dt>
+            <dd>−{money(d.amount_minor)}</dd>
           </div>
-        )}
+        ))}
         {view.shipping_required && (
           <div className="flex justify-between">
             <dt>Shipping</dt>
             <dd>
               {t.shipping_minor === null ? (
                 <span className="text-muted">Calculated at next step</span>
-              ) : t.shipping_minor === 0 ? (
+              ) : t.shipping_minor + t.shipping_discount_minor === 0 ? (
                 "Free"
               ) : (
-                money(t.shipping_minor)
+                // Before a free-shipping discount, which is listed above.
+                money(t.shipping_minor + t.shipping_discount_minor)
               )}
             </dd>
           </div>

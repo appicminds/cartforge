@@ -10,6 +10,7 @@ import {
   Layers,
   Package,
   Receipt,
+  Tag,
   Users,
   Wallet,
   type LucideIcon,
@@ -50,6 +51,12 @@ export const NAV: NavSection[] = [
         href: "/admin/customers",
         icon: Contact,
         permission: PERMISSIONS.CUSTOMERS_READ,
+      },
+      {
+        label: "Discounts",
+        href: "/admin/discounts",
+        icon: Tag,
+        permission: PERMISSIONS.STORE_READ,
       },
       {
         label: "Products",

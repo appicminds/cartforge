@@ -27,6 +27,8 @@ export interface CheckoutUpdateInput {
   payment_method?: string | null;
   custom_fields?: Record<string, string | boolean>;
   terms_accepted?: boolean;
+  /** A discount code; null removes it. */
+  discount_code?: string | null;
 }
 
 export interface AddressInput {

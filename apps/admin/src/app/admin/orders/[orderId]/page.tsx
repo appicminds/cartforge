@@ -318,16 +318,34 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
                   <dt>Subtotal</dt>
                   <dd className="tabular-nums">{money(t.subtotal_minor)}</dd>
                 </div>
-                {t.discount_minor > 0 && (
-                  <div className="flex justify-between">
-                    <dt>Discount</dt>
-                    <dd className="tabular-nums">−{money(t.discount_minor)}</dd>
-                  </div>
-                )}
+                {o.discounts.length > 0
+                  ? o.discounts.map((d) => (
+                      <div key={d.id} className="flex justify-between" data-testid="order-discount">
+                        <dt>
+                          {d.kind === "shipping" ? "Free shipping" : "Discount"}
+                          {d.code ? ` · ${d.code}` : ` · ${d.title}`}
+                        </dt>
+                        <dd className="tabular-nums">−{money(d.amount_minor)}</dd>
+                      </div>
+                    ))
+                  : t.discount_minor > 0 && (
+                      <div className="flex justify-between">
+                        <dt>Discount</dt>
+                        <dd className="tabular-nums">−{money(t.discount_minor)}</dd>
+                      </div>
+                    )}
                 {o.shipping_method && (
                   <div className="flex justify-between">
                     <dt>Shipping · {o.shipping_method.name}</dt>
-                    <dd className="tabular-nums">{money(t.shipping_minor)}</dd>
+                    <dd className="tabular-nums">
+                      {/* Before a free-shipping discount, which is listed above. */}
+                      {money(
+                        t.shipping_minor +
+                          o.discounts
+                            .filter((d) => d.kind === "shipping")
+                            .reduce((a, d) => a + d.amount_minor, 0),
+                      )}
+                    </dd>
                   </div>
                 )}
                 <div className="flex justify-between">

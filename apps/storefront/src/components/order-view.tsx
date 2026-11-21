@@ -212,10 +212,29 @@ export function OrderView({
               <dt>Subtotal</dt>
               <dd>{money(t.subtotal_minor)}</dd>
             </div>
+            {o.discounts.map((d) => (
+              <div key={d.id} className="flex justify-between">
+                <dt>
+                  {d.kind === "shipping" ? "Free shipping" : "Discount"}
+                  <span className="text-muted"> · {d.code ?? d.title}</span>
+                </dt>
+                <dd>−{money(d.amount_minor)}</dd>
+              </div>
+            ))}
             {o.shipping_method && (
               <div className="flex justify-between">
                 <dt>Shipping ({o.shipping_method.name})</dt>
-                <dd>{t.shipping_minor ? money(t.shipping_minor) : "Free"}</dd>
+                <dd>
+                  {(() => {
+                    // Before a free-shipping discount, which is listed above.
+                    const gross =
+                      t.shipping_minor +
+                      o.discounts
+                        .filter((d) => d.kind === "shipping")
+                        .reduce((a, d) => a + d.amount_minor, 0);
+                    return gross ? money(gross) : "Free";
+                  })()}
+                </dd>
               </div>
             )}
             {t.tax_minor > 0 && !t.prices_include_tax && (

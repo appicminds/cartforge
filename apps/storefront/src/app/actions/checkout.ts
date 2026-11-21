@@ -75,6 +75,18 @@ export async function saveShipping(_prev: FormState, fd: FormData): Promise<Form
   redirect("/checkout?step=payment");
 }
 
+/** Discount code in the order summary: apply it, or remove it with an empty code. */
+export async function applyDiscount(_prev: FormState, fd: FormData): Promise<FormState> {
+  const code = str(fd, "discount_code").toUpperCase();
+  if (fd.get("remove") !== "1" && !code)
+    return { errors: { discount_code: "Enter a discount code." } };
+  const err = await patch({ discount_code: fd.get("remove") === "1" ? null : code });
+  if (err)
+    return { errors: err.errors, message: err.errors?.discount_code ? undefined : err.message };
+  revalidatePath("/checkout");
+  return { done: true };
+}
+
 /** Step 3: payment, billing, custom fields, terms — then place the order. */
 export async function placeOrder(_prev: FormState, fd: FormData): Promise<FormState> {
   const token = await cartToken();
