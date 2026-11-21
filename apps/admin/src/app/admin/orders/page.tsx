@@ -34,20 +34,21 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { useDebounced } from "@/lib/use-debounced";
 
-type Tab = "all" | "pending" | "paid";
+type Tab = "all" | "pending" | "paid" | "to_ship";
 const PAGE_SIZES = [25, 50, 100];
 
 function OrdersInner() {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const tab: Tab =
-    sp.get("payment") === "pending" ? "pending" : sp.get("payment") === "paid" ? "paid" : "all";
+  const view = sp.get("view");
+  const tab: Tab = view === "pending" || view === "paid" || view === "to_ship" ? view : "all";
   const params: OrderListParams = useMemo(() => {
     const size = Number(sp.get("page_size"));
     return {
       q: sp.get("q") ?? undefined,
-      payment_status: tab === "all" ? undefined : (tab as PaymentStatus),
+      payment_status: tab === "pending" || tab === "paid" ? (tab as PaymentStatus) : undefined,
+      to_ship: tab === "to_ship" ? "true" : undefined,
       page: Math.max(1, Number(sp.get("page")) || 1),
       page_size: PAGE_SIZES.includes(size) ? size : 25,
     };
@@ -59,7 +60,7 @@ function OrdersInner() {
     const page = patch.page ?? (patch.q !== undefined || patch.tab ? 1 : params.page);
     const size = patch.page_size ?? params.page_size;
     if (q) qs.set("q", q);
-    if (t !== "all") qs.set("payment", t);
+    if (t !== "all") qs.set("view", t);
     if (page > 1) qs.set("page", String(page));
     if (size !== 25) qs.set("page_size", String(size));
     const s = qs.toString();
@@ -88,6 +89,7 @@ function OrdersInner() {
             onChange={(t) => update({ tab: t })}
             items={[
               { value: "all", label: "All" },
+              { value: "to_ship", label: "To ship" },
               { value: "pending", label: "Awaiting payment" },
               { value: "paid", label: "Paid" },
             ]}

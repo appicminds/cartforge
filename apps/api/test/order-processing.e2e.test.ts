@@ -322,4 +322,20 @@ describe("order processing (Next 6)", () => {
     await stranger.post(`/orders/${id}/mark-paid`, {}).expect(404);
     await stranger.post(`/orders/${id}/notes`, { message: "hi" }).expect(404);
   });
+
+  it("lists the orders that still need shipping", async () => {
+    const open = await place([{ variant_id: mug.variant_id, quantity: 1 }]);
+    const shipped = await place([{ variant_id: mug.variant_id, quantity: 1 }]);
+    await owner.post(`/orders/${shipped}/fulfillments`, { notify_customer: false }).expect(201);
+    const canceled = await place([{ variant_id: mug.variant_id, quantity: 1 }]);
+    await owner
+      .post(`/orders/${canceled}/cancel`, { reason: "other", notify_customer: false })
+      .expect(200);
+    const ids = (await owner.get("/orders?to_ship=true&page_size=100").expect(200)).body.data.map(
+      (o: { id: string }) => o.id,
+    );
+    expect(ids).toContain(open);
+    expect(ids).not.toContain(shipped);
+    expect(ids).not.toContain(canceled);
+  });
 });

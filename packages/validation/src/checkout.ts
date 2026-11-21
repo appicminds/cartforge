@@ -61,6 +61,11 @@ export const orderListQuerySchema = paginationQuerySchema.extend({
   payment_status: z
     .enum(["pending", "authorized", "paid", "partially_refunded", "refunded", "voided", "failed"])
     .optional(),
+  /** "true": orders with items still to ship (not canceled). */
+  to_ship: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 export type OrderListQuery = z.output<typeof orderListQuerySchema>;
 

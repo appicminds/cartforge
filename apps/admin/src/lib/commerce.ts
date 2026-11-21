@@ -13,6 +13,9 @@ import type {
 import type {
   CheckoutSettings,
   CheckoutSettingsInput,
+  FulfillmentCreateInput,
+  OrderCancelInput,
+  RefundCreateInput,
   ShippingMethodInput,
 } from "@cartforge/validation";
 import { apiRequest } from "./api-client";
@@ -23,6 +26,7 @@ const useStoreId = () => useSession().store?.store_id;
 export interface OrderListParams {
   q?: string;
   payment_status?: PaymentStatus;
+  to_ship?: "true";
   page: number;
   page_size: number;
 }
@@ -149,3 +153,46 @@ export const FULFILLMENT_LABEL = {
   partially_fulfilled: "Partially fulfilled",
   fulfilled: "Fulfilled",
 } as const;
+
+export type OrderAction =
+  | { kind: "mark-paid"; body: { reference?: string } }
+  | { kind: "fulfill"; body: FulfillmentCreateInput }
+  | { kind: "delivered"; fulfillmentId: string }
+  | { kind: "cancel"; body: OrderCancelInput }
+  | { kind: "refund"; body: RefundCreateInput }
+  | { kind: "note"; body: { message: string } };
+
+/** Order processing (Next 6): each action answers with the updated order. */
+export function useOrderAction(orderId: string) {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (a: OrderAction) => {
+      const path =
+        a.kind === "delivered"
+          ? `/orders/${orderId}/fulfillments/${a.fulfillmentId}/delivered`
+          : `/orders/${orderId}/${
+              {
+                "mark-paid": "mark-paid",
+                fulfill: "fulfillments",
+                cancel: "cancel",
+                refund: "refunds",
+                note: "notes",
+              }[a.kind]
+            }`;
+      return apiRequest<DetailResponse<OrderDetail>>(path, {
+        method: "POST",
+        body: "body" in a ? a.body : undefined,
+        storeId,
+      }).then((r) => r.data);
+    },
+    onSuccess: (o) => {
+      qc.setQueryData(storeKey(storeId, "orders", "detail", orderId), o);
+      void qc.invalidateQueries({
+        queryKey: storeKey(storeId, "orders"),
+        exact: false,
+        refetchType: "none",
+      });
+    },
+  });
+}

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
-import { ArrowLeft, Receipt } from "lucide-react";
-import type { CommerceAddress } from "@cartforge/types";
+import { use, useState } from "react";
+import { ArrowLeft, Receipt, Truck } from "lucide-react";
+import { PERMISSIONS, type CommerceAddress, type OrderDetail } from "@cartforge/types";
 import { formatMoney } from "@cartforge/validation";
 import {
   Alert,
@@ -14,6 +14,8 @@ import {
   CardHeader,
   EmptyState,
   Skeleton,
+  Textarea,
+  useToast,
 } from "@cartforge/ui";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -22,8 +24,139 @@ import {
   PAYMENT_LABEL,
   PAYMENT_TONE,
   useOrder,
+  useOrderAction,
 } from "@/lib/commerce";
 import { formatDateTime } from "@/lib/format";
+import { useSession } from "@/lib/session";
+import {
+  CancelDialog,
+  FulfillDialog,
+  MarkPaidDialog,
+  RefundDialog,
+  allowed,
+  progress,
+} from "./order-actions";
+
+type Open = null | "paid" | "fulfill" | "cancel" | "refund";
+
+const CANCEL_LABEL: Record<string, string> = {
+  customer: "customer changed their mind",
+  inventory: "items unavailable",
+  fraud: "fraudulent order",
+  declined: "payment declined",
+  other: "other",
+};
+
+function Shipments({ order, canWrite }: { order: OrderDetail; canWrite: boolean }) {
+  const action = useOrderAction(order.id);
+  const toast = useToast();
+  if (!order.fulfillments.length) return null;
+  return (
+    <Card>
+      <CardHeader title="Shipments" />
+      <CardBody>
+        <ul className="divide-y divide-border" aria-label="Shipments">
+          {order.fulfillments.map((f, i) => (
+            <li key={f.id} className="flex flex-wrap items-start gap-3 py-3 text-sm">
+              <Truck aria-hidden className="mt-0.5 size-4 text-fg-muted" />
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-center gap-2 font-medium">
+                  Shipment {i + 1}
+                  <Badge tone={f.delivered_at ? "success" : "info"}>
+                    {f.delivered_at ? "Delivered" : "Shipped"}
+                  </Badge>
+                </p>
+                <p className="text-fg-muted">
+                  {f.items.map((x) => `${x.quantity} × ${x.title}`).join(", ")}
+                </p>
+                <p className="text-fg-muted">
+                  Shipped {formatDateTime(f.shipped_at)}
+                  {f.delivered_at && <> · delivered {formatDateTime(f.delivered_at)}</>}
+                </p>
+                {(f.tracking_company || f.tracking_number) && (
+                  <p>
+                    {[f.tracking_company, f.tracking_number].filter(Boolean).join(" ")}
+                    {f.tracking_url && (
+                      <>
+                        {" · "}
+                        <a
+                          href={f.tracking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2"
+                        >
+                          Track
+                        </a>
+                      </>
+                    )}
+                  </p>
+                )}
+              </div>
+              {canWrite && !f.delivered_at && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={action.isPending && action.variables?.kind === "delivered"}
+                  aria-label={`Mark shipment ${i + 1} as delivered`}
+                  onClick={() =>
+                    action.mutate(
+                      { kind: "delivered", fulfillmentId: f.id },
+                      {
+                        onSuccess: () => toast.success("Marked as delivered"),
+                        onError: (e) => toast.error(e.message),
+                      },
+                    )
+                  }
+                >
+                  Mark delivered
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardBody>
+    </Card>
+  );
+}
+
+function NoteForm({ order }: { order: OrderDetail }) {
+  const action = useOrderAction(order.id);
+  const [note, setNote] = useState("");
+  return (
+    <form
+      className="mb-4 flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!note.trim()) return;
+        action.mutate({ kind: "note", body: { message: note } }, { onSuccess: () => setNote("") });
+      }}
+    >
+      <label htmlFor="order-note" className="sr-only">
+        Add a note
+      </label>
+      <Textarea
+        id="order-note"
+        rows={2}
+        maxLength={500}
+        placeholder="Add a note for your team…"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      {action.isError && <p className="text-sm text-danger">{action.error.message}</p>}
+      <div>
+        <Button
+          type="submit"
+          size="sm"
+          variant="secondary"
+          loading={action.isPending}
+          disabled={!note.trim()}
+        >
+          Add note
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 function AddressBlock({ a }: { a: CommerceAddress }) {
   const country = new Intl.DisplayNames(["en"], { type: "region" }).of(a.country) ?? a.country;
@@ -56,6 +189,8 @@ function AddressBlock({ a }: { a: CommerceAddress }) {
 export default function OrderPage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = use(params);
   const q = useOrder(orderId);
+  const { can } = useSession();
+  const [open, setOpen] = useState<Open>(null);
   if (q.isError) {
     return q.error instanceof ApiError && q.error.status === 404 ? (
       <EmptyState
@@ -78,6 +213,10 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
   if (!o) return <Skeleton className="h-96 w-full" />;
   const money = (m: number) => formatMoney(m, o.currency);
   const t = o.totals;
+  const canWrite = can(PERMISSIONS.ORDERS_WRITE);
+  const canRefund = can(PERMISSIONS.ORDERS_REFUND);
+  const ok = allowed(o);
+  const lineProgress = new Map(progress(o).map((p) => [p.line.id, p]));
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start gap-3">
@@ -100,7 +239,30 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
             {o.source === "storefront" ? "Online store" : o.source}
           </p>
         </div>
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
+          {canWrite && ok.markPaid && (
+            <Button variant="secondary" onClick={() => setOpen("paid")}>
+              Mark as paid
+            </Button>
+          )}
+          {canWrite && ok.fulfill && <Button onClick={() => setOpen("fulfill")}>Ship items</Button>}
+          {canRefund && ok.refund && (
+            <Button variant="secondary" onClick={() => setOpen("refund")}>
+              Refund
+            </Button>
+          )}
+          {canWrite && ok.cancel && (
+            <Button variant="ghost" onClick={() => setOpen("cancel")}>
+              Cancel order
+            </Button>
+          )}
+        </div>
       </div>
+      {o.canceled_at && (
+        <Alert tone="warning" title={`Canceled ${formatDateTime(o.canceled_at)}`}>
+          Reason: {CANCEL_LABEL[o.cancel_reason ?? "other"] ?? o.cancel_reason}.
+        </Alert>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
@@ -124,9 +286,19 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
                       {l.variant_title && <p className="text-fg-muted">{l.variant_title}</p>}
                       {l.sku && <p className="text-xs text-fg-subtle">SKU {l.sku}</p>}
                     </div>
-                    <p className="whitespace-nowrap text-fg-muted tabular-nums">
-                      {money(l.unit_price_minor)} × {l.quantity}
-                    </p>
+                    <div className="whitespace-nowrap text-right text-fg-muted tabular-nums">
+                      <p>
+                        {money(l.unit_price_minor)} × {l.quantity}
+                      </p>
+                      {(lineProgress.get(l.id)?.fulfilled ?? 0) > 0 && (
+                        <p className="text-xs">
+                          Shipped {lineProgress.get(l.id)!.fulfilled} of {l.quantity}
+                        </p>
+                      )}
+                      {(lineProgress.get(l.id)?.refunded ?? 0) > 0 && (
+                        <p className="text-xs">Refunded {lineProgress.get(l.id)!.refunded}</p>
+                      )}
+                    </div>
                     <p className="w-24 text-right font-medium tabular-nums">
                       {money(l.line_total_minor)}
                     </p>
@@ -169,25 +341,60 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
                   <dt>Total</dt>
                   <dd className="tabular-nums">{money(t.total_minor)}</dd>
                 </div>
+                {o.refunded_minor > 0 && (
+                  <>
+                    <div className="flex justify-between text-fg-muted">
+                      <dt>Refunded</dt>
+                      <dd className="tabular-nums">−{money(o.refunded_minor)}</dd>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <dt>Net</dt>
+                      <dd className="tabular-nums">{money(t.total_minor - o.refunded_minor)}</dd>
+                    </div>
+                  </>
+                )}
               </dl>
+              {o.refunds.length > 0 && (
+                <ul className="mt-3 space-y-1 text-xs text-fg-muted" aria-label="Refunds">
+                  {o.refunds.map((r) => (
+                    <li key={r.id}>
+                      {formatDateTime(r.created_at)}: refunded {money(r.amount_minor)}
+                      {r.items.length > 0 &&
+                        ` (${r.items.map((x) => `${x.quantity} × ${x.title}${x.restocked ? ", restocked" : ""}`).join("; ")})`}
+                      {r.reason && ` — ${r.reason}`}
+                      {r.created_by && ` · ${r.created_by}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {o.payment?.instructions && (
                 <p className="mt-3 whitespace-pre-line rounded-lg bg-surface-sunken p-3 text-xs text-fg-muted">
                   {o.payment.instructions}
                 </p>
               )}
-              <p className="mt-3 text-xs text-fg-subtle">
-                Recording payments, fulfillment and refunds arrives with Order Management (Next 6).
-              </p>
             </CardBody>
           </Card>
+          <Shipments order={o} canWrite={canWrite} />
           <Card>
             <CardHeader title="Timeline" />
             <CardBody>
-              <ol className="space-y-3 border-l border-border pl-4">
+              {canWrite && <NoteForm order={o} />}
+              <ol className="space-y-3 border-l border-border pl-4" aria-label="Order timeline">
                 {[...o.events].reverse().map((e) => (
                   <li key={e.id} className="text-sm">
-                    <p>{e.message}</p>
-                    <p className="text-xs text-fg-muted">{formatDateTime(e.at)}</p>
+                    <p
+                      className={
+                        e.type === "note"
+                          ? "whitespace-pre-line rounded-md bg-surface-sunken px-2 py-1"
+                          : undefined
+                      }
+                    >
+                      {e.message}
+                    </p>
+                    <p className="text-xs text-fg-muted">
+                      {formatDateTime(e.at)}
+                      {e.actor && ` · ${e.actor}`}
+                    </p>
                   </li>
                 ))}
               </ol>
@@ -250,6 +457,15 @@ export default function OrderPage({ params }: { params: Promise<{ orderId: strin
           )}
         </div>
       </div>
+      <MarkPaidDialog order={o} open={open === "paid"} onClose={() => setOpen(null)} />
+      <FulfillDialog order={o} open={open === "fulfill"} onClose={() => setOpen(null)} />
+      <CancelDialog
+        order={o}
+        open={open === "cancel"}
+        canRefund={canRefund}
+        onClose={() => setOpen(null)}
+      />
+      <RefundDialog order={o} open={open === "refund"} onClose={() => setOpen(null)} />
     </div>
   );
 }
