@@ -201,6 +201,8 @@ export const storefrontListQuerySchema = z.object({
   collection: handleSchema.optional(),
   category: handleSchema.optional(),
   sort: z.enum(["featured", "title_asc", "price_asc", "price_desc", "newest"]).default("featured"),
+  /** Market id ("primary" = the store's own currency); unknown ids fall back to primary. */
+  market: z.string().trim().max(40).optional(),
 });
 export type StorefrontListQuery = z.output<typeof storefrontListQuerySchema>;
 

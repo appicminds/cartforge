@@ -148,6 +148,7 @@ model Store {
   customers           Customer[]
   audit_logs          AuditLog[]
   products            Product[]
+  markets             Market[]
   variants            ProductVariant[]
   media               MediaAsset[]
   inventory_locations InventoryLocation[]
@@ -283,6 +284,8 @@ model Product {
   updated_by        String?       @db.Uuid
   created_at        DateTime      @default(now()) @db.Timestamptz(3)
   updated_at        DateTime      @updatedAt @db.Timestamptz(3)
+  /// Next 8 (Markets): markets this product isn't sold in.
+  hidden_market_ids String[]      @default([]) @db.Uuid
   deleted_at        DateTime?     @db.Timestamptz(3)
 
   store       Store                  @relation(fields: [store_id], references: [id], onDelete: Cascade)
@@ -336,6 +339,7 @@ model ProductVariant {
   cart_lines    CartLine[]
   reservations  InventoryReservation[]
 
+  market_prices      MarketPrice[]
   @@index([product_id, position])
   @@index([store_id, barcode])
   @@map("product_variants")
@@ -798,6 +802,12 @@ model Order {
   canceled_at          DateTime?         @db.Timestamptz(3)
   cancel_reason        String?           @db.VarChar(40)
   /// Sum of recorded refunds (kept in step with the refunds table).
+  /// Markets: where it was sold, the rate used and its value in the store currency.
+  market_id            String?           @db.Uuid
+  /// Store-currency units per 1 order-currency unit (1 when the same currency).
+  fx_rate              Decimal?          @db.Decimal(24, 10)
+  store_currency       String?           @db.Char(3)
+  store_total_minor    BigInt?
   refunded_minor       BigInt            @default(0)
   created_at           DateTime          @default(now()) @db.Timestamptz(3)
   updated_at           DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
@@ -982,6 +992,7 @@ model Cart {
   id          String     @id @default(uuid()) @db.Uuid
   store_id    String     @db.Uuid
   token_hash  String     @unique @db.Char(64)
+  market_id   String?    @db.Uuid
   currency    String     @db.Char(3)
   status      CartStatus @default(active)
   customer_id String?    @db.Uuid
@@ -1297,4 +1308,57 @@ model CustomerToken {
 
   @@index([customer_id])
   @@map("customer_tokens")
+}
+
+/// Markets: a group of countries sold to in one currency (PRD §16 international selling).
+model Market {
+  id              String   @id @default(uuid()) @db.Uuid
+  store_id        String   @db.Uuid
+  name            String   @db.VarChar(60)
+  currency        String   @db.Char(3)
+  countries       String[] @default([])
+  is_primary      Boolean  @default(false)
+  active          Boolean  @default(true)
+  /// manual | live
+  pricing_mode    String   @default("manual") @db.VarChar(10)
+  /// Store-currency units per 1 market unit, as the merchant entered it.
+  manual_rate     Decimal? @db.Decimal(24, 10)
+  adjustment_bps  Int      @default(0)
+  rounding        String   @default("none") @db.VarChar(10)
+  payment_methods String[] @default([])
+  created_at      DateTime @default(now()) @db.Timestamptz(3)
+  updated_at      DateTime @updatedAt @db.Timestamptz(3)
+
+  store  Store         @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  prices MarketPrice[]
+
+  @@unique([store_id, name])
+  @@index([store_id])
+  @@map("markets")
+}
+
+/// A fixed price for a variant in a market (overrides conversion).
+model MarketPrice {
+  market_id        String  @db.Uuid
+  variant_id       String  @db.Uuid
+  price_minor      BigInt
+  compare_at_minor BigInt?
+
+  market  Market         @relation(fields: [market_id], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  @@id([market_id, variant_id])
+  @@index([variant_id])
+  @@map("market_prices")
+}
+
+/// Latest exchange rates from the configured provider (quote units per 1 base unit).
+model FxRate {
+  base       String   @db.Char(3)
+  quote      String   @db.Char(3)
+  rate       Decimal  @db.Decimal(24, 10)
+  fetched_at DateTime @db.Timestamptz(3)
+
+  @@id([base, quote])
+  @@map("fx_rates")
 }

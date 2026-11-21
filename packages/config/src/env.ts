@@ -88,6 +88,12 @@ export const apiEnvSchema = z
     VERCEL_STOREFRONT_PROJECT: z.string().optional(),
     VERCEL_TEAM_ID: z.string().optional(),
 
+    // ── Markets: live exchange rates ──
+    /** "none": merchants set their own rates · "openexchangerates": daily live rates. */
+    FX_PROVIDER: z.enum(["none", "openexchangerates"]).default("none"),
+    /** App ID from openexchangerates.org (free plan is enough). */
+    FX_API_KEY: z.string().optional(),
+
     // ── Email (password reset) ──
     /** "log": no email is sent (development prints the link) · "resend": send through Resend. */
     EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
@@ -137,6 +143,7 @@ export const apiEnvSchema = z
     }
     if (env.STOREFRONT_REVALIDATE_URL)
       need("STOREFRONT_REVALIDATE_SECRET", "when STOREFRONT_REVALIDATE_URL is set");
+    if (env.FX_PROVIDER === "openexchangerates") need("FX_API_KEY", "when FX_PROVIDER=openexchangerates");
     if (env.EMAIL_PROVIDER === "resend") {
       need("RESEND_API_KEY", "when EMAIL_PROVIDER=resend");
       need("EMAIL_FROM", "when EMAIL_PROVIDER=resend");

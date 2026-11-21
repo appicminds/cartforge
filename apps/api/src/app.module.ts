@@ -11,6 +11,7 @@ import { HealthModule } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.service";
 import { CatalogModule } from "./catalog/catalog.module";
 import { CommerceModule } from "./commerce/commerce.module";
+import { MarketsModule } from "./commerce/markets/markets.module";
 import { PlatformModule } from "./platform/platform.module";
 import { OutboxModule } from "./common/outbox.service";
 import { InventoryModule } from "./inventory/inventory.module";
@@ -48,6 +49,7 @@ import { StoresModule } from "./stores/stores.module";
     OrdersModule,
     ProductsModule,
     StaffModule,
+    MarketsModule,
     CommerceModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

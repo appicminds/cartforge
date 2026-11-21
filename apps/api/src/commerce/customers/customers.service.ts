@@ -38,7 +38,10 @@ export class CustomersService {
     private readonly orders: OrdersService,
   ) {}
 
-  /** Orders count, money spent (paid minus refunded, canceled excluded), last order. */
+  /**
+   * Orders count, money spent (paid minus refunded, canceled excluded) in the store's
+   * currency (orders from other markets count at their recorded rate), last order.
+   */
   private async stats(storeId: string, ids: string[]): Promise<Map<string, Stats>> {
     if (!ids.length) return new Map();
     const rows = await this.prisma.$queryRaw<
@@ -46,7 +49,7 @@ export class CustomersService {
     >`
       SELECT customer_id, count(*)::bigint AS n,
              sum(CASE WHEN canceled_at IS NULL AND payment_status IN ('paid','partially_refunded','refunded')
-                      THEN total_minor - refunded_minor ELSE 0 END)::bigint AS spent,
+                      THEN ROUND(COALESCE(store_total_minor, total_minor)::numeric * (total_minor - refunded_minor) / NULLIF(total_minor, 0)) ELSE 0 END)::bigint AS spent,
              max(placed_at) AS last
       FROM orders
       WHERE store_id = ${storeId}::uuid AND customer_id = ANY(${ids}::uuid[])
@@ -122,7 +125,7 @@ export class CustomersService {
           ? Prisma.sql`max(o.placed_at) DESC NULLS LAST`
           : Prisma.sql`coalesce(sum(CASE WHEN o.canceled_at IS NULL
                 AND o.payment_status IN ('paid','partially_refunded','refunded')
-                THEN o.total_minor - o.refunded_minor ELSE 0 END), 0) DESC`;
+                THEN ROUND(COALESCE(o.store_total_minor, o.total_minor)::numeric * (o.total_minor - o.refunded_minor) / NULLIF(o.total_minor, 0)) ELSE 0 END), 0) DESC`;
       const ids = await this.prisma.$queryRaw<{ id: string }[]>`
         SELECT c.id FROM customers c
         LEFT JOIN orders o ON o.customer_id = c.id

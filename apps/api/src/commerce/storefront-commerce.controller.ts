@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   Body,
   Controller,
@@ -7,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Put,
   Post,
   Req,
   Res,
@@ -63,6 +65,8 @@ const orderId = new ParseUUIDPipe({ exceptionFactory: () => AppException.notFoun
  * (X-Store-Id) and a secret cart token (X-Cart-Token), never by client-sent
  * prices. Called server-side by the storefront.
  */
+const cartMarketSchema = z.object({ market_id: z.string().trim().min(1).max(40) }).strict();
+
 @ApiTags("storefront")
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store (UUID)" })
 @Public()
@@ -99,7 +103,10 @@ export class StorefrontCommerceController {
     // Storefront servers share an IP; they forward the shopper's for fair limits.
     const ip = req.get("x-shopper-ip")?.slice(0, 64) || req.ip;
     await this.limits.hit(`cart-create:${store.id}:${ip}`, 60, 600);
-    const { token, cart } = await this.carts.create(store.id, store.currency);
+    // X-Market: the shopper's market ("primary" or unknown = the store's own currency).
+    const marketId = req.get("x-market")?.slice(0, 40);
+    const market = await this.storefront.market(store.id, marketId);
+    const { token, cart } = await this.carts.create(store.id, market);
     return { data: { token, cart: await this.carts.view(cart) }, request_id: String(req.id) };
   }
 
@@ -113,6 +120,20 @@ export class StorefrontCommerceController {
     const cart = await this.cart(req, res);
     await this.reservations.sweep(cart.store_id, { throttle: true });
     return { data: await this.carts.view(cart), request_id: String(req.id) };
+  }
+
+  @Put("cart/market")
+  @ApiHeader({ name: "X-Cart-Token", required: true })
+  @ApiZodBody(cartMarketSchema)
+  @ApiOperation({ summary: "Switch the cart to another market (re-prices it in that currency)" })
+  async setMarket(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body(new ZodValidationPipe(cartMarketSchema)) body: { market_id: string },
+  ): Promise<DetailResponse<CartView>> {
+    const cart = await this.cart(req, res);
+    const id = /^[0-9a-f-]{36}$/i.test(body.market_id) ? body.market_id : null;
+    return { data: await this.carts.setMarket(cart, id), request_id: String(req.id) };
   }
 
   @Post("cart/lines")

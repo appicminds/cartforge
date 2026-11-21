@@ -37,6 +37,10 @@ const handlePipe = new ZodValidationPipe(handleSchema);
  * Public, unauthenticated catalog used by the storefront (Next 2). The store is
  * chosen with X-Store-Id until custom domains map to stores (Next 1).
  */
+/** `?market=<id>` on catalog reads (part of the URL so caches keep markets apart). */
+const marketParam = (req: Request) =>
+  typeof req.query.market === "string" ? req.query.market.slice(0, 40) : undefined;
+
 @ApiTags("storefront")
 @ApiHeader({ name: "X-Store-Id", required: true, description: "Store (UUID)" })
 @Public()
@@ -122,7 +126,11 @@ export class StorefrontController {
     // Wrong, expired or foreign tokens look exactly like a missing product.
     if (allowed !== id) throw AppException.notFound("Product");
     return {
-      data: await this.storefront.preview(store.id, store.currency, id),
+      data: await this.storefront.preview(
+        store.id,
+        await this.storefront.market(store.id, marketParam(req)),
+        id,
+      ),
       request_id: String(req.id),
     };
   }
@@ -139,7 +147,11 @@ export class StorefrontController {
     const store = await this.storefront.assertStore(req.get(HEADERS.STORE_ID));
     res.setHeader("Cache-Control", CACHE);
     return {
-      ...(await this.storefront.list(store.id, store.currency, q)),
+      ...(await this.storefront.list(
+        store.id,
+        await this.storefront.market(store.id, q.market),
+        q,
+      )),
       request_id: String(req.id),
     };
   }
@@ -155,7 +167,11 @@ export class StorefrontController {
     try {
       res.setHeader("Cache-Control", CACHE);
       return {
-        data: await this.storefront.byHandle(store.id, store.currency, handle),
+        data: await this.storefront.byHandle(
+          store.id,
+          await this.storefront.market(store.id, marketParam(req)),
+          handle,
+        ),
         request_id: String(req.id),
       };
     } catch (err) {

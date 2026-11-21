@@ -11,6 +11,7 @@ import { generateToken, sha256 } from "../auth/tokens";
 import { AppException } from "../common/app-exception";
 import { formatMinor } from "./format";
 import { PrismaService } from "../prisma/prisma.service";
+import { MarketsService, type ResolvedMarket } from "./markets/markets.service";
 import { ReservationsService } from "./reservations.service";
 
 type Client = Prisma.TransactionClient;
@@ -76,14 +77,58 @@ export class CartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reservations: ReservationsService,
+    private readonly markets: MarketsService,
   ) {}
 
-  async create(storeId: string, currency: string): Promise<{ token: string; cart: Cart }> {
+  /** A cart priced in the shopper's market. */
+  async create(storeId: string, market: ResolvedMarket): Promise<{ token: string; cart: Cart }> {
     const token = generateToken(32);
     const cart = await this.prisma.cart.create({
-      data: { store_id: storeId, token_hash: sha256(token), currency },
+      data: {
+        store_id: storeId,
+        token_hash: sha256(token),
+        currency: market.currency,
+        market_id: market.id,
+      },
     });
     return { token, cart };
+  }
+
+  /** The shopper changed country/currency: re-price the cart in that market. */
+  async setMarket(cart: Cart, marketId: string | null): Promise<CartView> {
+    return this.prisma.$transaction(async (tx) => {
+      const market = await this.markets.resolve(cart.store_id, marketId, null, tx);
+      const next = await tx.cart.update({
+        where: { id: cart.id },
+        data: { market_id: market.id, currency: market.currency, updated_at: new Date() },
+      });
+      // New currency: the shopper sees fresh prices, not "price changed" notices.
+      if (next.currency !== cart.currency)
+        await tx.cartLine.updateMany({
+          where: { cart_id: cart.id },
+          data: { seen_price_minor: null },
+        });
+      return this.viewIn(tx, next);
+    });
+  }
+
+  /** The cart's market (falls back to primary if it went away) and prices for variants. */
+  private async pricing(
+    tx: Client,
+    cart: Cart,
+    variants: { id: string; price_minor: bigint | null; compare_at_minor: bigint | null }[],
+  ) {
+    const market = await this.markets.resolve(cart.store_id, cart.market_id, null, tx);
+    const prices = await this.markets.priceVariants(
+      market,
+      variants.map((v) => ({
+        id: v.id,
+        price_minor: v.price_minor === null ? null : Number(v.price_minor),
+        compare_at_minor: v.compare_at_minor === null ? null : Number(v.compare_at_minor),
+      })),
+      tx,
+    );
+    return { market, prices };
   }
 
   /** `allowConverted`: order completion must still find the cart to replay a retried request. */
@@ -106,6 +151,14 @@ export class CartService {
         include: LINE_INCLUDE.variant.include,
       });
       if (!v || !purchasable(v)) throw unavailable();
+      const { market, prices } = await this.pricing(tx, cart, [v]);
+      if (market.id && v.product.hidden_market_ids.includes(market.id))
+        throw new AppException(
+          COMMERCE_ERROR_CODES.ITEM_UNAVAILABLE,
+          "This item isn't sold in your country.",
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      const marketPrice = BigInt(prices.get(v.id)!.price_minor!);
       const held = await this.ownHeld(tx, cart.id);
       const max = maxQuantity(v, held.get(v.id) ?? 0) ?? MAX_LINE_QUANTITY;
       if (max <= 0) {
@@ -127,9 +180,9 @@ export class CartService {
           store_id: cart.store_id,
           variant_id: v.id,
           quantity: next,
-          seen_price_minor: v.price_minor,
+          seen_price_minor: marketPrice,
         },
-        update: { quantity: next, seen_price_minor: v.price_minor },
+        update: { quantity: next, seen_price_minor: marketPrice },
       });
       await tx.cart.update({ where: { id: cart.id }, data: { updated_at: new Date() } });
       const view = await this.viewIn(tx, cart);
@@ -177,23 +230,47 @@ export class CartService {
       include: LINE_INCLUDE,
       orderBy: { created_at: "asc" },
     });
+    const { market, prices } = await this.pricing(
+      tx,
+      cart,
+      rows.map((r) => r.variant),
+    );
+    // The market went away (deleted, paused, rate unavailable): continue in the primary one.
+    if (market.currency !== cart.currency || market.id !== cart.market_id) {
+      // In place, so the caller's cart object follows the switch too.
+      Object.assign(
+        cart,
+        await tx.cart.update({
+          where: { id: cart.id },
+          data: { market_id: market.id, currency: market.currency },
+        }),
+      );
+      await tx.cartLine.updateMany({
+        where: { cart_id: cart.id },
+        data: { seen_price_minor: null },
+      });
+      for (const r of rows) r.seen_price_minor = null;
+    }
     const held = await this.ownHeld(tx, cart.id);
     const notices: CartNotice[] = [];
     const lines: CartLineView[] = [];
     for (const row of rows) {
       const v = row.variant;
       const title = v.product.title;
-      if (!purchasable(v)) {
+      if (!purchasable(v) || (market.id && v.product.hidden_market_ids.includes(market.id))) {
+        const elsewhere = purchasable(v);
         await tx.cartLine.delete({ where: { id: row.id } });
         notices.push({
           kind: "removed_unavailable",
           line_id: null,
           title,
-          message: `${title} is no longer available and was removed from your cart.`,
+          message: elsewhere
+            ? `${title} isn't sold in your country and was removed from your cart.`
+            : `${title} is no longer available and was removed from your cart.`,
         });
         continue;
       }
-      const price = Number(v.price_minor);
+      const price = prices.get(v.id)!.price_minor!;
       const max = maxQuantity(v, held.get(v.id) ?? 0);
       let quantity = row.quantity;
       const patch: Prisma.CartLineUpdateInput = {};
@@ -224,7 +301,7 @@ export class CartService {
         });
       }
       if (row.seen_price_minor === null || Number(row.seen_price_minor) !== price)
-        patch.seen_price_minor = v.price_minor;
+        patch.seen_price_minor = BigInt(price);
       if (Object.keys(patch).length)
         await tx.cartLine.update({ where: { id: row.id }, data: patch });
       lines.push(this.toLine(row, quantity, price, max));

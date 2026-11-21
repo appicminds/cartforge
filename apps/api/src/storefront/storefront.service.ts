@@ -15,6 +15,7 @@ import type { StorefrontListQuery } from "@cartforge/validation";
 import { AppException } from "../common/app-exception";
 import { mediaUrls } from "../media/media.mapper";
 import { PrismaService } from "../prisma/prisma.service";
+import { MarketsService, type ResolvedMarket } from "../commerce/markets/markets.service";
 
 const PRODUCT_INCLUDE = {
   variants: {
@@ -67,7 +68,56 @@ const num = (v: bigint | null) => (v === null ? null : Number(v));
  */
 @Injectable()
 export class StorefrontService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly markets: MarketsService,
+  ) {}
+
+  /** The shopper's market from a request's `market` value ("primary"/unknown → primary). */
+  market(storeId: string, id: string | undefined): Promise<ResolvedMarket> {
+    return this.markets.resolve(storeId, id && /^[0-9a-f-]{36}$/i.test(id) ? id : null);
+  }
+
+  /** Re-prices products for a market (fixed prices or converted) and sets its currency. */
+  private async inMarket<T extends StorefrontProduct>(
+    products: T[],
+    market: ResolvedMarket,
+    hidden: Set<string> = new Set(),
+  ): Promise<T[]> {
+    const identity =
+      market.pricing.currency === market.pricing.store_currency && market.pricing.rate === 1;
+    const priced =
+      identity && !market.id
+        ? null
+        : await this.markets.priceVariants(
+            market,
+            products.flatMap((p) =>
+              p.variants.map((v) => ({
+                id: v.id,
+                price_minor: v.price_minor,
+                compare_at_minor: v.compare_at_minor,
+              })),
+            ),
+          );
+    return products.map((p) => {
+      const variants = priced
+        ? p.variants.map((v) => ({ ...v, ...priced.get(v.id)! }))
+        : p.variants;
+      const prices = variants.map((v) => v.price_minor).filter((x): x is number => x !== null);
+      const compares = variants
+        .map((v) => v.compare_at_minor)
+        .filter((x): x is number => x !== null);
+      return {
+        ...p,
+        currency: market.currency,
+        market_available: !hidden.has(p.id),
+        variants,
+        price_min_minor: prices.length ? Math.min(...prices) : null,
+        price_max_minor: prices.length ? Math.max(...prices) : null,
+        compare_at_min_minor: compares.length ? Math.min(...compares) : null,
+      };
+    });
+  }
 
   async assertStore(storeId: string | undefined): Promise<StorefrontStore> {
     const ok = storeId && /^[0-9a-f-]{36}$/i.test(storeId);
@@ -88,7 +138,7 @@ export class StorefrontService {
 
   async list(
     storeId: string,
-    currency: string,
+    market: ResolvedMarket,
     q: StorefrontListQuery,
   ): Promise<Omit<ListResponse<StorefrontProduct>, "request_id">> {
     const joins: Prisma.Sql[] = [];
@@ -97,6 +147,9 @@ export class StorefrontService {
       Prisma.sql`p.status = 'active'`,
       Prisma.sql`p.deleted_at IS NULL`,
     ];
+    // Products the merchant doesn't sell in this market aren't listed.
+    if (market.id && !market.is_primary)
+      where.push(Prisma.sql`NOT (${market.id}::uuid = ANY(p.hidden_market_ids))`);
     let featured = Prisma.sql`p.published_at DESC NULLS LAST`;
 
     if (q.collection) {
@@ -146,7 +199,10 @@ export class StorefrontService {
     const total = Number(countRow?.n ?? 0);
     const cats = rows.length ? await this.visibleCategories(storeId) : new Map();
     return {
-      data: ids.map((id) => this.toPublic(byId.get(id)!, currency, cats)),
+      data: await this.inMarket(
+        ids.map((id) => this.toPublic(byId.get(id)!, market.pricing.store_currency, cats)),
+        market,
+      ),
       meta: {
         page: q.page,
         page_size: q.page_size,
@@ -157,12 +213,24 @@ export class StorefrontService {
   }
 
   /** Product by handle; a renamed published product resolves via its redirect. */
-  async byHandle(storeId: string, currency: string, handle: string): Promise<StorefrontProduct> {
+  async byHandle(
+    storeId: string,
+    market: ResolvedMarket,
+    handle: string,
+  ): Promise<StorefrontProduct> {
     const p = await this.prisma.product.findFirst({
       where: { store_id: storeId, handle, status: "active", deleted_at: null },
       include: PRODUCT_INCLUDE,
     });
-    if (p) return this.toPublic(p, currency, await this.visibleCategories(storeId));
+    if (p) {
+      const hidden = new Set(market.id && p.hidden_market_ids.includes(market.id) ? [p.id] : []);
+      const [out] = await this.inMarket(
+        [this.toPublic(p, market.pricing.store_currency, await this.visibleCategories(storeId))],
+        market,
+        hidden,
+      );
+      return out!;
+    }
     const redirect = await this.prisma.urlRedirect.findUnique({
       where: { store_id_path_from: { store_id: storeId, path_from: `/products/${handle}` } },
     });
@@ -194,16 +262,21 @@ export class StorefrontService {
   }
 
   /** Any non-deleted product, for signed previews (PRD §11.1 "explicit preview capability"). */
-  async preview(storeId: string, currency: string, id: string): Promise<StorefrontPreviewProduct> {
+  async preview(
+    storeId: string,
+    market: ResolvedMarket,
+    id: string,
+  ): Promise<StorefrontPreviewProduct> {
     const p = await this.prisma.product.findFirst({
       where: { store_id: storeId, id, deleted_at: null },
       include: PRODUCT_INCLUDE,
     });
     if (!p) throw AppException.notFound("Product");
-    return {
-      ...this.toPublic(p, currency, await this.visibleCategories(storeId)),
-      status: p.status,
-    };
+    const [out] = await this.inMarket(
+      [this.toPublic(p, market.pricing.store_currency, await this.visibleCategories(storeId))],
+      market,
+    );
+    return { ...out!, status: p.status };
   }
 
   /** Active categories whose ancestors are all active, in tree order. */

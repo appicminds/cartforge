@@ -3,6 +3,10 @@ import { Prisma, type Cart, type Checkout } from "@cartforge/database";
 import {
   computeTotals,
   quoteShipping,
+  convertAmount,
+  marketCountries,
+  toStoreCurrency,
+  COUNTRY_CODES,
   resolveTax,
   type ResolvedTax,
   shippingCountries,
@@ -31,6 +35,7 @@ import { InventoryService } from "../inventory/inventory.service";
 import { OrderSnapshotService } from "../orders/order-snapshot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CartService } from "./cart.service";
+import { MarketsService, type ResolvedMarket } from "./markets/markets.service";
 import { enabledProviders, providerFor } from "./payments";
 import { ReservationsService } from "./reservations.service";
 import { CommerceSettingsService, toShippingConfig } from "./settings.service";
@@ -47,6 +52,7 @@ interface Built {
   shortfalls: string[];
   /** The rate and label for this destination. */
   tax: ResolvedTax;
+  market: ResolvedMarket;
 }
 
 const MISSING_LABELS: Record<string, string> = {
@@ -87,6 +93,7 @@ export class CheckoutService {
     private readonly outbox: OutboxService,
     private readonly mail: OrderMailer,
     private readonly accounts: PaymentAccountsService,
+    private readonly markets: MarketsService,
   ) {}
 
   /** Starts (or resumes) checkout for a cart and holds its stock. */
@@ -102,6 +109,7 @@ export class CheckoutService {
       const checkout = await this.ensure(tx, cart);
       const settings = await this.settings.get(cart.store_id, tx);
       const online = (await this.accounts.enabled(cart.store_id, cart.currency)).map((a) => a.key);
+      const market = await this.markets.resolve(cart.store_id, cart.market_id, null, tx);
       const errors: FieldError[] = [];
       const data: Prisma.CheckoutUpdateInput = {};
 
@@ -128,7 +136,8 @@ export class CheckoutService {
       if (input.payment_method !== undefined) {
         if (
           input.payment_method &&
-          !providerFor(settings, input.payment_method, online, cart.currency)
+          (!providerFor(settings, input.payment_method, online, cart.currency) ||
+            !this.markets.allowsPayment(market, input.payment_method))
         )
           errors.push({
             path: "payment_method",
@@ -141,7 +150,7 @@ export class CheckoutService {
       // Shipping choice must be valid for the (possibly new) destination and cart.
       const address = input.shipping_address ?? asAddress(checkout.shipping_address) ?? null;
       const cartView = await this.carts.viewIn(tx, cart);
-      const quotes = await this.quotes(tx, cart.store_id, address, cartView);
+      const quotes = await this.quotes(tx, cart.store_id, address, cartView, market);
       const wanted =
         input.shipping_method_id !== undefined
           ? input.shipping_method_id
@@ -158,9 +167,7 @@ export class CheckoutService {
         data.shipping_method_id = input.shipping_method_id;
       }
       if (input.shipping_address && cartView.requires_shipping) {
-        const countries = shippingCountries(
-          (await this.settings.shippingMethods(cart.store_id, tx)).map(toShippingConfig),
-        );
+        const countries = await this.countriesFor(tx, cart.store_id, market);
         if (countries && !countries.includes(input.shipping_address.country))
           errors.push({
             path: "shipping_address.country",
@@ -199,7 +206,7 @@ export class CheckoutService {
         WHERE l.cart_id = ${cart.id}::uuid FOR SHARE OF v`;
 
       const built = await this.build(tx, cart, checkout, true);
-      const { view, settings, totals, shipping, online, tax } = built;
+      const { view, settings, totals, shipping, online, tax, market } = built;
       if (view.missing.length) {
         throw new AppException(
           COMMERCE_ERROR_CODES.CHECKOUT_NOT_READY,
@@ -245,6 +252,10 @@ export class CheckoutService {
           prices_include_tax: totals.prices_include_tax,
           tax_rate_bps: tax.rate_bps,
           tax_label: tax.label,
+          market_id: market.id,
+          fx_rate: market.store_per_unit,
+          store_currency: market.pricing.store_currency,
+          store_total_minor: BigInt(toStoreCurrency(totals.total_minor, market.pricing)),
           custom_fields: Object.entries(view.custom_field_values).map(([key, value]) => ({
             key,
             label: labels.get(key) ?? key,
@@ -412,14 +423,57 @@ export class CheckoutService {
     }
   }
 
+  /** Countries this market can check out to: shipping methods ∩ the market's countries. */
+  private async countriesFor(
+    tx: Tx,
+    storeId: string,
+    market: ResolvedMarket,
+  ): Promise<string[] | null> {
+    const byShipping = shippingCountries(
+      (await this.settings.shippingMethods(storeId, tx)).map(toShippingConfig),
+    );
+    const all = await this.markets.activeMarkets(storeId, tx);
+    const byMarket = marketCountries(
+      {
+        id: market.id ?? "",
+        countries: market.countries,
+        is_primary: market.is_primary,
+        active: true,
+      },
+      all.map((m) => ({
+        id: m.id ?? "",
+        countries: m.countries,
+        is_primary: m.is_primary,
+        active: true,
+      })),
+      COUNTRY_CODES,
+    );
+    if (!byShipping) return byMarket;
+    if (!byMarket) return byShipping;
+    return byShipping.filter((c) => byMarket.includes(c));
+  }
+
   private async quotes(
     tx: Tx,
     storeId: string,
     address: { country: string; region?: string | null; city?: string | null } | null | undefined,
     cart: CartView,
+    market: ResolvedMarket,
   ): Promise<ShippingOption[]> {
     if (!cart.requires_shipping || !address) return [];
-    const methods = (await this.settings.shippingMethods(storeId, tx)).map(toShippingConfig);
+    // Fees and thresholds are set in the store currency; the cart is in the market's.
+    const fx = (v: number) => convertAmount(v, market.pricing);
+    const fxOpt = (v: number | null | undefined) => (v == null ? v : fx(v));
+    const methods = (await this.settings.shippingMethods(storeId, tx))
+      .map(toShippingConfig)
+      .map((m) => ({
+        ...m,
+        price_minor: fx(m.price_minor),
+        free_over_minor: fxOpt(m.free_over_minor) ?? null,
+        min_order_minor: fxOpt(m.min_order_minor),
+        max_order_minor: fxOpt(m.max_order_minor),
+        per_item_minor: fx(m.per_item_minor ?? 0),
+      }));
     const lines = cart.lines.filter((l) => l.requires_shipping);
     const shippable = lines.reduce((a, l) => a + l.line_total_minor, 0);
     const items = lines.reduce((a, l) => a + l.quantity, 0);
@@ -429,8 +483,10 @@ export class CheckoutService {
   /** Re-validates the cart, refreshes stock holds and recomputes everything. */
   private async build(tx: Tx, cart: Cart, checkout: Checkout, hold: boolean): Promise<Built> {
     const settings = await this.settings.get(cart.store_id, tx);
-    const online = (await this.accounts.enabled(cart.store_id, cart.currency)).map((a) => a.key);
+    // Re-validating the cart can move it back to the primary market, so read it first.
     const cartView = await this.carts.viewIn(tx, cart);
+    const market = await this.markets.resolve(cart.store_id, cart.market_id, null, tx);
+    const online = (await this.accounts.enabled(cart.store_id, cart.currency)).map((a) => a.key);
 
     let shortfalls: string[] = [];
     let reservedUntil = checkout.reserved_until;
@@ -462,7 +518,7 @@ export class CheckoutService {
 
     const shippingAddress = asAddress(checkout.shipping_address);
     const billingAddress = asAddress(checkout.billing_address);
-    const quotes = await this.quotes(tx, cart.store_id, shippingAddress, cartView);
+    const quotes = await this.quotes(tx, cart.store_id, shippingAddress, cartView, market);
     const shipping = cartView.requires_shipping
       ? (quotes.find((q) => q.id === checkout.shipping_method_id) ?? null)
       : null;
@@ -471,8 +527,10 @@ export class CheckoutService {
       settings,
       cartView.requires_shipping ? shippingAddress : (billingAddress ?? shippingAddress),
     );
-    const payments = enabledProviders(settings, online, cart.currency);
-    const payment = providerFor(settings, checkout.payment_method, online, cart.currency);
+    const payments = enabledProviders(settings, online, cart.currency).filter((p) =>
+      this.markets.allowsPayment(market, p.key),
+    );
+    const payment = payments.find((p) => p.key === checkout.payment_method) ?? null;
     const totals = computeTotals({
       lines: cartView.lines.map((l) => ({
         key: l.id,
@@ -515,9 +573,7 @@ export class CheckoutService {
       billing_address: billingAddress,
       shipping_required: cartView.requires_shipping,
       shipping_countries: cartView.requires_shipping
-        ? shippingCountries(
-            (await this.settings.shippingMethods(cart.store_id, tx)).map(toShippingConfig),
-          )
+        ? await this.countriesFor(tx, cart.store_id, market)
         : null,
       shipping_options: quotes,
       shipping_method_id: shipping?.id ?? null,
@@ -542,7 +598,7 @@ export class CheckoutService {
       reserved_until: reservedUntil?.toISOString() ?? null,
       missing,
     };
-    return { view, settings, online, totals, shipping, shortfalls, tax };
+    return { view, settings, online, totals, shipping, shortfalls, tax, market };
   }
 
   private async nextOrderNumber(tx: Tx, storeId: string): Promise<string> {

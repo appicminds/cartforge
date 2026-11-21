@@ -301,7 +301,10 @@ export interface StorefrontProduct {
   title: string;
   description_html: string;
   vendor: string | null;
+  /** The shopper's market currency (prices below are in it). */
   currency: string;
+  /** false when the product isn't sold in the shopper's market (Markets). */
+  market_available?: boolean;
   price_min_minor: number | null;
   price_max_minor: number | null;
   compare_at_min_minor: number | null;
