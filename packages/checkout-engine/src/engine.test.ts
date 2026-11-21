@@ -7,6 +7,7 @@ import {
   quoteShipping,
   describeEstimate,
   regionKey,
+  resolveTax,
   shippingCountries,
   shippingMethodSchema,
   taxOn,
@@ -304,5 +305,58 @@ describe("settings and custom fields", () => {
       "custom_fields.delivery",
       "custom_fields.leave",
     ]);
+  });
+});
+
+describe("tax by region (Next 7)", () => {
+  const store = {
+    tax_rate_bps: 0,
+    tax_label: "Tax",
+    tax_rules: checkoutSettingsSchema.parse({
+      tax_rules: [
+        { country: "ca", rate_bps: 500, label: "GST" },
+        { country: "CA", region: "ON", rate_bps: 1300, label: "HST" },
+        { country: "PK", region: "Punjab", rate_bps: 1600 },
+        { country: "PK", region: "Sindh", rate_bps: 1500, label: "Sales tax" },
+      ],
+    }).tax_rules,
+  };
+
+  it("uses the most specific rule, else the country, else the store rate", () => {
+    expect(resolveTax(store, { country: "CA", region: "Ontario" })).toMatchObject({
+      rate_bps: 1300,
+      label: "HST",
+    });
+    expect(resolveTax(store, { country: "CA", region: "Alberta" })).toMatchObject({
+      rate_bps: 500,
+      label: "GST",
+    });
+    expect(resolveTax(store, { country: "PK", region: "punjab" })).toMatchObject({
+      rate_bps: 1600,
+      label: "Tax",
+    });
+    expect(resolveTax(store, { country: "PK", region: "KPK" })).toMatchObject({
+      rate_bps: 0,
+      rule: null,
+    });
+    expect(resolveTax(store, null)).toMatchObject({ rate_bps: 0, label: "Tax" });
+    expect(resolveTax({ tax_rate_bps: 800, tax_label: "VAT" }, { country: "DE" })).toMatchObject({
+      rate_bps: 800,
+      label: "VAT",
+    });
+  });
+
+  it("rejects two rules for the same place", () => {
+    const r = checkoutSettingsSchema.safeParse({
+      tax_rules: [
+        { country: "PK", region: "Khyber Pakhtunkhwa", rate_bps: 1500 },
+        { country: "PK", region: "KPK", rate_bps: 1300 },
+      ],
+    });
+    expect(r.success).toBe(false);
+    expect(
+      checkoutSettingsSchema.safeParse({ tax_rules: [{ country: "PK", rate_bps: 10_001 }] })
+        .success,
+    ).toBe(false);
   });
 });

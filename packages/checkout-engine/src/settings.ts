@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { regionKey } from "./regions";
 
 /**
  * Store checkout configuration (PRD §13.2 custom fields, terms; §18 tax basics;
@@ -44,6 +45,13 @@ const pkIban = z
   )
   .default("");
 
+export const taxRuleSchema = z.object({
+  country: z.string().trim().toUpperCase().length(2, "Use a two-letter country code"),
+  region: z.string().trim().max(80).default(""),
+  rate_bps: z.number().int().min(0).max(10_000),
+  label: z.string().trim().max(40).default(""),
+});
+
 export const checkoutSettingsSchema = z
   .object({
     /** 0–100% in basis points. */
@@ -51,6 +59,24 @@ export const checkoutSettingsSchema = z
     tax_label: z.string().trim().min(1).max(40).default("Tax"),
     prices_include_tax: z.boolean().default(false),
     tax_shipping: z.boolean().default(false),
+    /** Rates by country or province that override tax_rate_bps (most specific wins). */
+    tax_rules: z
+      .array(taxRuleSchema)
+      .max(100, "Up to 100 tax rules")
+      .default([])
+      .superRefine((rules, ctx) => {
+        const seen = new Set<string>();
+        rules.forEach((r, i) => {
+          const k = `${r.country}|${regionKey(r.country, r.region)}`;
+          if (seen.has(k))
+            ctx.addIssue({
+              code: "custom",
+              path: [i, "region"],
+              message: "There's already a rule for this place",
+            });
+          seen.add(k);
+        });
+      }),
     phone: z.enum(["hidden", "optional", "required"]).default("optional"),
     /** Stock held for a shopper in checkout. */
     reservation_minutes: z.number().int().min(5).max(120).default(15),

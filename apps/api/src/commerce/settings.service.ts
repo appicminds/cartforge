@@ -96,6 +96,7 @@ export class CommerceSettingsService {
     const data = {
       ...input,
       custom_fields: input.custom_fields as unknown as Prisma.InputJsonValue,
+      tax_rules: input.tax_rules as unknown as Prisma.InputJsonValue,
     };
     await this.prisma.$transaction(async (tx) => {
       await tx.checkoutSettings.upsert({

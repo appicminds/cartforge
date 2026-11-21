@@ -106,4 +106,26 @@ test("checkout settings: shipping methods and payment toggles", async ({ page })
   } else await again.uncheck();
   await page.getByRole("button", { name: "Save settings" }).click();
   await expect(page.getByText("Checkout settings saved").last()).toBeVisible();
+
+  // Regional tax: a province rule, saved and shown after reload, then removed.
+  await page.reload();
+  await page.getByRole("button", { name: "Add rate" }).click();
+  const rule = page.getByRole("list", { name: "Tax rules" }).getByRole("listitem").last();
+  await rule.getByLabel("Country").fill("pk");
+  await rule.getByLabel("Rate (%)").fill("140");
+  await expect(rule.getByText("0–100")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save settings" })).toBeDisabled();
+  await rule.getByLabel("Rate (%)").fill("16");
+  await rule.getByLabel("Province / state").fill("Punjab");
+  await rule.getByLabel("Label").fill("PST");
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("Checkout settings saved").last()).toBeVisible();
+  await page.reload();
+  const saved = page.getByRole("list", { name: "Tax rules" }).getByRole("listitem").last();
+  await expect(saved.getByLabel("Country")).toHaveValue("PK");
+  await expect(saved.getByLabel("Province / state")).toHaveValue("Punjab");
+  await expect(saved.getByLabel("Rate (%)")).toHaveValue("16");
+  await saved.getByRole("button", { name: "Remove tax rule for Punjab, PK" }).click();
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("Checkout settings saved").last()).toBeVisible();
 });

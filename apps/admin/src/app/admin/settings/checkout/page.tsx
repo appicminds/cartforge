@@ -83,16 +83,43 @@ const slug = (s: string) =>
     .replace(/^(\d)/, "f_$1")
     .slice(0, 40) || "field";
 
+type RuleRow = { country: string; region: string; rate: string; label: string };
+const toRows = (rules: CheckoutSettings["tax_rules"]): RuleRow[] =>
+  rules.map((r) => ({
+    country: r.country,
+    region: r.region,
+    rate: String(r.rate_bps / 100),
+    label: r.label,
+  }));
+const percentOk = (v: string) =>
+  /^\d{1,3}([.,]\d{1,2})?$/.test(v.trim()) && Number(v.replace(",", ".")) <= 100;
+const toBps = (v: string) => Math.round(Number(v.replace(",", ".")) * 100);
+
 function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit: boolean }) {
   const [s, setS] = useState<CheckoutSettings>(initial);
   const [rate, setRate] = useState(String(initial.tax_rate_bps / 100));
+  const [rules, setRules] = useState<RuleRow[]>(toRows(initial.tax_rules));
   const save = useSaveCheckoutSettings();
   const toast = useToast();
   const errors = fieldErrors(save.error);
   useEffect(() => {
     setS(initial);
     setRate(String(initial.tax_rate_bps / 100));
+    setRules(toRows(initial.tax_rules));
   }, [initial]);
+  const taxRules = rules.map((r) => ({
+    country: r.country.trim().toUpperCase(),
+    region: r.region.trim(),
+    rate_bps: toBps(r.rate),
+    label: r.label.trim(),
+  }));
+  const ruleErrors = rules.map((r) => ({
+    country: /^[A-Za-z]{2}$/.test(r.country.trim()) ? undefined : "Two-letter code, e.g. PK",
+    rate: percentOk(r.rate) ? undefined : "0–100",
+  }));
+  const rulesInvalid = ruleErrors.some((e) => e.country || e.rate);
+  const setRule = (i: number, patch: Partial<RuleRow>) =>
+    setRules(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const set = <K extends keyof CheckoutSettings>(k: K, v: CheckoutSettings[K]) =>
     setS((p) => ({ ...p, [k]: v }));
   const setField = (i: number, patch: Partial<CustomField>) =>
@@ -102,13 +129,15 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
     );
   const rateBps = Math.round(Number(rate.replace(",", ".")) * 100);
   const rateInvalid = !/^\d{1,3}([.,]\d{1,2})?$/.test(rate.trim()) || rateBps > 10_000;
-  const dirty = JSON.stringify({ ...s, tax_rate_bps: rateBps }) !== JSON.stringify(initial);
+  const dirty =
+    JSON.stringify({ ...s, tax_rate_bps: rateBps, tax_rules: taxRules }) !==
+    JSON.stringify(initial);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (rateInvalid) return;
+    if (rateInvalid || rulesInvalid) return;
     save.mutate(
-      { ...s, tax_rate_bps: rateBps },
+      { ...s, tax_rate_bps: rateBps, tax_rules: taxRules },
       {
         onSuccess: () => toast.success("Checkout settings saved"),
         onError: (err) =>
@@ -286,7 +315,7 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
         <Card>
           <CardHeader
             title="Taxes"
-            description="One rate for the whole store. Regional rules arrive with Tax Management."
+            description="A store-wide rate, with optional rates by country or province. The most specific match for the customer's address wins."
           />
           <CardBody className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -329,6 +358,110 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
               checked={s.tax_shipping}
               onChange={(v) => set("tax_shipping", v)}
             />
+            <fieldset className="flex flex-col gap-3 border-t border-border pt-4">
+              <legend className="sr-only">Rates by region</legend>
+              <div>
+                <h3 className="text-sm font-semibold">Rates by region</h3>
+                <p className="text-xs text-fg-muted">
+                  Leave the province empty for a whole country. Orders to places without a rule use
+                  the store rate above.
+                </p>
+              </div>
+              {rules.length > 0 && (
+                <ul className="flex flex-col gap-3" aria-label="Tax rules">
+                  {rules.map((r, i) => {
+                    const where = [r.region, r.country.toUpperCase()].filter(Boolean).join(", ");
+                    return (
+                      <li
+                        key={i}
+                        className="grid items-start gap-3 rounded-md border border-border p-3 sm:grid-cols-[6rem_1fr_6rem_1fr_auto]"
+                      >
+                        <Field
+                          label="Country"
+                          required
+                          error={ruleErrors[i]!.country ?? errors[`tax_rules.${i}.country`]}
+                        >
+                          {({ id, describedBy, invalid }) => (
+                            <Input
+                              id={id}
+                              aria-describedby={describedBy}
+                              invalid={invalid}
+                              value={r.country}
+                              maxLength={2}
+                              placeholder="PK"
+                              onChange={(e) => setRule(i, { country: e.target.value })}
+                            />
+                          )}
+                        </Field>
+                        <Field label="Province / state" error={errors[`tax_rules.${i}.region`]}>
+                          {({ id, describedBy, invalid }) => (
+                            <Input
+                              id={id}
+                              aria-describedby={describedBy}
+                              invalid={invalid}
+                              value={r.region}
+                              placeholder="All"
+                              onChange={(e) => setRule(i, { region: e.target.value })}
+                            />
+                          )}
+                        </Field>
+                        <Field
+                          label="Rate (%)"
+                          required
+                          error={ruleErrors[i]!.rate ?? errors[`tax_rules.${i}.rate_bps`]}
+                        >
+                          {({ id, describedBy, invalid }) => (
+                            <Input
+                              id={id}
+                              inputMode="decimal"
+                              aria-describedby={describedBy}
+                              invalid={invalid}
+                              value={r.rate}
+                              onChange={(e) => setRule(i, { rate: e.target.value })}
+                            />
+                          )}
+                        </Field>
+                        <Field label="Label" error={errors[`tax_rules.${i}.label`]}>
+                          {({ id, describedBy, invalid }) => (
+                            <Input
+                              id={id}
+                              aria-describedby={describedBy}
+                              invalid={invalid}
+                              value={r.label}
+                              placeholder={s.tax_label}
+                              onChange={(e) => setRule(i, { label: e.target.value })}
+                            />
+                          )}
+                        </Field>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="sm:mt-6"
+                          aria-label={`Remove tax rule${where ? ` for ${where}` : ""}`}
+                          onClick={() => setRules(rules.filter((_, j) => j !== i))}
+                        >
+                          <Trash2 aria-hidden />
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {errors.tax_rules && <Alert tone="danger" title={errors.tax_rules} />}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="self-start"
+                disabled={rules.length >= 100}
+                onClick={() =>
+                  setRules([...rules, { country: "", region: "", rate: "", label: "" }])
+                }
+              >
+                <Plus aria-hidden /> Add rate
+              </Button>
+            </fieldset>
             <p className="text-xs text-fg-muted">
               You’re responsible for configuring the right taxes for where you sell. CartForge
               calculates what you set up here.
@@ -539,12 +672,17 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
             onClick={() => {
               setS(initial);
               setRate(String(initial.tax_rate_bps / 100));
+              setRules(toRows(initial.tax_rules));
               save.reset();
             }}
           >
             Discard
           </Button>
-          <Button type="submit" disabled={!dirty || rateInvalid} loading={save.isPending}>
+          <Button
+            type="submit"
+            disabled={!dirty || rateInvalid || rulesInvalid}
+            loading={save.isPending}
+          >
             Save settings
           </Button>
         </div>

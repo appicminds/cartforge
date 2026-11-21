@@ -1079,6 +1079,8 @@ model CheckoutSettings {
   tax_label                  String   @default("Tax") @db.VarChar(40)
   prices_include_tax         Boolean  @default(false)
   tax_shipping               Boolean  @default(false)
+  /// Next 7: [{country, region, rate_bps, label}] overriding tax_rate_bps.
+  tax_rules                  Json     @default("[]")
   phone                      String   @default("optional") @db.VarChar(10)
   reservation_minutes        Int      @default(15)
   terms_required             Boolean  @default(false)

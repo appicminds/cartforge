@@ -3,6 +3,8 @@ import { Prisma, type Cart, type Checkout } from "@cartforge/database";
 import {
   computeTotals,
   quoteShipping,
+  resolveTax,
+  type ResolvedTax,
   shippingCountries,
   validateCustomFields,
   type CheckoutSettings,
@@ -43,6 +45,8 @@ interface Built {
   totals: Totals;
   shipping: ShippingOption | null;
   shortfalls: string[];
+  /** The rate and label for this destination. */
+  tax: ResolvedTax;
 }
 
 const MISSING_LABELS: Record<string, string> = {
@@ -192,7 +196,7 @@ export class CheckoutService {
         WHERE l.cart_id = ${cart.id}::uuid FOR SHARE OF v`;
 
       const built = await this.build(tx, cart, checkout, true);
-      const { view, settings, totals, shipping, online } = built;
+      const { view, settings, totals, shipping, online, tax } = built;
       if (view.missing.length) {
         throw new AppException(
           COMMERCE_ERROR_CODES.CHECKOUT_NOT_READY,
@@ -236,8 +240,8 @@ export class CheckoutService {
           tax_minor: BigInt(totals.tax_minor),
           total_minor: BigInt(totals.total_minor),
           prices_include_tax: totals.prices_include_tax,
-          tax_rate_bps: settings.tax_rate_bps,
-          tax_label: settings.tax_label,
+          tax_rate_bps: tax.rate_bps,
+          tax_label: tax.label,
           custom_fields: Object.entries(view.custom_field_values).map(([key, value]) => ({
             key,
             label: labels.get(key) ?? key,
@@ -459,6 +463,11 @@ export class CheckoutService {
     const shipping = cartView.requires_shipping
       ? (quotes.find((q) => q.id === checkout.shipping_method_id) ?? null)
       : null;
+    // Taxed where the order goes; billing address when nothing ships.
+    const tax = resolveTax(
+      settings,
+      cartView.requires_shipping ? shippingAddress : (billingAddress ?? shippingAddress),
+    );
     const payments = enabledProviders(settings, online);
     const payment = providerFor(settings, checkout.payment_method, online);
     const totals = computeTotals({
@@ -470,7 +479,7 @@ export class CheckoutService {
       })),
       shipping_minor: shipping?.price_minor ?? 0,
       tax: {
-        rate_bps: settings.tax_rate_bps,
+        rate_bps: tax.rate_bps,
         prices_include_tax: settings.prices_include_tax,
         tax_shipping: settings.tax_shipping,
       },
@@ -524,13 +533,13 @@ export class CheckoutService {
         tax_minor: totals.tax_minor,
         total_minor: totals.total_minor,
         prices_include_tax: totals.prices_include_tax,
-        tax_label: settings.tax_label,
-        tax_rate_bps: settings.tax_rate_bps,
+        tax_label: tax.label,
+        tax_rate_bps: tax.rate_bps,
       },
       reserved_until: reservedUntil?.toISOString() ?? null,
       missing,
     };
-    return { view, settings, online, totals, shipping, shortfalls };
+    return { view, settings, online, totals, shipping, shortfalls, tax };
   }
 
   private async nextOrderNumber(tx: Tx, storeId: string): Promise<string> {

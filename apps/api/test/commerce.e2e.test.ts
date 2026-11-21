@@ -500,6 +500,82 @@ describe("cart and checkout (Next 4)", () => {
       }
     });
 
+    it("taxes by province or country, most specific first, and records it on the order", async () => {
+      const current = (await owner.get("/settings/checkout").expect(200)).body.data;
+      // Two rules for the same province under different names are rejected.
+      await owner
+        .put("/settings/checkout", {
+          ...current,
+          tax_rules: [
+            { country: "US", region: "IL", rate_bps: 625 },
+            { country: "US", region: "Illinois", rate_bps: 700 },
+          ],
+        })
+        .expect(422);
+      await owner
+        .put("/settings/checkout", {
+          ...current,
+          tax_rules: [
+            { country: "US", region: "", rate_bps: 0, label: "" },
+            { country: "US", region: "Illinois", rate_bps: 625, label: "IL sales tax" },
+          ],
+        })
+        .expect(200);
+      try {
+        const p = await product("Kettle", { price_minor: 2000 });
+        const s = shop();
+        await s.start();
+        await s.post("/cart/lines", { variant_id: p.variant_id, quantity: 1 }).expect(201);
+        await s.post("/checkout").expect(200);
+        // Illinois ("IL" in the address): the province rule.
+        let v = (
+          await s
+            .patch("/checkout", { email: `tax-${RUN}@example.com`, shipping_address: US })
+            .expect(200)
+        ).body.data;
+        expect(v.totals).toMatchObject({
+          tax_minor: 125,
+          tax_rate_bps: 625,
+          tax_label: "IL sales tax",
+        });
+        // Elsewhere in the US: the country rule (0%) beats the store's 10%.
+        v = (
+          await s.patch("/checkout", { shipping_address: { ...US, region: "Ohio" } }).expect(200)
+        ).body.data;
+        expect(v.totals).toMatchObject({ tax_minor: 0, tax_rate_bps: 0, tax_label: "Sales tax" });
+        // Canada has no rule: the store rate.
+        v = (
+          await s
+            .patch("/checkout", {
+              shipping_address: { ...US, country: "CA", region: "ON", postal_code: "M5V 1J1" },
+            })
+            .expect(200)
+        ).body.data;
+        expect(v.totals).toMatchObject({ tax_minor: 200, tax_rate_bps: 1000 });
+        // The order keeps the rate it was charged.
+        v = (
+          await s
+            .patch("/checkout", {
+              shipping_address: US,
+              shipping_method_id: standard.id,
+              payment_method: "cod",
+              terms_accepted: true,
+              custom_fields: { delivery: "Morning" },
+            })
+            .expect(200)
+        ).body.data;
+        expect(v.missing).toEqual([]);
+        const order = (await s.complete(`tax-${RUN}`).expect(201)).body.data;
+        const saved = await prisma.order.findUniqueOrThrow({
+          where: { id: order.order_id },
+        });
+        expect(saved).toMatchObject({ tax_rate_bps: 625, tax_label: "IL sales tax" });
+        expect(Number(saved.tax_minor)).toBe(125);
+      } finally {
+        await owner.put("/settings/checkout", current).expect(200);
+      }
+    });
+
     it("holds the last unit for one shopper and releases it when the hold expires", async () => {
       const p = await product("Last one", { inventory_quantity: 1 });
       const a = shop();
