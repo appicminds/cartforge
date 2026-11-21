@@ -3,6 +3,10 @@ import { Prisma, type Cart, type Checkout } from "@cartforge/database";
 import {
   computeTotals,
   quoteShipping,
+  evaluateDiscount,
+  selectDiscounts,
+  type DiscountLine,
+  type DiscountRule,
   convertAmount,
   marketCountries,
   toStoreCurrency,
@@ -16,6 +20,7 @@ import {
 } from "@cartforge/checkout-engine";
 import {
   COMMERCE_ERROR_CODES,
+  type AppliedDiscount,
   type CartView,
   type CheckoutView,
   type CommerceAddress,
@@ -35,6 +40,8 @@ import { InventoryService } from "../inventory/inventory.service";
 import { OrderSnapshotService } from "../orders/order-snapshot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CartService } from "./cart.service";
+import { DiscountsService } from "./discounts/discounts.service";
+import { formatMinor } from "./format";
 import { MarketsService, type ResolvedMarket } from "./markets/markets.service";
 import { enabledProviders, providerFor } from "./payments";
 import { ReservationsService } from "./reservations.service";
@@ -53,6 +60,7 @@ interface Built {
   /** The rate and label for this destination. */
   tax: ResolvedTax;
   market: ResolvedMarket;
+  applied: AppliedDiscount[];
 }
 
 const MISSING_LABELS: Record<string, string> = {
@@ -94,6 +102,7 @@ export class CheckoutService {
     private readonly mail: OrderMailer,
     private readonly accounts: PaymentAccountsService,
     private readonly markets: MarketsService,
+    private readonly discounts: DiscountsService,
   ) {}
 
   /** Starts (or resumes) checkout for a cart and holds its stock. */
@@ -127,6 +136,19 @@ export class CheckoutService {
           code: "required",
         });
       if (input.terms_accepted !== undefined) data.terms_accepted = input.terms_accepted;
+      if (input.discount_code !== undefined) {
+        if (input.discount_code) {
+          const problem = await this.discounts.checkCode(
+            tx,
+            cart.store_id,
+            market,
+            input.discount_code,
+            input.email ?? checkout.email,
+          );
+          if (problem) errors.push({ path: "discount_code", message: problem, code: "invalid" });
+          else data.discount_code = input.discount_code;
+        } else data.discount_code = null;
+      }
 
       if (input.custom_fields !== undefined) {
         const r = validateCustomFields(settings.custom_fields, input.custom_fields);
@@ -206,7 +228,7 @@ export class CheckoutService {
         WHERE l.cart_id = ${cart.id}::uuid FOR SHARE OF v`;
 
       const built = await this.build(tx, cart, checkout, true);
-      const { view, settings, totals, shipping, online, tax, market } = built;
+      const { view, settings, totals, shipping, online, tax, market, applied } = built;
       if (view.missing.length) {
         throw new AppException(
           COMMERCE_ERROR_CODES.CHECKOUT_NOT_READY,
@@ -256,6 +278,7 @@ export class CheckoutService {
           fx_rate: market.store_per_unit,
           store_currency: market.pricing.store_currency,
           store_total_minor: BigInt(toStoreCurrency(totals.total_minor, market.pricing)),
+          discounts: applied as unknown as Prisma.InputJsonValue,
           custom_fields: Object.entries(view.custom_field_values).map(([key, value]) => ({
             key,
             label: labels.get(key) ?? key,
@@ -266,6 +289,9 @@ export class CheckoutService {
           access_key_hash: sha256(accessKey),
         },
       });
+
+      // Count discount uses (fails the order if a limit was reached meanwhile).
+      await this.discounts.redeem(tx, order.id, view.email!, applied);
 
       // Snapshot each line (price/title/SKU copied now, immutable afterwards).
       const lineTotals = new Map(totals.lines.map((l) => [l.key, l]));
@@ -423,6 +449,46 @@ export class CheckoutService {
     }
   }
 
+  /** Collections each product is in (for discounts that target collections). */
+  private async collectionsOf(tx: Tx, productIds: string[]): Promise<Map<string, string[]>> {
+    const out = new Map<string, string[]>();
+    if (!productIds.length) return out;
+    const rows = await tx.collectionProduct.findMany({
+      where: { product_id: { in: [...new Set(productIds)] } },
+      select: { product_id: true, collection_id: true },
+    });
+    for (const r of rows)
+      out.set(r.product_id, [...(out.get(r.product_id) ?? []), r.collection_id]);
+    return out;
+  }
+
+  /** Why the entered code isn't saving anything right now (null when it is). */
+  private discountNote(
+    code: string | null,
+    problem: string | null,
+    rules: DiscountRule[],
+    applied: AppliedDiscount[],
+    lines: DiscountLine[],
+    shipping: number | null,
+    currency: string,
+  ): string | null {
+    if (!code) return null;
+    if (problem) return problem;
+    if (applied.some((a) => a.code === code)) return null;
+    const rule = rules.find((r) => r.code === code);
+    if (!rule) return "This code isn't valid.";
+    const r = evaluateDiscount(rule, lines, shipping);
+    if ("reason" in r) {
+      if (r.reason === "min_subtotal")
+        return `Spend ${formatMinor(r.missing_minor, currency)} more to use ${code}.`;
+      if (r.reason === "min_quantity")
+        return `Add ${r.missing} more ${r.missing === 1 ? "item" : "items"} to use ${code}.`;
+      if (r.reason === "no_shipping") return `${code} applies once you choose shipping.`;
+      return `${code} doesn't apply to the items in your cart.`;
+    }
+    return "A better discount is already applied to your order.";
+  }
+
   /** Countries this market can check out to: shipping methods ∩ the market's countries. */
   private async countriesFor(
     tx: Tx,
@@ -531,6 +597,52 @@ export class CheckoutService {
       this.markets.allowsPayment(market, p.key),
     );
     const payment = payments.find((p) => p.key === checkout.payment_method) ?? null;
+
+    // Discounts: live automatic ones plus the entered code — the best deal for the shopper.
+    const { rules, codeProblem } = await this.discounts.forCheckout(
+      tx,
+      cart.store_id,
+      market,
+      checkout.discount_code,
+      checkout.email,
+    );
+    const collections = await this.collectionsOf(
+      tx,
+      cartView.lines.map((l) => l.product_id),
+    );
+    const discountLines = cartView.lines.map((l) => ({
+      key: l.id,
+      product_id: l.product_id,
+      collection_ids: collections.get(l.product_id) ?? [],
+      unit_price_minor: l.unit_price_minor,
+      quantity: l.quantity,
+    }));
+    const shippingCharge = shipping ? shipping.price_minor : null;
+    const selection = rules.length
+      ? selectDiscounts(rules, discountLines, shippingCharge)
+      : {
+          applied: [],
+          line_minor: new Map<string, number>(),
+          order_minor: 0,
+          shipping_minor: 0,
+          total_minor: 0,
+        };
+    const applied: AppliedDiscount[] = selection.applied.map((a) => ({
+      id: a.rule.id,
+      title: a.rule.title,
+      code: a.rule.code,
+      kind: a.rule.kind,
+      amount_minor: a.rule.kind === "shipping" ? selection.shipping_minor : a.amount_minor,
+    }));
+    const discountNote = this.discountNote(
+      checkout.discount_code,
+      codeProblem,
+      rules,
+      applied,
+      discountLines,
+      shippingCharge,
+      cart.currency,
+    );
     const totals = computeTotals({
       lines: cartView.lines.map((l) => ({
         key: l.id,
@@ -538,7 +650,9 @@ export class CheckoutService {
         quantity: l.quantity,
         requires_shipping: l.requires_shipping,
       })),
-      shipping_minor: shipping?.price_minor ?? 0,
+      shipping_minor: (shipping?.price_minor ?? 0) - selection.shipping_minor,
+      line_discounts: cartView.lines.map((l) => selection.line_minor.get(l.id) ?? 0),
+      discount_minor: selection.order_minor,
       tax: {
         rate_bps: tax.rate_bps,
         prices_include_tax: settings.prices_include_tax,
@@ -589,16 +703,20 @@ export class CheckoutService {
         subtotal_minor: totals.subtotal_minor,
         discount_minor: totals.discount_minor,
         shipping_minor: cartView.requires_shipping ? (shipping ? totals.shipping_minor : null) : 0,
+        shipping_discount_minor: selection.shipping_minor,
         tax_minor: totals.tax_minor,
         total_minor: totals.total_minor,
         prices_include_tax: totals.prices_include_tax,
         tax_label: tax.label,
         tax_rate_bps: tax.rate_bps,
       },
+      discount_code: checkout.discount_code,
+      discounts: applied,
+      discount_note: discountNote,
       reserved_until: reservedUntil?.toISOString() ?? null,
       missing,
     };
-    return { view, settings, online, totals, shipping, shortfalls, tax, market };
+    return { view, settings, online, totals, shipping, shortfalls, tax, market, applied };
   }
 
   private async nextOrderNumber(tx: Tx, storeId: string): Promise<string> {

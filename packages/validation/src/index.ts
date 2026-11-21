@@ -10,3 +10,4 @@ export * from "./platform.js";
 export * from "./staff.js";
 export * from "./customers.js";
 export * from "./markets.js";
+export * from "./discounts.js";

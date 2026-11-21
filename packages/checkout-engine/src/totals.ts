@@ -28,6 +28,8 @@ export interface TotalsInput {
   shipping_minor: number;
   /** Order-level discount, distributed across lines in proportion (Next 8). */
   discount_minor?: number;
+  /** Discounts on specific lines (product / buy X get Y), same order as `lines`. */
+  line_discounts?: number[];
   tax: TaxSettings;
 }
 
@@ -99,9 +101,19 @@ export function computeTotals(input: TotalsInput): Totals {
   }
   const subtotals = input.lines.map((l) => l.unit_price_minor * l.quantity);
   const subtotal = subtotals.reduce((a, b) => a + b, 0);
-  const discount = Math.min(input.discount_minor ?? 0, subtotal);
-  assertMinor(discount, "discount_minor");
-  const discounts = allocate(discount, subtotals);
+  const lineOff = input.lines.map((_, i) =>
+    Math.min(input.line_discounts?.[i] ?? 0, subtotals[i]!),
+  );
+  lineOff.forEach((d) => assertMinor(d, "line_discounts"));
+  const afterLines = subtotals.map((s, i) => s - lineOff[i]!);
+  const orderOff = Math.min(
+    input.discount_minor ?? 0,
+    afterLines.reduce((a, b) => a + b, 0),
+  );
+  assertMinor(orderOff, "discount_minor");
+  const spread = allocate(orderOff, afterLines);
+  const discounts = lineOff.map((d, i) => d + spread[i]!);
+  const discount = discounts.reduce((a, b) => a + b, 0);
 
   const lines: TotalsLine[] = input.lines.map((l, i) => {
     const taxable = subtotals[i]! - discounts[i]!;

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import type { Prisma } from "@cartforge/database";
 import {
+  type AppliedDiscount,
   COMMERCE_ERROR_CODES,
   type CommerceAddress,
   type ListResponse,
@@ -213,6 +214,7 @@ export class OrdersService {
       status: o.status,
       payment_status: o.payment_status,
       fulfillment_status: o.fulfillment_status,
+      discounts: Array.isArray(o.discounts) ? (o.discounts as unknown as AppliedDiscount[]) : [],
       email: o.email,
       shipping_address: addr(o.shipping_address),
       billing_address: addr(o.billing_address),

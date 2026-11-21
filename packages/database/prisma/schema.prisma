@@ -149,6 +149,7 @@ model Store {
   audit_logs          AuditLog[]
   products            Product[]
   markets             Market[]
+  discounts           Discount[]
   variants            ProductVariant[]
   media               MediaAsset[]
   inventory_locations InventoryLocation[]
@@ -802,6 +803,8 @@ model Order {
   canceled_at          DateTime?         @db.Timestamptz(3)
   cancel_reason        String?           @db.VarChar(40)
   /// Sum of recorded refunds (kept in step with the refunds table).
+  /// Next 8: discounts applied [{id, title, code, kind, amount_minor}].
+  discounts            Json              @default("[]")
   /// Markets: where it was sold, the rate used and its value in the store currency.
   market_id            String?           @db.Uuid
   /// Store-currency units per 1 order-currency unit (1 when the same currency).
@@ -1044,6 +1047,8 @@ model Checkout {
   custom_fields      Json           @default("{}")
   terms_accepted     Boolean        @default(false)
   reserved_until     DateTime?      @db.Timestamptz(3)
+  /// Next 8: the discount code the shopper entered.
+  discount_code      String?        @db.VarChar(40)
   order_id           String?        @unique @db.Uuid
   created_at         DateTime       @default(now()) @db.Timestamptz(3)
   updated_at         DateTime       @updatedAt @db.Timestamptz(3)
@@ -1361,4 +1366,61 @@ model FxRate {
 
   @@id([base, quote])
   @@map("fx_rates")
+}
+
+/// Next 8: discount codes and automatic discounts.
+model Discount {
+  id                 String    @id @default(uuid()) @db.Uuid
+  store_id           String    @db.Uuid
+  title              String    @db.VarChar(120)
+  /// code | automatic
+  method             String    @db.VarChar(10)
+  /// Upper-case; unique per store.
+  code               String?   @db.VarChar(40)
+  /// order | products | bxgy | shipping
+  kind               String    @db.VarChar(10)
+  /// percent | fixed
+  value_type         String    @default("percent") @db.VarChar(10)
+  /// Basis points (percent) or store-currency minor units (fixed).
+  value              BigInt    @default(0)
+  /// {all, product_ids, collection_ids} — for bxgy, the items customers get.
+  target             Json
+  /// bxgy: {quantity, target, get_quantity, max_uses}
+  buy                Json?
+  min_subtotal_minor BigInt?
+  min_quantity       Int?
+  starts_at          DateTime  @default(now()) @db.Timestamptz(3)
+  ends_at            DateTime? @db.Timestamptz(3)
+  usage_limit        Int?
+  once_per_customer  Boolean   @default(false)
+  combines           Boolean   @default(false)
+  market_ids         String[]  @default([]) @db.Uuid
+  enabled            Boolean   @default(true)
+  used_count         Int       @default(0)
+  created_at         DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime  @updatedAt @db.Timestamptz(3)
+
+  store       Store                @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  redemptions DiscountRedemption[]
+
+  @@unique([store_id, code])
+  @@index([store_id, method, enabled])
+  @@map("discounts")
+}
+
+/// One use of a discount by an order (usage limits, once per customer).
+model DiscountRedemption {
+  id          String   @id @default(uuid()) @db.Uuid
+  discount_id String   @db.Uuid
+  order_id    String   @db.Uuid
+  /// Lower-cased customer email.
+  email       String   @db.VarChar(254)
+  amount_minor BigInt
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+
+  discount Discount @relation(fields: [discount_id], references: [id], onDelete: Cascade)
+
+  @@unique([discount_id, order_id])
+  @@index([discount_id, email])
+  @@map("discount_redemptions")
 }

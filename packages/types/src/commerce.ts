@@ -114,8 +114,12 @@ export interface CheckoutCustomField {
 
 export interface CheckoutTotals {
   subtotal_minor: number;
+  /** Off the items (product, buy X get Y and order discounts). */
   discount_minor: number;
+  /** Shipping after any free-shipping discount. */
   shipping_minor: number | null;
+  /** Taken off shipping by a free-shipping discount. */
+  shipping_discount_minor: number;
   tax_minor: number;
   total_minor: number;
   prices_include_tax: boolean;
@@ -144,6 +148,12 @@ export interface CheckoutView {
   terms: { required: boolean; label: string; url: string } | null;
   terms_accepted: boolean;
   totals: CheckoutTotals;
+  /** The code the shopper entered (applied or not). */
+  discount_code: string | null;
+  /** Discounts in effect, automatic ones included. */
+  discounts: import("./discounts.js").AppliedDiscount[];
+  /** Why the entered code isn't saving anything right now, e.g. "Spend Rs 1,000 more". */
+  discount_note: string | null;
   reserved_until: string | null;
   /** What's still missing before the order can be placed. */
   missing: string[];
@@ -241,6 +251,8 @@ export interface OrderConfirmation {
     prices_include_tax: boolean;
     tax_label: string;
   };
+  /** Discounts on this order (codes and automatic). */
+  discounts: import("./discounts.js").AppliedDiscount[];
 }
 
 export interface OrderListItem {

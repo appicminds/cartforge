@@ -11,6 +11,8 @@ import { OrdersService } from "./orders.service";
 import { OrderActionsService } from "./order-actions.service";
 import { OrderMailer } from "./order-mailer";
 import { CustomersController } from "./customers/customers.controller";
+import { DiscountsController } from "./discounts/discounts.controller";
+import { DiscountsService } from "./discounts/discounts.service";
 import { CustomersService } from "./customers/customers.service";
 import { CustomerAccountsController } from "./customers/customer-accounts.controller";
 import { CustomerAccountsService } from "./customers/customer-accounts.service";
@@ -37,6 +39,7 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     PaymentWebhooksController,
     StorefrontPaymentsController,
     CustomersController,
+    DiscountsController,
     CustomerAccountsController,
   ],
   providers: [
@@ -48,6 +51,7 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     OrderActionsService,
     OrderMailer,
     CustomersService,
+    DiscountsService,
     CustomerAccountsService,
     PaymentAccountsService,
     PaymentHubService,

@@ -30,6 +30,14 @@ export const checkoutUpdateSchema = z
     shipping_address: addressSchema.optional(),
     billing_same_as_shipping: z.boolean().optional(),
     billing_address: addressSchema.nullish(),
+    /** A discount code; null or "" removes it. */
+    discount_code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .max(40)
+      .nullish()
+      .transform((v) => (v === "" ? null : v)),
     shipping_method_id: uuidSchema.nullish(),
     payment_method: z.string().max(40).nullish(),
     custom_fields: z
