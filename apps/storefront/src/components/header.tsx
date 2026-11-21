@@ -72,6 +72,29 @@ function CartLink({ count }: { count: number }) {
   );
 }
 
+function AccountLink() {
+  return (
+    <Link
+      href="/account"
+      className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface"
+    >
+      <svg
+        aria-hidden
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
+      </svg>
+      <span className="sr-only">Account</span>
+    </Link>
+  );
+}
+
 export function Header({
   store,
   categories,
@@ -158,6 +181,7 @@ export function Header({
             <div className="hidden md:block">
               <SearchForm id="search-desktop" />
             </div>
+            <AccountLink />
             <CartLink count={cartCount} />
           </div>
         </div>

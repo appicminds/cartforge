@@ -167,6 +167,16 @@ export class OrdersService {
     };
   }
 
+  /** Next 7: a signed-in customer's own order (no link key needed). */
+  async forAccount(storeId: string, id: string, customerId: string): Promise<OrderConfirmation> {
+    const o = await this.prisma.order.findFirst({
+      where: { id, store_id: storeId, customer_id: customerId },
+      include: DETAIL_INCLUDE,
+    });
+    if (!o) throw notFound();
+    return this.confirmation(o);
+  }
+
   /** Customer view: the secret from the confirmation link is required; wrong keys look like missing orders. */
   async forCustomer(
     storeId: string,

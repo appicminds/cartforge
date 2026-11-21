@@ -12,6 +12,8 @@ import { OrderActionsService } from "./order-actions.service";
 import { OrderMailer } from "./order-mailer";
 import { CustomersController } from "./customers/customers.controller";
 import { CustomersService } from "./customers/customers.service";
+import { CustomerAccountsController } from "./customers/customer-accounts.controller";
+import { CustomerAccountsService } from "./customers/customer-accounts.service";
 import { PaymentAccountsService } from "./payments/accounts.service";
 import { PaymentHubService } from "./payments/payment-hub.service";
 import {
@@ -35,6 +37,7 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     PaymentWebhooksController,
     StorefrontPaymentsController,
     CustomersController,
+    CustomerAccountsController,
   ],
   providers: [
     CartService,
@@ -45,6 +48,7 @@ import { StorefrontCommerceController } from "./storefront-commerce.controller";
     OrderActionsService,
     OrderMailer,
     CustomersService,
+    CustomerAccountsService,
     PaymentAccountsService,
     PaymentHubService,
     { provide: PAYMENT_HTTP, useValue: fetchHttp },

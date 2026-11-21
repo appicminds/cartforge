@@ -6,8 +6,8 @@ import { CartNotices } from "@/components/cart-notices";
 import { InformationStep, PaymentStep, ShippingStep } from "@/components/checkout/steps";
 import { OrderSummary } from "@/components/checkout/summary";
 import { storefront } from "@/lib/api";
-import { cartToken, commerce } from "@/lib/commerce";
-import type { CheckoutView } from "@/lib/commerce-types";
+import { cartToken, commerce, currentCustomer } from "@/lib/commerce";
+import type { CheckoutView, StorefrontCustomer } from "@/lib/commerce-types";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false, follow: false } };
 
@@ -25,14 +25,33 @@ function allowedStep(view: CheckoutView, wanted: Step): Step {
   return "payment";
 }
 
+/** Fills an empty contact/address from the signed-in customer's profile. */
+function prefill(view: CheckoutView, c: StorefrontCustomer | null): CheckoutView {
+  if (!c) return view;
+  const saved = c.addresses.find((a) => a.is_default)?.address ?? null;
+  const key = view.shipping_required ? "shipping_address" : "billing_address";
+  const allowed =
+    !view.shipping_required ||
+    !saved ||
+    !view.shipping_countries ||
+    view.shipping_countries.includes(saved.country);
+  return {
+    ...view,
+    email: view.email ?? c.email,
+    phone: view.phone ?? c.phone ?? saved?.phone ?? null,
+    [key]: view[key] ?? (allowed ? saved : null),
+  };
+}
+
 export default async function CheckoutPage({ searchParams }: Props) {
   const token = await cartToken();
   if (!token) redirect("/cart");
   // Opening (re)holds the stock for the store's reservation window.
-  const [r, store, sp] = await Promise.all([
+  const [r, store, sp, customer] = await Promise.all([
     commerce.openCheckout(token),
     storefront.store(),
     searchParams,
+    currentCustomer(),
   ]);
   if (!r.ok)
     redirect(
@@ -111,7 +130,18 @@ export default async function CheckoutPage({ searchParams }: Props) {
               .
             </p>
           )}
-          {step === "information" && <InformationStep view={view} locale={store.locale} />}
+          {step === "information" && !customer && (
+            <p className="text-sm">
+              Have an account?{" "}
+              <Link href="/account/login?next=/checkout" className="sf-link">
+                Sign in
+              </Link>{" "}
+              to use your saved address.
+            </p>
+          )}
+          {step === "information" && (
+            <InformationStep view={prefill(view, customer)} locale={store.locale} />
+          )}
           {step === "shipping" && <ShippingStep view={view} locale={store.locale} />}
           {step === "payment" && (
             <PaymentStep view={view} locale={store.locale} idempotencyKey={randomUUID()} />

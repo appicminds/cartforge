@@ -32,6 +32,8 @@ import {
   type CheckoutUpdate,
 } from "@cartforge/validation";
 import { Public } from "../auth/decorators";
+import { PrismaService } from "../prisma/prisma.service";
+import { CustomerAccountsService } from "./customers/customer-accounts.service";
 import { RateLimitService } from "../auth/rate-limit.service";
 import { AppException } from "../common/app-exception";
 import { ApiZodBody } from "../common/openapi";
@@ -74,6 +76,8 @@ export class StorefrontCommerceController {
     private readonly idempotency: IdempotencyService,
     private readonly reservations: ReservationsService,
     private readonly limits: RateLimitService,
+    private readonly accounts: CustomerAccountsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private async cart(req: Request, res: Response, opts: { allowConverted?: boolean } = {}) {
@@ -209,10 +213,18 @@ export class StorefrontCommerceController {
         key: req.get(COMMERCE_HEADERS.IDEMPOTENCY_KEY),
         request: body,
       },
-      async () => ({
-        status: 201,
-        body: await this.checkout.complete(cart, body.expected_total_minor),
-      }),
+      async () => {
+        // Next 7: a signed-in customer owns the order (instead of matching by email).
+        const customerId = await this.accounts.resolve(cart.store_id, req.get("x-customer-token"));
+        if (customerId && cart.customer_id !== customerId) {
+          await this.prisma.cart.update({
+            where: { id: cart.id },
+            data: { customer_id: customerId },
+          });
+          cart.customer_id = customerId;
+        }
+        return { status: 201, body: await this.checkout.complete(cart, body.expected_total_minor) };
+      },
     );
     res.status(result.status);
     if (result.replayed) res.setHeader("Idempotent-Replayed", "true");

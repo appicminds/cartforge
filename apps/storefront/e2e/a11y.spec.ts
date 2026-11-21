@@ -30,6 +30,9 @@ test.describe("storefront accessibility", () => {
     ["search results", `/search?q=${RUN}`],
     ["empty search", "/search"],
     ["not found", "/products/definitely-not-here"],
+    ["sign in", "/account/login"],
+    ["create account", "/account/register"],
+    ["forgot password", "/account/forgot"],
   ];
 
   for (const [name, i] of [
@@ -41,6 +44,9 @@ test.describe("storefront accessibility", () => {
     ["search results", 5],
     ["empty search", 6],
     ["not found", 7],
+    ["sign in", 8],
+    ["create account", 9],
+    ["forgot password", 10],
   ] as const) {
     test(`${name} has no WCAG 2.1 AA violations`, async ({ page }) => {
       await page.goto(pages()[i]![1]!);

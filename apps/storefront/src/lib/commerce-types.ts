@@ -7,6 +7,9 @@ export type {
   CommerceAddress,
   FieldError,
   OrderConfirmation,
+  OrderListItem,
+  StorefrontCustomer,
+  CustomerAddressView,
   PaymentOption,
   PaymentRedirect,
   PlacedOrder,
@@ -41,6 +44,8 @@ export interface AddressInput {
 
 export interface FormState {
   message?: string;
+  /** The action succeeded and the message is a confirmation, not an error. */
+  done?: boolean;
   /** Field path → message (e.g. "shipping_address.city"). */
   errors?: Record<string, string>;
 }

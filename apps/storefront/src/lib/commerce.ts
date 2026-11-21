@@ -5,8 +5,11 @@ import type {
   CheckoutView,
   FieldError,
   OrderConfirmation,
+  OrderListItem,
   PaymentRedirect,
   PlacedOrder,
+  StorefrontCustomer,
+  AddressInput,
 } from "./commerce-types";
 import { cookies, headers } from "next/headers";
 import { config, site } from "./config";
@@ -117,12 +120,15 @@ export const commerce = {
   openCheckout: (token: string) => call<CheckoutView>("POST", "/checkout", { token }),
   updateCheckout: (token: string, body: CheckoutUpdateInput) =>
     call<CheckoutView>("PATCH", "/checkout", { token, body }),
-  complete: (token: string, key: string, expected_total_minor: number) =>
-    call<PlacedOrder>("POST", "/checkout/complete", {
+  complete: async (token: string, key: string, expected_total_minor: number) => {
+    // Signed-in shoppers own their order (Next 7).
+    const customer = await customerToken();
+    return call<PlacedOrder>("POST", "/checkout/complete", {
       token,
       body: { expected_total_minor },
-      headers: { "Idempotency-Key": key },
-    }),
+      headers: { "Idempotency-Key": key, ...(customer ? { "X-Customer-Token": customer } : {}) },
+    });
+  },
   order: (id: string, key: string) =>
     call<OrderConfirmation>("GET", `/orders/${encodeURIComponent(id)}`, {
       headers: { "X-Order-Key": key },
@@ -150,4 +156,84 @@ export async function currentCart(): Promise<{ token: string; cart: CartView } |
   if (!token) return null;
   const r = await commerce.getCart(token);
   return r.ok ? { token, cart: r.data } : null;
+}
+
+// ───────────── Customer accounts (Next 7) ─────────────
+
+/** The storefront's own sign-in cookie; the API only ever sees the token in a header. */
+export const CUSTOMER_COOKIE = "cf_customer";
+
+export async function customerToken(): Promise<string | undefined> {
+  return (await cookies()).get(CUSTOMER_COOKIE)?.value;
+}
+
+export async function rememberCustomer(token: string) {
+  (await cookies()).set(CUSTOMER_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60,
+  });
+}
+
+export async function forgetCustomer() {
+  (await cookies()).delete(CUSTOMER_COOKIE);
+}
+
+const asCustomer = (token: string) => ({ "X-Customer-Token": token });
+
+export const account = {
+  register: (body: {
+    email: string;
+    password: string;
+    first_name: string | null;
+    last_name: string | null;
+    accepts_marketing: boolean;
+  }) => call<{ token: string | null; link_sent: boolean }>("POST", "/account/register", { body }),
+  login: (email: string, password: string) =>
+    call<{ token: string }>("POST", "/account/login", { body: { email, password } }),
+  logout: (token: string) => call<null>("POST", "/account/logout", { headers: asCustomer(token) }),
+  forgot: (email: string) =>
+    call<{ accepted: true }>("POST", "/account/password/forgot", { body: { email } }),
+  reset: (token: string, password: string) =>
+    call<{ token: string }>("POST", "/account/password/reset", { body: { token, password } }),
+  me: (token: string) =>
+    call<StorefrontCustomer>("GET", "/account", { headers: asCustomer(token) }),
+  update: (
+    token: string,
+    body: {
+      first_name: string | null;
+      last_name: string | null;
+      phone: string | null;
+      accepts_marketing: boolean;
+    },
+  ) => call<StorefrontCustomer>("PATCH", "/account", { headers: asCustomer(token), body }),
+  saveAddress: (token: string, body: { address: AddressInput; is_default: boolean }, id?: string) =>
+    call<StorefrontCustomer>(
+      id ? "PATCH" : "POST",
+      id ? `/account/addresses/${encodeURIComponent(id)}` : "/account/addresses",
+      {
+        headers: asCustomer(token),
+        body,
+      },
+    ),
+  deleteAddress: (token: string, id: string) =>
+    call<StorefrontCustomer>("DELETE", `/account/addresses/${encodeURIComponent(id)}`, {
+      headers: asCustomer(token),
+    }),
+  orders: (token: string) =>
+    call<OrderListItem[]>("GET", "/account/orders", { headers: asCustomer(token) }),
+  order: (token: string, id: string) =>
+    call<OrderConfirmation>("GET", `/account/orders/${encodeURIComponent(id)}`, {
+      headers: asCustomer(token),
+    }),
+};
+
+/** The signed-in customer, or null (a stale cookie counts as signed out). */
+export async function currentCustomer(): Promise<StorefrontCustomer | null> {
+  const token = await customerToken();
+  if (!token) return null;
+  const r = await account.me(token);
+  return r.ok ? r.data : null;
 }
