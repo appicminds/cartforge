@@ -69,4 +69,11 @@ test("create, list and switch off discounts", async ({ page }) => {
   await page.goto("/admin/discounts");
   await page.getByRole("searchbox", { name: "Search discounts" }).fill(`SALE${RUN}`);
   await expect(page.getByRole("row").filter({ hasText: `SALE${RUN}` })).toContainText("Off");
+
+  // Leave the shared demo store without an automatic discount (other tests price its checkout).
+  await page.getByRole("searchbox", { name: "Search discounts" }).fill(`Free delivery ${RUN}`);
+  await page.getByRole("link", { name: `Free delivery ${RUN}` }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Discount deleted")).toBeVisible();
 });

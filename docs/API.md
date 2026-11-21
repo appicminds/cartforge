@@ -355,6 +355,23 @@ market `currency` and `market_available`. `POST /storefront/cart` takes `X-Marke
 one market per country (`MARKET_COUNTRY_TAKEN`), PKR-only payment methods only in PKR markets, a
 rate for manual markets, live mode only when `FX_PROVIDER` is configured.
 
+## Discounts (Next 8)
+
+See `DISCOUNTS.md`.
+
+| Method & path                           | Auth / permission    | Purpose                                                                                                                                                                                                                            |
+| --------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /discounts`                        | store.read           | List with `status`, `used_count`, `summary` (`q`: title or code, `status`)                                                                                                                                                         |
+| `GET /discounts/:id`                    | store.read           | One discount                                                                                                                                                                                                                       |
+| `POST /discounts`, `PUT /discounts/:id` | store.settings.write | `{ title, method: code·automatic, code, kind: order·products·bxgy·shipping, value_type, value, target, buy, min_subtotal_minor, min_quantity, starts_at, ends_at, usage_limit, once_per_customer, combines, market_ids, enabled }` |
+| `DELETE /discounts/:id`                 | store.settings.write | Delete (orders keep their record)                                                                                                                                                                                                  |
+
+Checkout: `PATCH /storefront/checkout { discount_code }` (null removes) → `422` on
+`discount_code` with the reason. The view adds `discount_code`, `discounts[]` (`{ id, title,
+code, kind, amount_minor }`), `discount_note` and `totals.shipping_discount_minor`
+(`totals.shipping_minor` is after it). Placing the order can answer `409 DISCOUNT_USED_UP` if a
+limit was reached meanwhile. Order views (customer and admin) include `discounts[]`.
+
 ## Quick example
 
 ```bash

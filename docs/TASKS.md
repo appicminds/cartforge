@@ -467,3 +467,16 @@ Goal: sell abroad from one store, Shopify-Markets style, with Pakistani needs fi
 | MK-04 | Storefront market from choice/location, footer selector, cart re-pricing                                    | ✅     | storefront `markets.spec`                        |
 | MK-05 | Checkout: market countries, converted shipping, payment methods per market; orders valued in store currency | ✅     | `markets.e2e`                                    |
 | MK-06 | Platform admin: change a store's currency before its first order, keeping shown prices                      | ✅     | `store-currency.e2e`, admin `transfer.spec`      |
+
+## Next 8 — Discounts
+
+Goal (PRD §19): discount codes and automatic discounts, as merchants know them from Shopify. See
+`DISCOUNTS.md`.
+
+| ID    | Task                                                                                                    | Status | Evidence                                     |
+| ----- | ------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
+| DS-01 | Engine: order, products, buy X get Y, free shipping; minimums; best single deal or combinable set       | ✅     | engine `discounts.test`                      |
+| DS-02 | Discounts API: codes (unique per store) and automatic; dates, limits, once per customer, markets        | ✅     | `discounts.e2e`                              |
+| DS-03 | Checkout: code entry with reasons and hints, per-line allocation, market conversion; orders record them | ✅     | `discounts.e2e`, storefront `discounts.spec` |
+| DS-04 | Usage counted at order time with row locks (no overshoot)                                               | ✅     | `discounts.e2e`                              |
+| DS-05 | Admin list and Shopify-style editor; order page discount lines                                          | ✅     | admin `discounts.spec`                       |
