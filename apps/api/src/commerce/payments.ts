@@ -56,6 +56,25 @@ const offline = (
   },
 });
 
+/** 0300 1234567 */
+const spaced = (n: string) => (n.length === 11 ? `${n.slice(0, 4)} ${n.slice(4)}` : n);
+/** PK36 SCBL 0000 0011 2345 6702 */
+const ibanGroups = (v: string) => v.replace(/(.{4})/g, "$1 ").trim();
+
+function walletInstructions(s: CheckoutSettings, orderNumber: string): string {
+  const lines = [
+    "Send the order total to any of these:",
+    s.wallet_jazzcash && `• JazzCash: ${spaced(s.wallet_jazzcash)}`,
+    s.wallet_easypaisa && `• Easypaisa: ${spaced(s.wallet_easypaisa)}`,
+    s.wallet_raast_id && `• Raast ID: ${spaced(s.wallet_raast_id)}`,
+    s.wallet_iban && `• IBAN: ${ibanGroups(s.wallet_iban)}`,
+    `Account title: ${s.wallet_account_title}`,
+    `Reference: order ${orderNumber}`,
+    s.wallet_note,
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
 export const PAYMENT_PROVIDERS: PaymentProvider[] = [
   offline(
     "bank_transfer",
@@ -64,6 +83,13 @@ export const PAYMENT_PROVIDERS: PaymentProvider[] = [
     (s) => s.bank_transfer_enabled,
     (s, n) =>
       `${s.bank_transfer_instructions}\n\nUse order number ${n} as the payment reference.`.trim(),
+  ),
+  offline(
+    "wallet_transfer",
+    "JazzCash, Easypaisa or Raast transfer",
+    "Send the amount from your mobile wallet or banking app. Your order ships once it arrives.",
+    (s) => s.wallet_enabled,
+    walletInstructions,
   ),
   offline(
     "cod",

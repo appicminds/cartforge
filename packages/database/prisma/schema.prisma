@@ -1087,6 +1087,14 @@ model CheckoutSettings {
   cod_instructions           String   @default("") @db.VarChar(1000)
   bank_transfer_enabled      Boolean  @default(false)
   bank_transfer_instructions String   @default("") @db.VarChar(1000)
+  /// Next 5: pay by mobile wallet / Raast / IBAN transfer (Pakistan), confirmed by the merchant.
+  wallet_enabled             Boolean  @default(false)
+  wallet_jazzcash            String   @default("") @db.VarChar(20)
+  wallet_easypaisa           String   @default("") @db.VarChar(20)
+  wallet_raast_id            String   @default("") @db.VarChar(40)
+  wallet_iban                String   @default("") @db.VarChar(34)
+  wallet_account_title       String   @default("") @db.VarChar(100)
+  wallet_note                String   @default("") @db.VarChar(500)
   updated_by                 String?  @db.Uuid
   updated_at                 DateTime @updatedAt @db.Timestamptz(3)
 

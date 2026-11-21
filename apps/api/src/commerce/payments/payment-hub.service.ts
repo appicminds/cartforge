@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Logger } from "@nestjs/common";
+import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import {
   COMMERCE_ERROR_CODES,
   PAYMENT_ERROR_CODES,
@@ -8,6 +8,8 @@ import {
 import { safeEqual, sha256 } from "../../auth/tokens";
 import { AppException } from "../../common/app-exception";
 import { PrismaService } from "../../prisma/prisma.service";
+import { API_ENV, type ApiEnv } from "../../config/env";
+import { DomainsService } from "../../platform/domains.service";
 import { OrderActionsService } from "../order-actions.service";
 import { PaymentAccountsService } from "./accounts.service";
 import { ProviderError, SignatureError, type WebhookResult } from "./provider";
@@ -34,13 +36,20 @@ export class PaymentHubService {
     private readonly prisma: PrismaService,
     private readonly accounts: PaymentAccountsService,
     private readonly orders: OrderActionsService,
+    private readonly domains: DomainsService,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
   /**
    * Shopper wants to pay (right after checkout, or "Pay now" later). The order key
    * from the confirmation link is required. Each call starts a fresh attempt.
    */
-  async start(storeId: string, orderId: string, key: string | undefined): Promise<PaymentRedirect> {
+  async start(
+    storeId: string,
+    orderId: string,
+    key: string | undefined,
+    returnOrigin?: string,
+  ): Promise<PaymentRedirect> {
     const o = await this.prisma.order.findFirst({
       where: { id: orderId, store_id: storeId },
       include: {
@@ -85,8 +94,8 @@ export class PaymentHubService {
         email: o.email,
         phone: o.phone,
         description: `${store.name} order ${o.number}`,
-        return_url: await this.accounts.returnUrl(storeId, p.provider),
-        cancel_url: await this.accounts.returnUrl(storeId, p.provider, "?cancel=1"),
+        return_url: await this.returnTo(storeId, p.provider, returnOrigin),
+        cancel_url: await this.returnTo(storeId, p.provider, returnOrigin, true),
         webhook_url: this.accounts.webhookUrl(storeId, p.provider),
       });
       await this.prisma.payment.update({
@@ -109,6 +118,30 @@ export class PaymentHubService {
         HttpStatus.BAD_GATEWAY,
       );
     }
+  }
+
+  /**
+   * Bring the shopper back to the address they're on (their order cookie lives
+   * there), but only if that address belongs to this store.
+   */
+  private async returnTo(
+    storeId: string,
+    provider: string,
+    origin: string | undefined,
+    cancel = false,
+  ) {
+    if (origin) {
+      try {
+        const u = new URL(origin);
+        const ownHost = (await this.domains.resolve(u.hostname))?.store_id === storeId;
+        const shared = this.env.STOREFRONT_URL && new URL(this.env.STOREFRONT_URL).host === u.host;
+        if ((u.protocol === "https:" || u.hostname.endsWith("localhost")) && (ownHost || shared))
+          return `${u.origin}${this.accounts.returnPath(storeId, provider, cancel)}`;
+      } catch {
+        /* fall through to the store's own address */
+      }
+    }
+    return this.accounts.returnUrl(storeId, provider, cancel);
   }
 
   /** The shopper came back from the provider (parameters forwarded by the storefront). */

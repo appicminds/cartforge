@@ -172,6 +172,21 @@ export default async function OrderPage({ params, searchParams }: Props) {
           <h2 id="pay-h" className="font-body text-lg font-semibold">
             {o.payment.label} · {PAYMENT_STATUS[o.payment_status] ?? o.payment_status}
           </h2>
+          {o.payment.can_pay && (
+            <div className="mt-3">
+              {o.payment.failure_reason && (
+                <p className="text-sm" role="status">
+                  Last attempt: {o.payment.failure_reason}
+                </p>
+              )}
+              <Link
+                href={`/checkout/pay/${o.id}?key=${encodeURIComponent(key)}`}
+                className="sf-button mt-3"
+              >
+                Pay now
+              </Link>
+            </div>
+          )}
           {o.payment.instructions && o.payment_status === "pending" && (
             <p className="mt-2 whitespace-pre-line text-sm" data-testid="payment-instructions">
               {o.payment.instructions}

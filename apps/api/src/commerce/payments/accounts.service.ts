@@ -43,8 +43,16 @@ export class PaymentAccountsService {
     return `${base}/api/v1/payments/webhooks/${provider}/${storeId}`;
   }
 
-  async returnUrl(storeId: string, provider: string, extra = ""): Promise<string> {
-    const path = `/checkout/return/${provider}${extra}`;
+  /**
+   * Where the provider sends the shopper back. The store id travels in the address:
+   * providers return by cross-site POST, which carries no SameSite=Lax cookies.
+   */
+  returnPath(storeId: string, provider: string, cancel = false): string {
+    return `/checkout/return/${provider}?sid=${storeId}${cancel ? "&cancel=1" : ""}`;
+  }
+
+  async returnUrl(storeId: string, provider: string, cancel = false): Promise<string> {
+    const path = this.returnPath(storeId, provider, cancel);
     return (await this.domains.storefrontLink(storeId, path)) ?? path;
   }
 

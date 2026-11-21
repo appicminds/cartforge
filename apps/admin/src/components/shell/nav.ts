@@ -9,6 +9,7 @@ import {
   Package,
   Receipt,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { PERMISSIONS, type Permission } from "@cartforge/types";
@@ -75,6 +76,12 @@ export const NAV: NavSection[] = [
         label: "Checkout",
         href: "/admin/settings/checkout",
         icon: CreditCard,
+        permission: PERMISSIONS.STORE_READ,
+      },
+      {
+        label: "Payments",
+        href: "/admin/settings/payments",
+        icon: Wallet,
         permission: PERMISSIONS.STORE_READ,
       },
       {

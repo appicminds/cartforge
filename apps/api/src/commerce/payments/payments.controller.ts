@@ -149,6 +149,12 @@ export class StorefrontPaymentsController {
   @Post("orders/:id/payment")
   @HttpCode(200)
   @ApiHeader({ name: "X-Order-Key", required: true })
+  @ApiHeader({
+    name: "X-Shopper-Origin",
+    required: false,
+    description:
+      "Storefront address the shopper is on (used for the return trip if it's this store's)",
+  })
   @ApiOperation({
     summary: "Start (or retry) paying an order online; answers where to send the shopper",
   })
@@ -160,7 +166,12 @@ export class StorefrontPaymentsController {
     res.setHeader("Cache-Control", NO_STORE);
     const store = await this.storefront.assertStore(req.get(HEADERS.STORE_ID));
     return {
-      data: await this.hub.start(store.id, id, req.get(COMMERCE_HEADERS.ORDER_KEY)),
+      data: await this.hub.start(
+        store.id,
+        id,
+        req.get(COMMERCE_HEADERS.ORDER_KEY),
+        req.get("x-shopper-origin") ?? undefined,
+      ),
       request_id: String(req.id),
     };
   }

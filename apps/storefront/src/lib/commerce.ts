@@ -5,6 +5,7 @@ import type {
   CheckoutView,
   FieldError,
   OrderConfirmation,
+  PaymentRedirect,
   PlacedOrder,
 } from "./commerce-types";
 import { cookies, headers } from "next/headers";
@@ -26,9 +27,9 @@ export type ApiResult<T> = { ok: true; data: T; status: number; headers: Headers
 async function call<T>(
   method: string,
   path: string,
-  opts: { token?: string; body?: unknown; headers?: Record<string, string> } = {},
+  opts: { token?: string; body?: unknown; headers?: Record<string, string>; storeId?: string } = {},
 ): Promise<ApiResult<T>> {
-  const { storeId } = await site();
+  const storeId = opts.storeId ?? (await site()).storeId;
   const res = await fetch(`${config.apiUrl}/api/v1/storefront${path}`, {
     method,
     cache: "no-store",
@@ -91,6 +92,16 @@ async function shopperIp(): Promise<string> {
   return (h.get("x-forwarded-for") ?? "").split(",")[0]!.trim() || h.get("x-real-ip") || "";
 }
 
+/** The public address this request came in on (behind the admin's proxy too). */
+async function shopperOrigin(): Promise<string> {
+  const h = await headers();
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0]!.trim();
+  const proto =
+    (h.get("x-forwarded-proto") ?? "").split(",")[0]!.trim() ||
+    (host.includes("localhost") ? "http" : "https");
+  return host ? `${proto}://${host}` : "";
+}
+
 export const commerce = {
   createCart: async () =>
     call<{ token: string; cart: CartView }>("POST", "/cart", {
@@ -116,7 +127,22 @@ export const commerce = {
     call<OrderConfirmation>("GET", `/orders/${encodeURIComponent(id)}`, {
       headers: { "X-Order-Key": key },
     }),
+  /** Next 5: start (or retry) paying online; answers where to send the shopper. */
+  startPayment: async (id: string, key: string) =>
+    call<PaymentRedirect>("POST", `/orders/${encodeURIComponent(id)}/payment`, {
+      headers: { "X-Order-Key": key, "X-Shopper-Origin": await shopperOrigin() },
+    }),
+  /** What the provider sent back, verified by the API. */
+  paymentReturn: (provider: string, params: Record<string, string>, storeId?: string) =>
+    call<{ order_id: string | null; outcome: string; redirect: PaymentRedirect | null }>(
+      "POST",
+      `/payments/${encodeURIComponent(provider)}/return`,
+      { body: { params }, storeId },
+    ),
 };
+
+/** Remembers the last order's private key in this browser, for the trip to the payment page and back. */
+export const LAST_ORDER_COOKIE = "cf_last_order";
 
 /** The current cart for rendering, or null (no cookie, expired, or converted). */
 export async function currentCart(): Promise<{ token: string; cart: CartView } | null> {

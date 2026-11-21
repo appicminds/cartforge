@@ -1,8 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { cartToken, commerce, forgetCart, type ApiFailure } from "@/lib/commerce";
+import {
+  cartToken,
+  commerce,
+  forgetCart,
+  type ApiFailure,
+  LAST_ORDER_COOKIE,
+} from "@/lib/commerce";
 import type { AddressInput, CheckoutUpdateInput, FormState } from "@/lib/commerce-types";
 
 const str = (fd: FormData, k: string) => {
@@ -104,5 +111,14 @@ export async function placeOrder(_prev: FormState, fd: FormData): Promise<FormSt
     return failure(r);
   }
   await forgetCart();
-  redirect(`/orders/${r.data.order_id}?key=${encodeURIComponent(r.data.access_key)}`);
+  const target = `${r.data.order_id}?key=${encodeURIComponent(r.data.access_key)}`;
+  // Online payment: keep the key in this browser for the return trip, then go pay.
+  (await cookies()).set(LAST_ORDER_COOKIE, `${r.data.order_id}.${r.data.access_key}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 24 * 60 * 60,
+  });
+  redirect(r.data.pay_online ? `/checkout/pay/${target}` : `/orders/${target}`);
 }

@@ -637,5 +637,68 @@ describe("payment hub (Next 5)", () => {
       expect(gateway.calls.at(-1)!.headers.Credentials).toBe(Buffer.from("u:p").toString("base64"));
       expect((await orderOf(s.owner, o.orderId)).payment_status).toBe("paid");
     });
+
+    it("wallet / Raast transfer: validated numbers, clear instructions, merchant confirms", async () => {
+      const current = (await s.owner.get("/settings/checkout").expect(200)).body.data;
+      const bad = await s.owner
+        .put("/settings/checkout", {
+          ...current,
+          wallet_enabled: true,
+          wallet_jazzcash: "12345",
+          wallet_iban: "PK00",
+        })
+        .expect(422);
+      const paths = bad.body.error.fields.map((f: { path: string }) => f.path);
+      expect(paths).toEqual(
+        expect.arrayContaining(["wallet_jazzcash", "wallet_iban", "wallet_account_title"]),
+      );
+
+      const saved = (
+        await s.owner
+          .put("/settings/checkout", {
+            ...current,
+            wallet_enabled: true,
+            wallet_jazzcash: "+92 300-1234567",
+            wallet_raast_id: "0345 7654321",
+            wallet_iban: "pk36 scbl 0000 0011 2345 6702",
+            wallet_account_title: "Silsila Studio",
+            wallet_note: "Send a screenshot on WhatsApp 0300 1234567.",
+          })
+          .expect(200)
+      ).body.data;
+      expect(saved).toMatchObject({
+        wallet_jazzcash: "03001234567",
+        wallet_iban: "PK36SCBL0000001123456702",
+      });
+
+      const o = await placeOrder(s, "wallet_transfer");
+      const customer = (
+        await http()
+          .get(`/api/v1/storefront/orders/${o.orderId}`)
+          .set("X-Store-Id", s.id)
+          .set("X-Order-Key", o.key)
+          .expect(200)
+      ).body.data;
+      expect(customer.payment).toMatchObject({
+        method: "wallet_transfer",
+        online: false,
+        can_pay: false,
+      });
+      expect(customer.payment.instructions).toBe(
+        [
+          "Send the order total to any of these:",
+          "• JazzCash: 0300 1234567",
+          "• Raast ID: 0345 7654321",
+          "• IBAN: PK36 SCBL 0000 0011 2345 6702",
+          "Account title: Silsila Studio",
+          `Reference: order ${customer.number}`,
+          "Send a screenshot on WhatsApp 0300 1234567.",
+        ].join("\n"),
+      );
+      expect(o.placed.pay_online).toBe(false);
+      await s.owner
+        .post(`/orders/${o.orderId}/mark-paid`, { reference: "Raast TID 998877" })
+        .expect(200);
+    });
   });
 });

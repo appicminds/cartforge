@@ -8,6 +8,7 @@ export type {
   FieldError,
   OrderConfirmation,
   PaymentOption,
+  PaymentRedirect,
   PlacedOrder,
   ShippingOption,
 } from "@cartforge/types";

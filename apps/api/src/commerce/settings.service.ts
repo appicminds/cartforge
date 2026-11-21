@@ -83,6 +83,7 @@ export class CommerceSettingsService {
           tax_rate_bps: input.tax_rate_bps,
           cod_enabled: input.cod_enabled,
           bank_transfer_enabled: input.bank_transfer_enabled,
+          wallet_enabled: input.wallet_enabled,
         },
         request_id: actor.request_id,
       });

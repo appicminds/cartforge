@@ -25,6 +25,25 @@ export type CustomField = z.output<typeof customFieldSchema>;
 
 const instructions = z.string().trim().max(1000).default("");
 
+/** Pakistani mobile number as wallets and Raast use it: 03XXXXXXXXX (spaces, dashes, +92 accepted). */
+const pkMobile = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s-]/g, "").replace(/^\+?92/, "0"))
+  .refine((v) => v === "" || /^03\d{9}$/.test(v), "Use a mobile number like 0300 1234567")
+  .default("");
+
+/** Pakistani IBAN: PK, 2 check digits, 4-letter bank code, 16 digits. */
+const pkIban = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/\s+/g, "").toUpperCase())
+  .refine(
+    (v) => v === "" || /^PK\d{2}[A-Z]{4}\d{16}$/.test(v),
+    "Use an IBAN like PK36 SCBL 0000 0011 2345 6702",
+  )
+  .default("");
+
 export const checkoutSettingsSchema = z
   .object({
     /** 0–100% in basis points. */
@@ -56,8 +75,30 @@ export const checkoutSettingsSchema = z
     cod_instructions: instructions,
     bank_transfer_enabled: z.boolean().default(false),
     bank_transfer_instructions: instructions,
+    // Mobile wallet / Raast transfer (Pakistan).
+    wallet_enabled: z.boolean().default(false),
+    wallet_jazzcash: pkMobile,
+    wallet_easypaisa: pkMobile,
+    wallet_raast_id: pkMobile,
+    wallet_iban: pkIban,
+    wallet_account_title: z.string().trim().max(100).default(""),
+    wallet_note: z.string().trim().max(500).default(""),
   })
   .superRefine((s, ctx) => {
+    if (s.wallet_enabled) {
+      if (!s.wallet_jazzcash && !s.wallet_easypaisa && !s.wallet_raast_id && !s.wallet_iban)
+        ctx.addIssue({
+          code: "custom",
+          path: ["wallet_jazzcash"],
+          message: "Add at least one wallet number, Raast ID or IBAN",
+        });
+      if (!s.wallet_account_title)
+        ctx.addIssue({
+          code: "custom",
+          path: ["wallet_account_title"],
+          message: "Add the account title customers will see",
+        });
+    }
     if (s.bank_transfer_enabled && !s.bank_transfer_instructions)
       ctx.addIssue({
         code: "custom",

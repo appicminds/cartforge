@@ -127,7 +127,7 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
         <Card>
           <CardHeader
             title="Payment methods"
-            description="Offline methods available now. Card and wallet providers arrive with the Payment Hub."
+            description="Methods you confirm yourself. Card and wallet gateways are under Settings → Payments."
           />
           <CardBody className="flex flex-col gap-5">
             <div className="flex flex-col gap-3">
@@ -159,6 +159,102 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
             </div>
             <div className="flex flex-col gap-3">
               <Toggle
+                label="JazzCash, Easypaisa or Raast transfer"
+                description="Customers send money to your wallet, Raast ID or bank account; you mark the order paid when it arrives. No gateway fees."
+                checked={s.wallet_enabled}
+                onChange={(v) => set("wallet_enabled", v)}
+              />
+              {s.wallet_enabled && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="JazzCash number"
+                    error={errors.wallet_jazzcash}
+                    hint="e.g. 0300 1234567"
+                  >
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        inputMode="tel"
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        value={s.wallet_jazzcash}
+                        onChange={(e) => set("wallet_jazzcash", e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Easypaisa number" error={errors.wallet_easypaisa}>
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        inputMode="tel"
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        value={s.wallet_easypaisa}
+                        onChange={(e) => set("wallet_easypaisa", e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    label="Raast ID"
+                    error={errors.wallet_raast_id}
+                    hint="The mobile number linked to Raast."
+                  >
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        inputMode="tel"
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        value={s.wallet_raast_id}
+                        onChange={(e) => set("wallet_raast_id", e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    label="IBAN"
+                    error={errors.wallet_iban}
+                    hint="PK followed by 22 characters."
+                  >
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        value={s.wallet_iban}
+                        onChange={(e) => set("wallet_iban", e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Account title" required error={errors.wallet_account_title}>
+                    {({ id, describedBy, invalid }) => (
+                      <Input
+                        id={id}
+                        aria-describedby={describedBy}
+                        invalid={invalid}
+                        value={s.wallet_account_title}
+                        onChange={(e) => set("wallet_account_title", e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    label="Note for customers"
+                    error={errors.wallet_note}
+                    hint="Optional, e.g. where to send the receipt."
+                  >
+                    {({ id, describedBy }) => (
+                      <Input
+                        id={id}
+                        aria-describedby={describedBy}
+                        value={s.wallet_note}
+                        onChange={(e) => set("wallet_note", e.target.value)}
+                      />
+                    )}
+                  </Field>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              <Toggle
                 label="Cash on delivery"
                 description="Customers pay the courier when the order arrives."
                 checked={s.cod_enabled}
@@ -178,9 +274,10 @@ function SettingsForm({ initial, canEdit }: { initial: CheckoutSettings; canEdit
                 </Field>
               )}
             </div>
-            {!s.cod_enabled && !s.bank_transfer_enabled && (
+            {!s.cod_enabled && !s.bank_transfer_enabled && !s.wallet_enabled && (
               <Alert tone="warning" title="Checkout is closed">
-                Turn on at least one payment method so customers can place orders.
+                Turn on at least one payment method here or under Settings → Payments so customers
+                can place orders.
               </Alert>
             )}
           </CardBody>
