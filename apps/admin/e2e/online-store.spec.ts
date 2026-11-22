@@ -97,7 +97,7 @@ test("customize a theme in the editor", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 2, name: "Image banner (image only)" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Select image" }).first().click();
+  await page.getByRole("button", { name: "Image", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Choose an image" })
     .getByRole("listitem")
