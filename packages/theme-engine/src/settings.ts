@@ -15,6 +15,27 @@ const o = (...pairs: [string, string][]) => pairs.map(([value, label]) => ({ val
 
 export const GLOBAL_SETTINGS: SettingsGroup[] = [
   {
+    key: "colors",
+    name: "Colors",
+    settings: [
+      {
+        id: "primary_color",
+        type: "color",
+        label: "Brand color",
+        default: "#1f3a33",
+        info: "Buttons, links and highlights use it, and the color schemes are built from it.",
+      },
+      {
+        id: "auto_schemes",
+        type: "checkbox",
+        label: "Build color schemes from the brand color",
+        default: true,
+        info: "Turn off to choose every color yourself.",
+      },
+      { id: "sale_color", type: "color", label: "Sale price and badge", default: "#a1271b" },
+    ],
+  },
+  {
     key: "typography",
     name: "Typography",
     settings: [
@@ -121,13 +142,6 @@ export const GLOBAL_SETTINGS: SettingsGroup[] = [
       },
       { id: "card_show_vendor", type: "checkbox", label: "Show vendor", default: false },
       { id: "card_sale_badge", type: "checkbox", label: "Show “Sale” badge", default: true },
-    ],
-  },
-  {
-    key: "colors",
-    name: "Colors",
-    settings: [
-      { id: "sale_color", type: "color", label: "Sale price and badge", default: "#a1271b" },
     ],
   },
   {

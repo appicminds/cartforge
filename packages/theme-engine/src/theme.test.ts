@@ -104,7 +104,7 @@ describe("theme engine", () => {
     const t = PRESETS.find((p) => p.key === "bazaar")!.build();
     const css = themeCss(t);
     expect(css).toContain(":root{--sf-bg:#ffffff");
-    expect(css).toContain(".sf-scheme-scheme-3{--sf-bg:#141414");
+    expect(css).toContain(".sf-scheme-scheme-3{--sf-bg:#8a1c3b");
     expect(css).toContain('--sf-font-heading:"Montserrat"');
     expect(css).toContain("--sf-radius:0px");
     expect(googleFontsUrl(["montserrat", "jost", "sans"])).toBe(
@@ -128,6 +128,44 @@ describe("theme engine", () => {
     expect(parseVideo("https://youtu.be/dQw4w9WgXcQ")?.id).toBe("dQw4w9WgXcQ");
     expect(parseVideo("https://vimeo.com/76979871")).toEqual({ provider: "vimeo", id: "76979871" });
     expect(parseVideo("https://evil.example/watch?v=dQw4w9WgXcQ")).toBeNull();
+  });
+
+  it("builds readable color schemes from any brand color", () => {
+    for (const primary of [
+      "#ffd400",
+      "#f7f7f7",
+      "#f97316",
+      "#000000",
+      "#0ea5e9",
+      "#8a1c3b",
+      "#22c55e",
+    ]) {
+      const t = defaultTheme();
+      t.settings.primary_color = primary;
+      const { theme, errors } = validateTheme(JSON.parse(JSON.stringify(t)));
+      expect(errors, primary).toEqual([]);
+      expect(theme.color_schemes[0]!.accent, primary).toBe(primary);
+      expect(
+        contrastProblems({ ...theme, settings: { ...theme.settings, sale_color: "#a1271b" } }),
+        primary,
+      ).toEqual({});
+    }
+  });
+
+  it("keeps hand-picked schemes when auto is off, and for themes saved before brand colors", () => {
+    const t = defaultTheme();
+    t.settings.auto_schemes = false;
+    t.color_schemes[0]!.accent = "#123456";
+    expect(validateTheme(JSON.parse(JSON.stringify(t))).theme.color_schemes[0]!.accent).toBe(
+      "#123456",
+    );
+    const old = JSON.parse(JSON.stringify(defaultTheme()));
+    delete old.settings.primary_color;
+    delete old.settings.auto_schemes;
+    old.color_schemes[0].accent = "#654321";
+    const r = validateTheme(old).theme;
+    expect(r.color_schemes[0]!.accent).toBe("#654321");
+    expect(r.settings).toMatchObject({ primary_color: "#654321", auto_schemes: false });
   });
 
   it("knows where each section can be added", () => {

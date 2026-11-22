@@ -80,6 +80,7 @@ export const PRESETS: Preset[] = [
     build: () =>
       theme(
         {
+          primary_color: "#1f3a33",
           heading_font: "serif",
           body_font: "sans",
           button_radius: 6,
@@ -143,6 +144,7 @@ export const PRESETS: Preset[] = [
     build: () =>
       theme(
         {
+          primary_color: "#8a1c3b",
           heading_font: "montserrat",
           body_font: "jost",
           heading_weight: "700",
@@ -236,6 +238,7 @@ export const PRESETS: Preset[] = [
     build: () =>
       theme(
         {
+          primary_color: "#111111",
           heading_font: "inter",
           body_font: "inter",
           heading_weight: "500",

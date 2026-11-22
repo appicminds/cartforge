@@ -1,4 +1,5 @@
 import { SCHEME_ID, defaults, parseSettings, type FieldError } from "./fields";
+import { withBrandSchemes } from "./colors";
 import { FONT_KEYS } from "./fonts";
 import {
   MAIN_SECTION,
@@ -229,13 +230,29 @@ export function validateTheme(
   const errors: FieldError[] = [];
   const e = strict ? errors : null;
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const color_schemes = schemesOf(r.color_schemes, e);
+  const rawSettings = (r.settings && typeof r.settings === "object" ? r.settings : {}) as Record<
+    string,
+    unknown
+  >;
+  // Brand colors: the three main schemes follow the primary color (unless turned off).
+  let color_schemes = schemesOf(r.color_schemes, e);
+  if (
+    rawSettings.auto_schemes !== false &&
+    typeof rawSettings.primary_color === "string" &&
+    HEX.test(rawSettings.primary_color)
+  )
+    color_schemes = withBrandSchemes(color_schemes, rawSettings.primary_color.toLowerCase());
   const ctx = {
     fonts: FONT_KEYS,
     schemes: new Set(color_schemes.map((s) => s.id)),
     firstScheme: color_schemes[0]!.id,
   };
   const settings = parseSettings(GLOBAL_FIELDS, r.settings, ctx, "settings", e);
+  // Themes saved before brand colors keep their own schemes.
+  if (typeof rawSettings.primary_color !== "string") {
+    settings.primary_color = color_schemes[0]!.accent;
+    if (rawSettings.auto_schemes === undefined) settings.auto_schemes = false;
+  }
   const groups = (r.groups && typeof r.groups === "object" ? r.groups : {}) as Record<
     string,
     unknown

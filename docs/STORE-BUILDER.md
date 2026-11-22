@@ -54,10 +54,17 @@ A full-screen editor with three panels:
 - **Layout**: page width and spacing between sections.
 - **Buttons**: corner radius (up to pill shape), solid or outline.
 - **Product cards**: image shape and fit, second image on hover, vendor, "Sale" badge.
-- **Colors**:
-  - Up to 8 **color schemes** (background, cards, text, secondary text, buttons, button text,
-    borders). Every section picks one.
-  - The editor warns when text would be hard to read (WCAG AA, 4.5:1).
+- **Colors** (listed first):
+  - **Brand color**: one primary color drives the store. Buttons, links, badges and highlights
+    use it, and the three main color schemes are built from it:
+    - **Light**: white with brand-colored buttons;
+    - **Soft**: a light tint of the brand;
+    - **Brand**: filled with the brand color.
+  - Any brand color stays readable: text and button-text colors are adjusted until they meet
+    WCAG AA (4.5:1).
+  - To pick every color yourself, turn off "Build color schemes from the brand color", or edit a
+    main scheme (which turns it off). Up to 8 schemes; the editor warns about low contrast.
+  - Themes saved before brand colors keep their own schemes.
   - Also the sale color.
 - **Logo and favicon**: the logo is set in the Header section.
 - **Social media**: Instagram, Facebook, TikTok, YouTube, X and WhatsApp links, shown in the

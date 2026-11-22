@@ -91,8 +91,45 @@ test("customize a theme in the editor", async ({ page }) => {
     preview.locator('iframe[src*="youtube-nocookie.com/embed/dQw4w9WgXcQ"]'),
   ).toBeAttached({ timeout: 10_000 });
 
-  // Theme settings: fonts.
+  // An image-only banner: pick a picture from the library.
+  await page.getByRole("button", { name: "Add section" }).nth(1).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Image banner (image only)" }).click();
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Image banner (image only)" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Select image" }).first().click();
+  await page
+    .getByRole("dialog", { name: "Choose an image" })
+    .getByRole("listitem")
+    .first()
+    .getByRole("button")
+    .click();
+  await page.getByLabel("Link", { exact: true }).fill("/products");
+  await expect(
+    preview.locator('[data-cf-type="image_only_banner"] a[href="/products"] img'),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // Brand color: the color schemes follow it.
   await page.getByRole("tab", { name: "Theme settings" }).click();
+  await page.getByRole("button", { name: "Colors" }).click();
+  await page.getByRole("textbox", { name: "Brand color" }).fill("#0e7490");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+  await expect
+    .poll(
+      () =>
+        preview
+          .locator("body")
+          .evaluate(() =>
+            getComputedStyle(document.documentElement).getPropertyValue("--sf-accent").trim(),
+          ),
+      { timeout: 10_000 },
+    )
+    .toBe("#0e7490");
+  await scan(page, "colors panel");
+
+  // Theme settings: fonts.
   await page.getByRole("button", { name: "Typography" }).click();
   await page.getByLabel("Heading font").selectOption("playfair");
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {

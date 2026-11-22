@@ -36,6 +36,7 @@ import {
   newSection,
   schemeContrastProblems,
   validateTheme,
+  withBrandSchemes,
   type BlockInstance,
   type ColorScheme,
   type SectionDef,
@@ -733,34 +734,48 @@ export function ThemeEditor({
     if (g)
       panel = (
         <PanelFrame title={g.name} onBack={() => (setSel(null), setMobilePanel("list"))}>
-          {g.key === "colors" && (
-            <SchemeList
-              schemes={data.color_schemes}
-              sale={String(data.settings.sale_color)}
-              onOpen={(id) => setSel({ kind: "scheme", id })}
-              onAdd={() => {
-                const n = data.color_schemes.length + 1;
-                let id = `scheme-${n}`;
-                while (data.color_schemes.some((x) => x.id === id))
-                  id = `scheme-${newId().slice(0, 6)}`;
-                h.change((d) =>
-                  d.color_schemes.push({
-                    ...structuredClone(d.color_schemes[0]!),
-                    id,
-                    name: `Scheme ${n}`,
-                  }),
-                );
-                setSel({ kind: "scheme", id });
-              }}
-            />
-          )}
           <SettingsForm
             fields={g.settings}
             values={data.settings}
             ctx={fieldCtx}
             errorFor={(id) => errorMap.get(`settings.${id}`)}
-            onChange={(id, v) => h.change((d) => void (d.settings[id] = v), `settings.${id}`)}
+            onChange={(id, v) =>
+              h.change((d) => {
+                d.settings[id] = v;
+                // Brand colors: the main schemes follow the brand color right away.
+                if (
+                  (id === "primary_color" || id === "auto_schemes") &&
+                  d.settings.auto_schemes !== false &&
+                  typeof d.settings.primary_color === "string"
+                )
+                  d.color_schemes = withBrandSchemes(d.color_schemes, d.settings.primary_color);
+              }, `settings.${id}`)
+            }
           />
+          {g.key === "colors" && (
+            <div className="mt-6 border-t border-border pt-5">
+              <SchemeList
+                schemes={data.color_schemes}
+                sale={String(data.settings.sale_color)}
+                auto={data.settings.auto_schemes !== false}
+                onOpen={(id) => setSel({ kind: "scheme", id })}
+                onAdd={() => {
+                  const n = data.color_schemes.length + 1;
+                  let id = `scheme-${n}`;
+                  while (data.color_schemes.some((x) => x.id === id))
+                    id = `scheme-${newId().slice(0, 6)}`;
+                  h.change((d) =>
+                    d.color_schemes.push({
+                      ...structuredClone(d.color_schemes[0]!),
+                      id,
+                      name: `Scheme ${n}`,
+                    }),
+                  );
+                  setSel({ kind: "scheme", id });
+                }}
+              />
+            </div>
+          )}
         </PanelFrame>
       );
   } else if (sel?.kind === "scheme") {
@@ -809,6 +824,12 @@ export function ThemeEditor({
                 h.change((d) => void (d.color_schemes[i]!.name = String(v)), `${sc.id}.name`)
               }
             />
+            {/^scheme-[123]$/.test(sc.id) && data.settings.auto_schemes !== false && (
+              <p className="rounded-md bg-surface-sunken p-3 text-xs text-fg-muted">
+                This scheme is built from your brand color. Changing a color here switches that off,
+                so you choose every color yourself.
+              </p>
+            )}
             <SchemePreview scheme={sc} />
             {problems.length > 0 && (
               <Alert tone="warning" title="Some text may be hard to read">
@@ -826,7 +847,11 @@ export function ThemeEditor({
                 value={sc[f.id]}
                 ctx={fieldCtx}
                 onChange={(v) =>
-                  h.change((d) => void (d.color_schemes[i]![f.id] = String(v)), `${sc.id}.${f.id}`)
+                  h.change((d) => {
+                    d.color_schemes[i]![f.id] = String(v);
+                    // Hand-picking a main scheme's color stops it following the brand color.
+                    if (/^scheme-[123]$/.test(sc.id)) d.settings.auto_schemes = false;
+                  }, `${sc.id}.${f.id}`)
                 }
               />
             ))}
@@ -1355,11 +1380,13 @@ function SchemePreview({ scheme: s }: { scheme: ColorScheme }) {
 function SchemeList({
   schemes,
   sale,
+  auto,
   onOpen,
   onAdd,
 }: {
   schemes: ColorScheme[];
   sale: string;
+  auto: boolean;
   onOpen: (id: string) => void;
   onAdd: () => void;
 }) {
@@ -1367,7 +1394,9 @@ function SchemeList({
     <div className="mb-6 flex flex-col gap-2">
       <p className="text-sm font-medium">Color schemes</p>
       <p className="text-xs text-fg-muted">
-        Each section picks one. The first is used for the page background.
+        {auto
+          ? "Built from your brand color: Light, Soft and Brand. Each section picks one."
+          : "Each section picks one. The first is used for the page background."}
       </p>
       <ul className="flex flex-col gap-2">
         {schemes.map((s, i) => {

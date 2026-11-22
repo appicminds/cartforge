@@ -4,6 +4,7 @@ import { storefront } from "@/lib/api";
 import { getTheme } from "@/lib/theme";
 import { Hero, ImageBanner, SlideshowSection } from "./banners";
 import { FooterSection } from "./footer";
+import { BannerSlider, ImageGrid, ImageOnlyBanner } from "./images";
 import { AnnouncementBar, HeaderSection } from "./header";
 import {
   CategoryList,
@@ -30,6 +31,9 @@ type Props = { section: SectionInstance; ctx: SectionCtx };
 /** Registered components for each section type (PRD §11.2). */
 const COMPONENTS: Record<string, (p: Props) => ReactNode | Promise<ReactNode>> = {
   image_banner: ImageBanner,
+  image_only_banner: ImageOnlyBanner,
+  banner_slider: BannerSlider,
+  image_grid: ImageGrid,
   slideshow: SlideshowSection,
   hero: Hero,
   featured_collection: FeaturedCollection,
