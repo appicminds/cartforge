@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
+/** The admin may show the storefront in its theme editor's preview frame. */
+const FRAME_ANCESTORS = [
+  "'self'",
+  ...(process.env.ADMIN_URL ?? "http://localhost:3000")
+    .split(",")
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\/[^\s;'"]+$/.test(u))
+    .map((u) => new URL(u).origin),
+].join(" ");
 
 /**
  * The storefront is a separate Next.js app ("zone"). On the hosted demo it is
@@ -24,7 +33,7 @@ const config: NextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: `frame-ancestors ${FRAME_ANCESTORS}` },
         ],
       },
       {

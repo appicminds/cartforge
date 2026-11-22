@@ -62,7 +62,7 @@ export class DiscountsController {
   }
 
   @Post()
-  @RequirePermissions(PERMISSIONS.STORE_SETTINGS_WRITE)
+  @RequirePermissions(PERMISSIONS.DISCOUNTS_WRITE)
   @ApiZodBody(discountSchema)
   @ApiOperation({ summary: "Create a discount code or automatic discount" })
   async create(
@@ -78,7 +78,7 @@ export class DiscountsController {
   }
 
   @Put(":id")
-  @RequirePermissions(PERMISSIONS.STORE_SETTINGS_WRITE)
+  @RequirePermissions(PERMISSIONS.DISCOUNTS_WRITE)
   @ApiZodBody(discountSchema)
   @ApiOperation({ summary: "Edit a discount" })
   async update(
@@ -96,7 +96,7 @@ export class DiscountsController {
 
   @Delete(":id")
   @HttpCode(204)
-  @RequirePermissions(PERMISSIONS.STORE_SETTINGS_WRITE)
+  @RequirePermissions(PERMISSIONS.DISCOUNTS_WRITE)
   @ApiOperation({ summary: "Delete a discount (orders keep their record of it)" })
   async remove(
     @CurrentAuth() auth: AuthContext,

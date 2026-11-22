@@ -5,7 +5,7 @@ import { site } from "@/lib/config";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const map = await storefront.sitemap();
+  const [map, pages] = await Promise.all([storefront.sitemap(), storefront.pages()]);
   const { siteUrl } = await site();
   const u = (path: string) => `${siteUrl}${path}`;
   return [
@@ -26,6 +26,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: u(`/products/${p.handle}`),
       lastModified: p.updated_at,
       priority: 0.6,
+    })),
+    ...pages.map((p) => ({
+      url: u(`/pages/${p.handle}`),
+      lastModified: p.updated_at,
+      priority: 0.4,
     })),
   ];
 }

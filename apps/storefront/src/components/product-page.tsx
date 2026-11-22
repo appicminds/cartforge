@@ -1,3 +1,4 @@
+import type { SectionInstance } from "@cartforge/theme-engine";
 import type { StorefrontProduct, StorefrontStore } from "@cartforge/types";
 import { Breadcrumbs } from "./breadcrumbs";
 import { ProductView } from "./product-view";
@@ -10,11 +11,14 @@ export async function ProductPage({
   store,
   structuredData = true,
   canBuy = true,
+  main,
 }: {
   product: StorefrontProduct;
   store: StorefrontStore;
   structuredData?: boolean;
   canBuy?: boolean;
+  /** The theme's "Product information" section (blocks and layout). */
+  main?: SectionInstance;
 }) {
   const { siteUrl } = await site();
   const url = `${siteUrl}/products/${product.handle}`;
@@ -47,7 +51,14 @@ export async function ProductPage({
       <div className="mb-6">
         <Breadcrumbs items={crumbs} />
       </div>
-      <ProductView product={product} locale={store.locale} canBuy={canBuy} />
+      <ProductView
+        product={product}
+        locale={store.locale}
+        canBuy={canBuy}
+        blocks={main?.blocks.filter((b) => !b.disabled)}
+        galleryRight={main?.settings.gallery_position === "right"}
+        stickyInfo={main?.settings.sticky_info !== false}
+      />
     </div>
   );
 }

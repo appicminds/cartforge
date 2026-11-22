@@ -13,6 +13,8 @@ export function ProductListing({
   locale,
   empty,
   sorts = PRODUCT_SORTS,
+  columns = 4,
+  showSort = true,
 }: {
   result: ListResponse<StorefrontProduct>;
   sort: ProductSort;
@@ -21,6 +23,8 @@ export function ProductListing({
   locale?: string;
   empty: React.ReactNode;
   sorts?: typeof PRODUCT_SORTS;
+  columns?: number;
+  showSort?: boolean;
 }) {
   const { total, page, total_pages } = result.meta;
   const href = (p: number) => {
@@ -37,9 +41,9 @@ export function ProductListing({
         <p className="text-sm text-muted" aria-live="polite">
           {total} {total === 1 ? "product" : "products"}
         </p>
-        <SortForm value={sort} options={sorts} hidden={extraParams} />
+        {showSort && <SortForm value={sort} options={sorts} hidden={extraParams} />}
       </div>
-      <ProductGrid products={result.data} locale={locale} eager={4} />
+      <ProductGrid products={result.data} locale={locale} eager={4} columns={columns} />
       <Pagination page={page} totalPages={total_pages} href={href} />
     </>
   );
@@ -52,4 +56,14 @@ export function parseListParams(sp: Record<string, string | string[] | undefined
     : "featured";
   const page = Math.min(Math.max(1, Number.parseInt(one("page") ?? "1", 10) || 1), 500);
   return { sort, page, q: one("q")?.trim().slice(0, 100) ?? "" };
+}
+
+/** The theme's "Product grid" settings for listing pages. */
+export function gridSettings(s: Record<string, unknown> | undefined) {
+  return {
+    perPage: typeof s?.per_page === "number" ? s.per_page : 24,
+    columns: typeof s?.columns === "number" ? s.columns : 4,
+    showSort: s?.show_sort !== false,
+    showDescription: s?.show_description !== false,
+  };
 }

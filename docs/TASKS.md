@@ -467,3 +467,43 @@ Goal: sell abroad from one store, Shopify-Markets style, with Pakistani needs fi
 | MK-04 | Storefront market from choice/location, footer selector, cart re-pricing                                    | ✅     | storefront `markets.spec`                        |
 | MK-05 | Checkout: market countries, converted shipping, payment methods per market; orders valued in store currency | ✅     | `markets.e2e`                                    |
 | MK-06 | Platform admin: change a store's currency before its first order, keeping shown prices                      | ✅     | `store-currency.e2e`, admin `transfer.spec`      |
+
+## Next 8 — Discounts
+
+Goal (PRD §19): discount codes and automatic discounts, as merchants know them from Shopify. See
+`DISCOUNTS.md`.
+
+| ID    | Task                                                                                                    | Status | Evidence                                     |
+| ----- | ------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
+| DS-01 | Engine: order, products, buy X get Y, free shipping; minimums; best single deal or combinable set       | ✅     | engine `discounts.test`                      |
+| DS-02 | Discounts API: codes (unique per store) and automatic; dates, limits, once per customer, markets        | ✅     | `discounts.e2e`                              |
+| DS-03 | Checkout: code entry with reasons and hints, per-line allocation, market conversion; orders record them | ✅     | `discounts.e2e`, storefront `discounts.spec` |
+| DS-04 | Usage counted at order time with row locks (no overshoot)                                               | ✅     | `discounts.e2e`                              |
+| DS-05 | Admin list and Shopify-style editor; order page discount lines                                          | ✅     | admin `discounts.spec`                       |
+
+## Sales — bulk price changes
+
+Goal: take 20% (or an amount) off many products at once by changing their prices, with the old
+prices kept and put back on an end date or by hand. See `SALES.md`.
+
+| ID    | Task                                                                                            | Status | Evidence                         |
+| ----- | ----------------------------------------------------------------------------------------------- | ------ | -------------------------------- |
+| SL-01 | Engine: sale price, three ways to treat already-discounted products, rounding down              | ✅     | engine `sales.test`              |
+| SL-02 | Sales API: preview, run now or scheduled, one running sale per variant, saved prices, audit     | ✅     | `sales.e2e`                      |
+| SL-03 | Ending: on the end date (as the store is used, plus cron), by hand, per product; edits are kept | ✅     | `sales.e2e`                      |
+| SL-04 | Admin: Discounts → Sales tab, run-a-sale form with review, sale page, product page banner       | ✅     | admin `sales.spec`               |
+| SL-05 | `discounts.write` permission for discounts and sales (owners and administrators)                | ✅     | migration `20261122220000_sales` |
+
+## Next 3 — Store builder (Round 1)
+
+Goal (PRD §11): merchants design their store like Shopify's theme editor. See `STORE-BUILDER.md`.
+
+| ID    | Task                                                                                                               | Status | Evidence                       |
+| ----- | ------------------------------------------------------------------------------------------------------------------ | ------ | ------------------------------ |
+| SB-01 | Theme engine v2: sections with blocks, color schemes, fonts (incl. Urdu), header/footer groups, all page types     | ✅     | theme-engine `theme.test`      |
+| SB-02 | Presets Foundry, Bazaar, Minimal (valid, WCAG AA)                                                                  | ✅     | theme-engine `theme.test`      |
+| SB-03 | Themes API: library (6, one live), draft save (strict), publish, versions, restore, discard, preview tokens        | ✅     | `online-store.e2e`             |
+| SB-04 | Storefront renders the live theme or a previewed draft; 17 sections; product information blocks; `/pages/:handle`  | ✅     | storefront e2e (44)            |
+| SB-05 | Editor: section/block tree, drag and arrows, click to select, undo/redo, autosave, desktop/phone, publish, history | ✅     | admin `online-store.spec`      |
+| SB-06 | Theme settings: typography, layout, buttons, cards, color schemes with contrast warnings, favicon, social links    | ✅     | admin `online-store.spec`      |
+| SB-07 | Menus (3 levels, linked by id) and content pages with templates                                                    | ✅     | `online-store.e2e`, admin spec |

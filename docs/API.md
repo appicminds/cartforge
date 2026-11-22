@@ -355,6 +355,41 @@ market `currency` and `market_available`. `POST /storefront/cart` takes `X-Marke
 one market per country (`MARKET_COUNTRY_TAKEN`), PKR-only payment methods only in PKR markets, a
 rate for manual markets, live mode only when `FX_PROVIDER` is configured.
 
+## Discounts (Next 8)
+
+See `DISCOUNTS.md`.
+
+| Method & path                           | Auth / permission | Purpose                                                                                                                                                                                                                            |
+| --------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /discounts`                        | store.read        | List with `status`, `used_count`, `summary` (`q`: title or code, `status`)                                                                                                                                                         |
+| `GET /discounts/:id`                    | store.read        | One discount                                                                                                                                                                                                                       |
+| `POST /discounts`, `PUT /discounts/:id` | discounts.write   | `{ title, method: code·automatic, code, kind: order·products·bxgy·shipping, value_type, value, target, buy, min_subtotal_minor, min_quantity, starts_at, ends_at, usage_limit, once_per_customer, combines, market_ids, enabled }` |
+| `DELETE /discounts/:id`                 | discounts.write   | Delete (orders keep their record)                                                                                                                                                                                                  |
+
+Checkout: `PATCH /storefront/checkout { discount_code }` (null removes) → `422` on
+`discount_code` with the reason. The view adds `discount_code`, `discounts[]` (`{ id, title,
+code, kind, amount_minor }`), `discount_note` and `totals.shipping_discount_minor`
+(`totals.shipping_minor` is after it). Placing the order can answer `409 DISCOUNT_USED_UP` if a
+limit was reached meanwhile. Order views (customer and admin) include `discounts[]`.
+
+### Sales
+
+See `SALES.md`. Viewing needs `store.read`; everything else `discounts.write`.
+
+| Method & path                     | Notes                                                                                                 |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET /sales`                      | Sales with `status`, `summary`, product counts (starts/ends due sales first)                          |
+| `POST /sales/preview`             | Same body as create; returns counts, skip reasons and example prices. Changes nothing                 |
+| `POST /sales`                     | `{ title, value_type, value, target, existing: skip·original·current, rounding, starts_at, ends_at }` |
+| `GET /sales/:id`                  | With its items: old, sale and current prices, status (active · restored · kept · removed)             |
+| `PATCH /sales/:id`                | Scheduled: same body as create. Running: `{ title, ends_at }` only                                    |
+| `POST /sales/:id/end`             | Running: put prices back now (`{ restored, kept[] }`). Scheduled: cancel                              |
+| `POST /sales/:id/remove-products` | `{ product_ids }` — their prices go back                                                              |
+| `POST /sales/:id/apply-new`       | Adds matching products not in the sale yet                                                            |
+| `DELETE /sales/:id`               | Not while running (409)                                                                               |
+| `GET /sales/product/:productId`   | The running or scheduled sale a product is in                                                         |
+| `GET /internal/cron/sales`        | `Authorization: Bearer $CRON_SECRET`; 404 without it                                                  |
+
 ## Quick example
 
 ```bash
@@ -367,3 +402,23 @@ curl -s -b jar -H "X-Store-Id: $STORE" -H "X-CSRF-Token: $(awk '/cf_csrf/{print 
   -H 'Content-Type: application/json' -H 'Origin: https://HOST' \
   -d '{"title":"Linen shirt","price_minor":4900}' https://HOST/api/v1/products
 ```
+
+### Store builder
+
+See `STORE-BUILDER.md`. Reading needs `store.read`; themes need `themes.write`; menus and pages
+need `content.write`.
+
+| Method & path                                                           | Notes                                                                               |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `GET /themes`, `GET /themes/presets`                                    | The library (a live Foundry theme is created on first use); presets                 |
+| `POST /themes`                                                          | `{ preset, name? }` → unpublished theme (max 6, `THEME_LIMIT`)                      |
+| `GET /themes/:id`                                                       | `data` (theme-engine `ThemeData`) and the images it uses                            |
+| `PUT /themes/:id/data`                                                  | `{ data }`, validated strictly (422 with `data.*` paths); returns contrast warnings |
+| `POST /themes/:id/publish`, `…/discard`                                 | Make live (keeps a version) / drop unpublished edits on the live theme              |
+| `GET /themes/:id/versions`, `POST …/versions/:v/restore`                | History; restore (published right away on the live theme)                           |
+| `POST /themes/:id/duplicate`, `PATCH /themes/:id`, `DELETE /themes/:id` | Copy, rename, delete (not the live theme, 409)                                      |
+| `POST /themes/:id/preview-link`                                         | 1-hour token; open the storefront with `?theme_preview=<token>`                     |
+| `GET/POST /menus`, `GET/PUT/DELETE /menus/:id`                          | `{ title, handle?, items: [{ id, title, link: { type, id?, url? }, children }] }`   |
+| `GET/POST /pages`, `GET/PUT/DELETE /pages/:id`                          | `{ title, handle?, body_html, seo_title, seo_description, published }`              |
+| `GET /storefront/theme`                                                 | Live theme (or the draft with `X-Theme-Preview`), images and resolved menus         |
+| `GET /storefront/pages`, `GET /storefront/pages/:handle`                | Published pages (drafts too with a valid preview token)                             |

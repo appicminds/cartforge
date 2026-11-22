@@ -1,96 +1,229 @@
-import { z } from "zod";
+import type { Field } from "./fields";
 
 /**
- * Global theme settings (PRD §11.1: typography, colors, layout width, buttons,
- * product cards, header, footer, spacing). Every value is constrained to a
- * safe vocabulary — hex colors, enums, bounded numbers, plain text — so settings
- * can be compiled into CSS and markup without ever executing merchant input
- * (PRD §11.2).
+ * Theme-wide settings (PRD §11.1): typography, layout, buttons, product cards,
+ * branding and social links, grouped as the editor shows them. Colors live in
+ * color schemes (below) that each section picks from.
  */
-const hex = z
-  .string()
-  .regex(/^#[0-9a-f]{6}$/i, "Use a 6-digit hex color like #1a1a1a")
-  .transform((v) => v.toLowerCase());
-
-const plainText = (max: number) =>
-  z
-    .string()
-    .max(max)
-    .transform((v) => v.replace(/\p{Cc}/gu, " ").trim());
-
-export const FONT_STACKS = {
-  sans: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  serif: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
-  rounded: 'ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif',
-  mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-} as const;
-export type FontKey = keyof typeof FONT_STACKS;
-const font = z.enum(Object.keys(FONT_STACKS) as [FontKey, ...FontKey[]]);
-
-export const themeSettingsSchema = z.object({
-  colors: z.object({
-    background: hex,
-    surface: hex,
-    text: hex,
-    muted_text: hex,
-    accent: hex,
-    accent_text: hex,
-    border: hex,
-    sale: hex,
-  }),
-  typography: z.object({
-    heading_font: font,
-    body_font: font,
-    /** Base font size in px. */
-    base_size: z.number().int().min(14).max(20),
-    heading_weight: z.union([z.literal(500), z.literal(600), z.literal(700)]),
-    heading_case: z.enum(["normal", "uppercase"]),
-  }),
-  layout: z.object({
-    /** Max content width in px. */
-    max_width: z.number().int().min(960).max(1600),
-  }),
-  buttons: z.object({
-    /** Corner radius in px; 999 = pill. */
-    radius: z.number().int().min(0).max(999),
-    style: z.enum(["solid", "outline"]),
-  }),
-  product_card: z.object({
-    image_ratio: z.enum(["square", "portrait", "landscape"]),
-    image_fit: z.enum(["cover", "contain"]),
-    show_vendor: z.boolean(),
-    show_sale_badge: z.boolean(),
-  }),
-  header: z.object({
-    layout: z.enum(["left", "center"]),
-    sticky: z.boolean(),
-    /** Optional announcement bar above the header. */
-    announcement: plainText(120),
-  }),
-  footer: z.object({
-    text: plainText(300),
-  }),
-  spacing: z.object({
-    section: z.enum(["compact", "comfortable", "spacious"]),
-  }),
-});
-export type ThemeSettings = z.output<typeof themeSettingsSchema>;
-export type ThemeSettingsInput = z.input<typeof themeSettingsSchema>;
-
-/** Deep-partial overrides a merchant saves on top of a theme's defaults. */
-export type ThemeSettingsOverrides = {
-  [K in keyof ThemeSettingsInput]?: Partial<ThemeSettingsInput[K]>;
-};
-
-export function resolveSettings(
-  defaults: ThemeSettingsInput,
-  overrides: ThemeSettingsOverrides = {},
-): ThemeSettings {
-  const merged = Object.fromEntries(
-    Object.entries(defaults).map(([group, values]) => [
-      group,
-      { ...values, ...(overrides[group as keyof ThemeSettingsInput] ?? {}) },
-    ]),
-  );
-  return themeSettingsSchema.parse(merged);
+export interface SettingsGroup {
+  key: string;
+  name: string;
+  settings: Field[];
 }
+
+const o = (...pairs: [string, string][]) => pairs.map(([value, label]) => ({ value, label }));
+
+export const GLOBAL_SETTINGS: SettingsGroup[] = [
+  {
+    key: "colors",
+    name: "Colors",
+    settings: [
+      {
+        id: "primary_color",
+        type: "color",
+        label: "Brand color",
+        default: "#1f3a33",
+        info: "Buttons, links and highlights use it, and the color schemes are built from it.",
+      },
+      {
+        id: "auto_schemes",
+        type: "checkbox",
+        label: "Build color schemes from the brand color",
+        default: true,
+        info: "Turn off to choose every color yourself.",
+      },
+      { id: "sale_color", type: "color", label: "Sale price and badge", default: "#a1271b" },
+    ],
+  },
+  {
+    key: "typography",
+    name: "Typography",
+    settings: [
+      { id: "heading_font", type: "font", label: "Heading font", default: "serif" },
+      { id: "body_font", type: "font", label: "Body font", default: "sans" },
+      {
+        id: "base_size",
+        type: "range",
+        label: "Body text size",
+        min: 14,
+        max: 20,
+        unit: "px",
+        default: 16,
+      },
+      {
+        id: "heading_weight",
+        type: "select",
+        label: "Heading weight",
+        options: o(["500", "Medium"], ["600", "Semi-bold"], ["700", "Bold"]),
+        default: "600",
+      },
+      {
+        id: "heading_case",
+        type: "select",
+        label: "Heading letters",
+        options: o(["normal", "As typed"], ["uppercase", "UPPERCASE"]),
+        default: "normal",
+      },
+    ],
+  },
+  {
+    key: "layout",
+    name: "Layout",
+    settings: [
+      {
+        id: "max_width",
+        type: "range",
+        label: "Page width",
+        min: 960,
+        max: 1600,
+        step: 40,
+        unit: "px",
+        default: 1280,
+      },
+      {
+        id: "section_spacing",
+        type: "select",
+        label: "Space between sections",
+        options: o(
+          ["compact", "Compact"],
+          ["comfortable", "Comfortable"],
+          ["spacious", "Spacious"],
+        ),
+        default: "comfortable",
+      },
+    ],
+  },
+  {
+    key: "buttons",
+    name: "Buttons",
+    settings: [
+      {
+        id: "button_radius",
+        type: "range",
+        label: "Corner radius",
+        min: 0,
+        max: 40,
+        unit: "px",
+        default: 6,
+        info: "40 = pill shape",
+      },
+      {
+        id: "button_style",
+        type: "select",
+        label: "Style",
+        options: o(["solid", "Solid"], ["outline", "Outline"]),
+        default: "solid",
+      },
+    ],
+  },
+  {
+    key: "product_cards",
+    name: "Product cards",
+    settings: [
+      {
+        id: "card_image_ratio",
+        type: "select",
+        label: "Image shape",
+        options: o(["square", "Square"], ["portrait", "Portrait"], ["landscape", "Landscape"]),
+        default: "portrait",
+      },
+      {
+        id: "card_image_fit",
+        type: "select",
+        label: "Image fit",
+        options: o(["cover", "Fill the frame"], ["contain", "Show the whole image"]),
+        default: "cover",
+      },
+      {
+        id: "card_second_image",
+        type: "checkbox",
+        label: "Show the second image on hover",
+        default: true,
+      },
+      { id: "card_show_vendor", type: "checkbox", label: "Show vendor", default: false },
+      { id: "card_sale_badge", type: "checkbox", label: "Show “Sale” badge", default: true },
+    ],
+  },
+  {
+    key: "branding",
+    name: "Logo and favicon",
+    settings: [
+      { type: "paragraph", label: "The logo is set in the Header section." },
+      {
+        id: "favicon",
+        type: "image",
+        label: "Favicon",
+        info: "Square image, at least 64 × 64 px.",
+      },
+    ],
+  },
+  {
+    key: "social",
+    name: "Social media",
+    settings: [
+      {
+        id: "social_instagram",
+        type: "link",
+        label: "Instagram",
+        placeholder: "https://instagram.com/yourstore",
+      },
+      {
+        id: "social_facebook",
+        type: "link",
+        label: "Facebook",
+        placeholder: "https://facebook.com/yourstore",
+      },
+      {
+        id: "social_tiktok",
+        type: "link",
+        label: "TikTok",
+        placeholder: "https://tiktok.com/@yourstore",
+      },
+      {
+        id: "social_youtube",
+        type: "link",
+        label: "YouTube",
+        placeholder: "https://youtube.com/@yourstore",
+      },
+      {
+        id: "social_x",
+        type: "link",
+        label: "X (Twitter)",
+        placeholder: "https://x.com/yourstore",
+      },
+      {
+        id: "social_whatsapp",
+        type: "link",
+        label: "WhatsApp",
+        placeholder: "https://wa.me/923001234567",
+      },
+    ],
+  },
+];
+
+export const GLOBAL_FIELDS: Field[] = GLOBAL_SETTINGS.flatMap((g) => g.settings);
+
+/** A named palette; each section chooses one. */
+export interface ColorScheme {
+  id: string;
+  name: string;
+  background: string;
+  surface: string;
+  text: string;
+  muted: string;
+  accent: string;
+  accent_text: string;
+  border: string;
+}
+
+export const SCHEME_FIELDS: { id: Exclude<keyof ColorScheme, "id" | "name">; label: string }[] = [
+  { id: "background", label: "Background" },
+  { id: "surface", label: "Cards and panels" },
+  { id: "text", label: "Text" },
+  { id: "muted", label: "Secondary text" },
+  { id: "accent", label: "Buttons and links" },
+  { id: "accent_text", label: "Button text" },
+  { id: "border", label: "Borders" },
+];
+
+export const MAX_SCHEMES = 8;

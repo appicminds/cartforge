@@ -1,43 +1,54 @@
-import { FONT_STACKS, type ThemeSettings } from "./settings";
+import { fontByKey, googleFontsUrl } from "./fonts";
+import { SCHEME_ID } from "./fields";
+import type { ColorScheme } from "./settings";
+import type { ThemeData } from "./theme";
 
 const RATIOS = { square: "1 / 1", portrait: "4 / 5", landscape: "4 / 3" } as const;
 const SECTION_SPACE = { compact: "2.5rem", comfortable: "4rem", spacious: "6rem" } as const;
 
+const schemeVars = (c: ColorScheme) =>
+  `--sf-bg:${c.background};--sf-surface:${c.surface};--sf-text:${c.text};--sf-muted:${c.muted};--sf-accent:${c.accent};--sf-accent-text:${c.accent_text};--sf-border:${c.border}`;
+
 /**
- * Compiles validated settings into CSS custom properties. Inputs are already
- * constrained by the schema (hex colors, enums, integers), so the output can be
- * inlined in a <style> tag safely.
+ * Compiles a validated theme into CSS custom properties: the first color scheme
+ * on :root, each scheme as `.sf-scheme-<id>` (sections add the class), and
+ * typography, layout, buttons and cards. Every input is a hex color, an enum or
+ * a bounded number, so the result is safe to inline in a <style> tag.
  */
-export function themeCssVariables(s: ThemeSettings): Record<string, string> {
-  const c = s.colors;
-  return {
-    "--sf-bg": c.background,
-    "--sf-surface": c.surface,
-    "--sf-text": c.text,
-    "--sf-muted": c.muted_text,
-    "--sf-accent": c.accent,
-    "--sf-accent-text": c.accent_text,
-    "--sf-border": c.border,
-    "--sf-sale": c.sale,
-    "--sf-font-heading": FONT_STACKS[s.typography.heading_font],
-    "--sf-font-body": FONT_STACKS[s.typography.body_font],
-    "--sf-base-size": `${s.typography.base_size}px`,
-    "--sf-heading-weight": String(s.typography.heading_weight),
-    "--sf-heading-case": s.typography.heading_case === "uppercase" ? "uppercase" : "none",
-    "--sf-max-width": `${s.layout.max_width}px`,
-    "--sf-radius": `${s.buttons.radius}px`,
-    "--sf-card-ratio": RATIOS[s.product_card.image_ratio],
-    "--sf-card-fit": s.product_card.image_fit,
-    "--sf-section-space": SECTION_SPACE[s.spacing.section],
-  };
+export function themeCss(t: ThemeData): string {
+  const s = t.settings as Record<string, string | number | boolean>;
+  const first = t.color_schemes[0]!;
+  const radius = Number(s.button_radius);
+  const vars = [
+    schemeVars(first),
+    `--sf-sale:${s.sale_color}`,
+    `--sf-font-heading:${fontByKey(String(s.heading_font)).stack}`,
+    `--sf-font-body:${fontByKey(String(s.body_font)).stack}`,
+    `--sf-base-size:${Number(s.base_size)}px`,
+    `--sf-heading-weight:${Number(s.heading_weight)}`,
+    `--sf-heading-case:${s.heading_case === "uppercase" ? "uppercase" : "none"}`,
+    `--sf-max-width:${Number(s.max_width)}px`,
+    `--sf-radius:${radius >= 40 ? 999 : radius}px`,
+    // Cards and images round gently even when buttons are pills.
+    `--sf-card-radius:${Math.min(Math.round(radius / 2), 12)}px`,
+    `--sf-card-ratio:${RATIOS[s.card_image_ratio as keyof typeof RATIOS] ?? RATIOS.portrait}`,
+    `--sf-card-fit:${s.card_image_fit === "contain" ? "contain" : "cover"}`,
+    `--sf-section-space:${SECTION_SPACE[s.section_spacing as keyof typeof SECTION_SPACE] ?? SECTION_SPACE.comfortable}`,
+  ].join(";");
+  const schemes = t.color_schemes
+    .filter((c) => SCHEME_ID.test(c.id))
+    .map((c) => `.sf-scheme-${c.id}{${schemeVars(c)};background:var(--sf-bg);color:var(--sf-text)}`)
+    .join("");
+  const outline =
+    s.button_style === "outline"
+      ? ".sf-button:not([data-variant]){background:transparent;color:var(--sf-accent)}"
+      : "";
+  return `:root{${vars}}${schemes}${outline}`;
 }
 
-export function themeCss(s: ThemeSettings, selector = ":root"): string {
-  const body = Object.entries(themeCssVariables(s))
-    .map(([k, v]) => `${k}:${v}`)
-    .join(";");
-  return `${selector}{${body}}`;
-}
+/** The Google Fonts stylesheet the theme needs (null: system fonts only). */
+export const themeFontsUrl = (t: ThemeData) =>
+  googleFontsUrl([String(t.settings.heading_font), String(t.settings.body_font)]);
 
 // ───────────── Contrast (WCAG 2.1) ─────────────
 
@@ -56,19 +67,26 @@ export function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Color pairs that fall below WCAG AA for normal text (4.5:1). Empty = OK. */
-export function contrastProblems(s: ThemeSettings): string[] {
-  const c = s.colors;
+/** Color pairs in a scheme below WCAG AA for normal text (4.5:1). Empty = OK. */
+export function schemeContrastProblems(c: ColorScheme, sale?: string): string[] {
   const pairs: [string, string, string][] = [
     ["Text on background", c.text, c.background],
-    ["Muted text on background", c.muted_text, c.background],
-    ["Text on surface", c.text, c.surface],
-    ["Muted text on surface", c.muted_text, c.surface],
-    ["Button text on accent", c.accent_text, c.accent],
-    ["Sale price on background", c.sale, c.background],
+    ["Secondary text on background", c.muted, c.background],
+    ["Text on cards", c.text, c.surface],
+    ["Button text on buttons", c.accent_text, c.accent],
   ];
-  if (s.buttons.style === "outline") pairs.push(["Outline button", c.accent, c.background]);
+  if (sale) pairs.push(["Sale price on background", sale, c.background]);
   return pairs
     .filter(([, fg, bg]) => contrastRatio(fg, bg) < 4.5)
     .map(([label, fg, bg]) => `${label}: ${contrastRatio(fg, bg).toFixed(2)}:1 (needs 4.5:1)`);
+}
+
+/** Contrast problems for every scheme, keyed by scheme id. */
+export function contrastProblems(t: ThemeData): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  t.color_schemes.forEach((c, i) => {
+    const p = schemeContrastProblems(c, i === 0 ? String(t.settings.sale_color) : undefined);
+    if (p.length) out[c.id] = p;
+  });
+  return out;
 }

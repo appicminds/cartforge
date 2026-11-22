@@ -12,6 +12,7 @@
     "test:e2e": "playwright test --trace off"
   },
   "dependencies": {
+    "@cartforge/theme-engine": "workspace:*",
     "@cartforge/types": "workspace:*",
     "@cartforge/ui": "workspace:*",
     "@cartforge/validation": "workspace:*",

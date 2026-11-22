@@ -19,3 +19,14 @@ Things decided for later. Tick them off as they're done.
 - [ ] Shipping option for Pakistan (Settings → Checkout) — fix or replace "Standard", which
       currently matches no address.
 - [ ] Turn on a payment method (Settings → Payments → Cash on delivery).
+
+## Parked: automatic discounts as sale prices on the storefront
+
+Commit `87b602e` shows automatic "amount off products" discounts (no conditions) as
+struck-through sale prices on product pages and lists discounts on the cart page.
+Reverted for now; bring it back with `git cherry-pick 87b602e`.
+
+## Sales: set `CRON_SECRET` on Vercel
+
+Sales start and end as the store is used; the daily Vercel Cron call is a backup and needs
+`CRON_SECRET` on `cartforge-api` (DEPLOY-VERCEL.md §5d).

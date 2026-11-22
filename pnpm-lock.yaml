@@ -32,6 +32,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@cartforge/theme-engine':
+        specifier: workspace:*
+        version: link:../../packages/theme-engine
       '@cartforge/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -120,6 +123,9 @@ importers:
       '@cartforge/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@cartforge/theme-engine':
+        specifier: workspace:*
+        version: link:../../packages/theme-engine
       '@cartforge/types':
         specifier: workspace:*
         version: link:../../packages/types

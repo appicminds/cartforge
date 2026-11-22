@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { ProductPage } from "@/components/product-page";
+import { TemplateSections } from "@/components/theme/render";
 import { lastSegment, storefront } from "@/lib/api";
 
 type Props = { params: Promise<{ handle: string }> };
@@ -37,5 +38,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function Product({ params }: Props) {
   const { handle } = await params;
   const [product, store] = await Promise.all([load(handle), storefront.store()]);
-  return <ProductPage product={product} store={store} />;
+  return (
+    <TemplateSections
+      template="product"
+      product={product}
+      main={(main) => <ProductPage product={product} store={store} main={main} />}
+    />
+  );
 }

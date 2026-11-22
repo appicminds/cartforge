@@ -8,6 +8,7 @@ import {
   Globe,
   Home,
   Layers,
+  Paintbrush,
   Package,
   Receipt,
   Tag,
@@ -56,6 +57,12 @@ export const NAV: NavSection[] = [
         label: "Discounts",
         href: "/admin/discounts",
         icon: Tag,
+        permission: PERMISSIONS.STORE_READ,
+      },
+      {
+        label: "Online store",
+        href: "/admin/online-store",
+        icon: Paintbrush,
         permission: PERMISSIONS.STORE_READ,
       },
       {

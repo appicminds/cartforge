@@ -20,6 +20,10 @@
     "./markets": {
       "types": "./dist/markets.d.ts",
       "default": "./dist/markets.js"
+    },
+    "./sales": {
+      "types": "./dist/sales.d.ts",
+      "default": "./dist/sales.js"
     }
   },
   "files": [

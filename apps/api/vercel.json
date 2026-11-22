@@ -10,5 +10,16 @@
       "includeFiles": "dist/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/internal/cron/sales",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }

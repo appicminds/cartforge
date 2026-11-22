@@ -44,7 +44,7 @@ export function DiscountForm({ code, note }: { code: string | null; note: string
           autoComplete="off"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "discount-code-err" : undefined}
-          className="sf-field min-w-0 flex-1 uppercase"
+          className="sf-field w-0 min-w-0 flex-1 uppercase"
         />
         <button type="submit" className="sf-button px-4" disabled={pending}>
           {pending ? "Applying…" : "Apply"}

@@ -9,3 +9,5 @@ export * from "./payments.js";
 export * from "./customers.js";
 export * from "./markets.js";
 export * from "./discounts.js";
+export * from "./sales.js";
+export * from "./online-store.js";

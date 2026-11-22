@@ -60,6 +60,7 @@ import { STATUS_LABEL, STATUS_TONE, lastListUrl, usePreviewProduct } from "@/lib
 import { useSession } from "@/lib/session";
 import { useStoreSettings } from "@/lib/store";
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-guard";
+import { ProductSaleBanner } from "./product-sale-banner";
 
 // Editor bundle loads only on product screens (FE-009).
 const RichTextEditor = dynamic(() => import("./rich-text-editor"), {
@@ -478,6 +479,7 @@ function ProductFormInner({
         )}
       </div>
 
+      {product && <ProductSaleBanner productId={product.id} />}
       {formError && <Alert tone="danger" title={formError} />}
       {!canWrite && (
         <Alert tone="info" title="View only">

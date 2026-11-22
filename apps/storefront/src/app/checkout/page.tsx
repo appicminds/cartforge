@@ -91,7 +91,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
 
   return (
     <div className="sf-container py-8 md:py-12">
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-16">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-16">
         <div className="flex flex-col gap-6">
           <div>
             <h1 className="text-3xl md:text-4xl">Checkout</h1>

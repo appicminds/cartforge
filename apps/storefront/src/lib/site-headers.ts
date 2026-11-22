@@ -9,3 +9,9 @@ export const PREVIEW_HEADER = "x-cf-store-preview";
 export const PREVIEW_COOKIE = "cf_store_preview";
 /** Query parameter that starts (`?store=<handle>`) or ends (`?store=`) a preview. */
 export const PREVIEW_PARAM = "store";
+/** Set by middleware from the theme-preview cookie: render that theme's saved draft. */
+export const THEME_PREVIEW_HEADER = "x-cf-theme-preview";
+/** Remembers a theme preview (theme editor, preview links) between pages. */
+export const THEME_PREVIEW_COOKIE = "cf_theme_preview";
+/** `?theme_preview=<token>` starts a theme preview, `?theme_preview=` ends it. */
+export const THEME_PREVIEW_PARAM = "theme_preview";

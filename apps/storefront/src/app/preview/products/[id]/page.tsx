@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductPage } from "@/components/product-page";
+import { mainSection } from "@/components/theme/render";
 import { storefront } from "@/lib/api";
 
 type Props = {
@@ -49,6 +50,7 @@ export default async function Preview({ params, searchParams }: Props) {
         store={store}
         structuredData={false}
         canBuy={p.status === "active"}
+        main={await mainSection("product")}
       />
     </>
   );

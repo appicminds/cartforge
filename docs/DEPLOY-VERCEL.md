@@ -146,6 +146,22 @@ Markets work with rates you type in yourself. For automatic daily rates:
 2. On `cartforge-api` set `FX_PROVIDER=openexchangerates` and `FX_API_KEY=<App ID>`.
 3. Redeploy the API. **Settings → Markets** then offers "Live exchange rate".
 
+## 5d. Scheduled sales (recommended)
+
+Sales start and end as the store is used. As a backup, `apps/api/vercel.json` asks Vercel Cron
+to call `/api/v1/internal/cron/sales` once a day (the most the Hobby plan allows):
+
+1. On `cartforge-api` set `CRON_SECRET` to a random string of 16+ characters
+   (e.g. `openssl rand -hex 24`). Vercel sends it to the cron call automatically.
+2. Redeploy the API. Without it the endpoint answers 404 and only visits run sales.
+
+## 5e. Theme editor preview (store builder)
+
+The theme editor shows the storefront in a frame. On the single-URL demo both are on one address,
+so nothing is needed. If the admin runs on a different address from the storefront, set
+`ADMIN_URL` on `cartforge-storefront` (comma-separated if several). It is used for the
+storefront's `Content-Security-Policy: frame-ancestors`, so rebuild the storefront after changing it.
+
 ## 6. Sign in
 
 Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your

@@ -12,6 +12,8 @@ import { PrismaModule } from "./prisma/prisma.service";
 import { CatalogModule } from "./catalog/catalog.module";
 import { CommerceModule } from "./commerce/commerce.module";
 import { MarketsModule } from "./commerce/markets/markets.module";
+import { SalesModule } from "./commerce/sales/sales.module";
+import { OnlineStoreModule } from "./online-store/online-store.module";
 import { PlatformModule } from "./platform/platform.module";
 import { OutboxModule } from "./common/outbox.service";
 import { InventoryModule } from "./inventory/inventory.module";
@@ -50,6 +52,8 @@ import { StoresModule } from "./stores/stores.module";
     ProductsModule,
     StaffModule,
     MarketsModule,
+    SalesModule,
+    OnlineStoreModule,
     CommerceModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],

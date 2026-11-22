@@ -6,6 +6,9 @@ import {
   PREVIEW_PARAM,
   SITE_HEADER,
   STORE_HEADER,
+  THEME_PREVIEW_COOKIE,
+  THEME_PREVIEW_HEADER,
+  THEME_PREVIEW_PARAM,
 } from "./lib/site-headers";
 
 /**
@@ -29,6 +32,8 @@ const TTL_MS = 60_000;
 const NEGATIVE_TTL_MS = 15_000;
 
 const HANDLE_RE = /^[a-z0-9-]{1,63}$/;
+/** Theme preview tokens: base64url claims "." base64url signature. */
+const TOKEN_RE = /^[\w-]{10,600}\.[\w-]{20,100}$/;
 /** Cart cookies belong to one store; changing the previewed store starts a fresh cart. */
 const CART_COOKIES = ["cf_cart", "cf_cart_count"];
 
@@ -72,8 +77,14 @@ export async function middleware(req: NextRequest) {
   const canPreview = !found && !onPlatform;
 
   const param = req.nextUrl.searchParams.get(PREVIEW_PARAM);
-  if (canPreview && param !== null)
-    return startOrEndPreview(req, raw.split(",")[0]!.trim(), param.trim().toLowerCase());
+  const themeParam = req.nextUrl.searchParams.get(THEME_PREVIEW_PARAM);
+  if ((canPreview && param !== null) || themeParam !== null)
+    return startOrEndPreview(
+      req,
+      raw.split(",")[0]!.trim(),
+      canPreview ? param?.trim().toLowerCase() : null,
+      themeParam,
+    );
 
   const previewHandle = canPreview ? req.cookies.get(PREVIEW_COOKIE)?.value : undefined;
   const preview =
@@ -88,6 +99,7 @@ export async function middleware(req: NextRequest) {
   headers.delete(SITE_HEADER);
   headers.delete(NO_STORE_HEADER);
   headers.delete(PREVIEW_HEADER);
+  headers.delete(THEME_PREVIEW_HEADER);
   if (!storeId) {
     headers.set(NO_STORE_HEADER, "1");
     return NextResponse.rewrite(new URL("/store-not-found", req.url), {
@@ -98,8 +110,13 @@ export async function middleware(req: NextRequest) {
   headers.set(STORE_HEADER, storeId);
   headers.set(SITE_HEADER, siteUrl);
   if (preview) headers.set(PREVIEW_HEADER, "1");
+  // Theme editor / preview link: the API checks the token; a bad one shows the live theme.
+  const themeToken = req.cookies.get(THEME_PREVIEW_COOKIE)?.value;
+  const themePreview = !!themeToken && TOKEN_RE.test(themeToken);
+  if (themePreview) headers.set(THEME_PREVIEW_HEADER, themeToken);
   const res = NextResponse.next({ request: { headers } });
-  if (preview) res.headers.set("X-Robots-Tag", "noindex");
+  if (preview || themePreview) res.headers.set("X-Robots-Tag", "noindex");
+  if (themePreview) res.headers.set("Cache-Control", "private, no-store");
   // The previewed store was suspended or renamed: end the preview quietly.
   if (previewHandle && !preview) {
     res.cookies.delete(PREVIEW_COOKIE);
@@ -109,22 +126,42 @@ export async function middleware(req: NextRequest) {
 }
 
 /**
- * `?store=<handle>` starts a preview, `?store=` ends it; then the same page is
- * loaded without the parameter, on the public address the shopper used (which
+ * `?store=<handle>` starts a store preview, `?store=` ends it; `?theme_preview=<token>`
+ * and `?theme_preview=` do the same for a theme preview. Then the same page is
+ * loaded without the parameters, on the public address the shopper used (which
  * differs from this app's own URL when the admin's domain proxies the storefront).
  */
 async function startOrEndPreview(
   req: NextRequest,
   publicHost: string,
-  handle: string,
+  handle: string | null | undefined,
+  themeToken: string | null,
 ): Promise<NextResponse> {
   const url = req.nextUrl.clone();
   url.searchParams.delete(PREVIEW_PARAM);
+  url.searchParams.delete(THEME_PREVIEW_PARAM);
   if (publicHost) url.host = publicHost;
   const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   if (proto === "http" || proto === "https") url.protocol = `${proto}:`;
   const res = NextResponse.redirect(url, 307);
   res.headers.set("Cache-Control", "no-store");
+  if (themeToken !== null) {
+    // The theme editor shows the store in a frame, possibly on another site (the
+    // admin's domain vs. the store's own), so the cookie must work in a frame:
+    // SameSite=None, Secure, and partitioned per top-level site (CHIPS).
+    const secureContext = url.protocol === "https:" || /(^|\.)localhost$/.test(url.hostname);
+    if (TOKEN_RE.test(themeToken))
+      res.cookies.set(THEME_PREVIEW_COOKIE, themeToken, {
+        httpOnly: true,
+        path: "/",
+        maxAge: 60 * 60,
+        ...(secureContext
+          ? { sameSite: "none" as const, secure: true, partitioned: true }
+          : { sameSite: "lax" as const }),
+      });
+    else res.cookies.delete(THEME_PREVIEW_COOKIE);
+  }
+  if (handle === null || handle === undefined) return res;
   const current = req.cookies.get(PREVIEW_COOKIE)?.value;
   const target = handle && HANDLE_RE.test(handle) ? await resolve(`handle=${handle}`) : null;
   if (target) {

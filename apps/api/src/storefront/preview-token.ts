@@ -22,8 +22,8 @@ const b64 = (b: Buffer | string) => Buffer.from(b).toString("base64url");
 export class PreviewTokens {
   private readonly key: Buffer;
 
-  constructor(secret: string) {
-    this.key = createHmac("sha256", secret).update("cartforge:preview:v1").digest();
+  constructor(secret: string, purpose = "preview") {
+    this.key = createHmac("sha256", secret).update(`cartforge:${purpose}:v1`).digest();
   }
 
   sign(storeId: string, productId: string, now = Date.now()): { token: string; expires: Date } {
@@ -52,5 +52,12 @@ export class PreviewTokens {
 
   private mac(body: string): string {
     return createHmac("sha256", this.key).update(body).digest("base64url");
+  }
+}
+
+/** Theme previews (the editor and shared preview links): the subject is the theme id. */
+export class ThemePreviewTokens extends PreviewTokens {
+  constructor(secret: string) {
+    super(secret, "theme-preview");
   }
 }

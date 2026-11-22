@@ -1,26 +1,35 @@
 import type { StorefrontProduct } from "@cartforge/types";
 import Link from "next/link";
 import { getTheme } from "@/lib/theme";
+import { LG_COLS } from "./theme/shared";
 import { Price } from "./price";
+
+export interface CardOptions {
+  show_vendor: boolean;
+  show_sale_badge: boolean;
+  second_image: boolean;
+}
 
 export function ProductCard({
   product,
   locale,
   priority = false,
+  card,
 }: {
   product: StorefrontProduct;
   locale?: string;
   priority?: boolean;
+  card: CardOptions;
 }) {
-  const card = getTheme().settings.product_card;
   const img = product.images[0];
+  const hover = card.second_image ? product.images[1] : undefined;
   const onSale =
     product.compare_at_min_minor !== null &&
     product.price_min_minor !== null &&
     product.compare_at_min_minor > product.price_min_minor;
   return (
     <li className="group relative flex flex-col">
-      <div className="sf-card-media relative rounded-[calc(var(--sf-radius)/2)]">
+      <div className="sf-card-media relative rounded-[var(--sf-card-radius)]">
         {img ? (
           // Plain <img>: sizes come from the API's derivatives, no optimizer needed.
           <img
@@ -40,6 +49,7 @@ export function ProductCard({
             height={img.height ?? undefined}
             loading={priority ? "eager" : "lazy"}
             decoding="async"
+            className={hover ? "transition-opacity duration-300 group-hover:opacity-0" : undefined}
           />
         ) : (
           <div aria-hidden className="flex h-full items-center justify-center text-muted">
@@ -56,6 +66,16 @@ export function ProductCard({
               <path d="M21 17l-5-5-9 8" />
             </svg>
           </div>
+        )}
+        {img && hover && (
+          <img
+            src={hover.medium_url ?? hover.url}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          />
         )}
         <div className="absolute left-2 top-2 flex gap-1">
           {!product.available && (
@@ -88,19 +108,29 @@ export function ProductCard({
   );
 }
 
-export function ProductGrid({
+export async function ProductGrid({
   products,
   locale,
   eager = 0,
+  columns = 4,
 }: {
   products: StorefrontProduct[];
   locale?: string;
   eager?: number;
+  columns?: number;
 }) {
+  const s = (await getTheme()).data.settings;
+  const card: CardOptions = {
+    show_vendor: s.card_show_vendor === true,
+    show_sale_badge: s.card_sale_badge !== false,
+    second_image: s.card_second_image === true,
+  };
   return (
-    <ul className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">
+    <ul
+      className={`grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:gap-x-6 ${LG_COLS[Math.min(5, Math.max(2, columns))] ?? LG_COLS[4]}`}
+    >
       {products.map((p, i) => (
-        <ProductCard key={p.id} product={p} locale={locale} priority={i < eager} />
+        <ProductCard key={p.id} product={p} locale={locale} priority={i < eager} card={card} />
       ))}
     </ul>
   );
