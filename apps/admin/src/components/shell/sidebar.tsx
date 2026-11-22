@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn, IconButton } from "@cartforge/ui";
 import { useSession } from "@/lib/session";
-import { NAV, findNavItem } from "./nav";
+import { NAV, findNavItem, type NavItem } from "./nav";
 
 function Brand({ collapsed }: { collapsed: boolean }) {
   return (
@@ -25,43 +25,68 @@ function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
   const pathname = usePathname();
   const { can, user, store } = useSession();
   const active = findNavItem(pathname);
+  const visible = (i: NavItem) =>
+    i.platformOnly
+      ? user.is_platform_admin
+      : i.href === "/admin" || (store !== null && (!i.permission || can(i.permission)));
 
   return (
     <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
       {NAV.map((section, si) => {
-        const items = section.items.filter((i) =>
-          i.platformOnly
-            ? user.is_platform_admin
-            : i.href === "/admin" || (store !== null && (!i.permission || can(i.permission))),
-        );
+        const items = section.items.filter(visible);
         if (!items.length) return null;
         return (
-          <div key={section.label ?? si} className="mb-4">
-            {section.label && !collapsed && (
-              <p className="mb-1 px-2 text-xs font-medium uppercase tracking-wider text-nav-fg/60">
-                {section.label}
-              </p>
-            )}
+          <div key={section.label ?? si} className="mb-5">
+            {section.label &&
+              (collapsed ? (
+                <div aria-hidden className="mx-2 mb-2 border-t border-white/10" />
+              ) : (
+                <p className="mb-1 px-2 text-xs font-medium text-nav-fg/60">{section.label}</p>
+              ))}
             <ul className="flex flex-col gap-0.5">
               {items.map((item) => {
-                const isActive = active?.href === item.href;
+                const children = (item.children ?? []).filter(visible);
+                const childActive = children.some((c) => c === active);
+                const open = item === active || childActive;
                 const Icon = item.icon;
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
                       onClick={onNavigate}
-                      aria-current={isActive ? "page" : undefined}
+                      aria-current={item === active ? "page" : undefined}
                       title={collapsed ? item.label : undefined}
                       className={cn(
                         "flex h-9 items-center gap-3 rounded-md px-2 text-sm text-nav-fg transition-colors hover:bg-nav-item-hover hover:text-nav-fg-active",
-                        isActive && "bg-nav-item-active font-medium text-nav-fg-active",
+                        // A section you're in stands out; the exact page gets the fill
+                        // (or the parent does when the menu is collapsed to icons).
+                        open && "font-medium text-nav-fg-active",
+                        (item === active || (collapsed && childActive)) && "bg-nav-item-active",
                         collapsed && "justify-center",
                       )}
                     >
                       <Icon aria-hidden className="size-4 shrink-0" />
                       <span className={cn(collapsed && "sr-only")}>{item.label}</span>
                     </Link>
+                    {open && !collapsed && children.length > 0 && (
+                      <ul aria-label={item.label} className="mt-0.5 flex flex-col gap-0.5">
+                        {children.map((c) => (
+                          <li key={`${c.href}-${c.label}`}>
+                            <Link
+                              href={c.href}
+                              onClick={onNavigate}
+                              aria-current={c === active ? "page" : undefined}
+                              className={cn(
+                                "flex h-8 items-center rounded-md pl-9 pr-2 text-sm text-nav-fg transition-colors hover:bg-nav-item-hover hover:text-nav-fg-active",
+                                c === active && "bg-nav-item-active font-medium text-nav-fg-active",
+                              )}
+                            >
+                              {c.label}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
