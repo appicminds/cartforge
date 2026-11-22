@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { signIn } from "./helpers";
 import { uniquePng } from "./images";
@@ -57,6 +58,25 @@ test.describe("Products — images and pricing (Sprint 2)", () => {
     const row = page.getByRole("row", { name: new RegExp(title) });
     await expect(row).toContainText("$24.99");
     await expect(row.locator("img")).toHaveAttribute("src", /thumb\.webp/);
+  });
+
+  test("uploads a video with its cover frame and length", async ({ page }) => {
+    const title = `Twirl ${RUN}`;
+    await signIn(page, "catalog@cartforge.test");
+    await newProduct(page, title);
+    await page
+      .getByLabel("Upload images")
+      .setInputFiles(path.join(__dirname, "fixtures/clip.webm"));
+    // The tile shows the cover frame with a play badge and the length.
+    await expect(gallery(page).getByRole("img", { name: "Product video 1" })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(gallery(page)).toContainText("0:02");
+    await page.getByRole("button", { name: "Save product" }).click();
+    await expect(page.getByText("Product created")).toBeVisible();
+    await page.waitForURL(/\/admin\/products\/[0-9a-f-]{36}$/);
+    await page.reload();
+    await expect(gallery(page)).toContainText("0:02");
   });
 
   test("rejected uploads can be retried or removed; saving waits for uploads", async ({ page }) => {

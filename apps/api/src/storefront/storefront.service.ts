@@ -20,7 +20,7 @@ import {
   collectionFallbackImages,
   loadCatalogImages,
 } from "../catalog/cover-images";
-import { mediaUrls } from "../media/media.mapper";
+import { storefrontMedia } from "../media/media.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import { MarketsService, type ResolvedMarket } from "../commerce/markets/markets.service";
 import { SalesService } from "../commerce/sales/sales.service";
@@ -553,12 +553,7 @@ export class StorefrontService {
   }
 
   private toPublic(p: Row, currency: string, cats: CategoryMap): StorefrontProduct {
-    const images = p.media.map((m) => ({
-      ...mediaUrls(m.asset),
-      alt: m.alt_text ?? m.asset.alt_text,
-      width: m.asset.width,
-      height: m.asset.height,
-    }));
+    const images = p.media.map((m) => storefrontMedia(m.asset, m.alt_text ?? m.asset.alt_text));
     const imageIndex = new Map(p.media.map((m, i) => [m.media_asset_id, i]));
     const variants = p.variants.map((v) => {
       const level = v.inventory[0];
@@ -588,15 +583,7 @@ export class StorefrontService {
       price_max_minor: prices.length ? Math.max(...prices) : null,
       compare_at_min_minor: compares.length ? Math.min(...compares) : null,
       available: variants.some((v) => v.available),
-      images: images.map(({ url, thumb_url, medium_url, large_url, alt, width, height }) => ({
-        url,
-        thumb_url,
-        medium_url,
-        large_url,
-        alt,
-        width,
-        height,
-      })),
+      images,
       options: p.options.map((o) => ({ name: o.name, values: o.values.map((v) => v.value) })),
       variants,
       tags: p.tags.map((t) => t.tag.name).sort(),

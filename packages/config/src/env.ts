@@ -62,6 +62,16 @@ export const apiEnvSchema = z
       .min(1024)
       .max(100 * 1024 * 1024)
       .default(10 * 1024 * 1024),
+    /**
+     * Max product video size. On Vercel Blob and the local driver videos don't pass through
+     * a serverless request body (Blob: direct browser upload), so this can be far larger.
+     */
+    MEDIA_MAX_VIDEO_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(1024 * 1024 * 1024)
+      .default(200 * 1024 * 1024),
 
     // ── Platform / editions (P1) ──
     /**

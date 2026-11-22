@@ -82,7 +82,8 @@ export async function categoryFallbackImages(
     JOIN products p ON p.id = pc.product_id AND p.status = 'active' AND p.deleted_at IS NULL
     JOIN product_media pm ON pm.product_id = p.id
     JOIN media_assets a ON a.id = pm.media_asset_id AND a.deleted_at IS NULL
-    ORDER BY t.root, p.published_at DESC NULLS LAST, p.id, pm.is_primary DESC, pm.position ASC`;
+    ORDER BY t.root, p.published_at DESC NULLS LAST, p.id,
+      (a.mime_type LIKE 'image/%') DESC, pm.is_primary DESC, pm.position ASC`;
   return new Map(rows.map((r) => [r.owner, r.asset]));
 }
 
@@ -100,6 +101,7 @@ export async function collectionFallbackImages(
     JOIN product_media pm ON pm.product_id = p.id
     JOIN media_assets a ON a.id = pm.media_asset_id AND a.deleted_at IS NULL
     WHERE cp.store_id = ${storeId}::uuid AND cp.collection_id = ANY(${collectionIds}::uuid[])
-    ORDER BY cp.collection_id, cp.position ASC, p.title ASC, pm.is_primary DESC, pm.position ASC`;
+    ORDER BY cp.collection_id, cp.position ASC, p.title ASC,
+      (a.mime_type LIKE 'image/%') DESC, pm.is_primary DESC, pm.position ASC`;
   return new Map(rows.map((r) => [r.owner, r.asset]));
 }

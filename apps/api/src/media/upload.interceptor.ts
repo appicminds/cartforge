@@ -68,3 +68,68 @@ export class MediaUploadInterceptor implements NestInterceptor {
     );
   }
 }
+
+/**
+ * Video completion: `poster` (the cover frame, an image up to MEDIA_MAX_BYTES) and,
+ * when the storage driver has no direct upload, `file` (the video itself).
+ */
+@Injectable()
+export class VideoCompleteInterceptor implements NestInterceptor {
+  private readonly upload: ReturnType<ReturnType<typeof multer>["fields"]>;
+
+  constructor(@Inject(API_ENV) private readonly env: ApiEnv) {
+    this.upload = multer({
+      storage: multer.memoryStorage(),
+      limits: {
+        fileSize: Math.max(env.MEDIA_MAX_VIDEO_BYTES, env.MEDIA_MAX_BYTES),
+        files: 2,
+        fields: 10,
+        fieldSize: 2048,
+        parts: 12,
+      },
+    }).fields([
+      { name: "poster", maxCount: 1 },
+      { name: "file", maxCount: 1 },
+    ]);
+  }
+
+  async intercept(ctx: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
+    const req = ctx.switchToHttp().getRequest<Request>();
+    const res = ctx.switchToHttp().getResponse<Response>();
+    await new Promise<void>((resolve, reject) =>
+      this.upload(req, res, (err: unknown) => {
+        if (!err) return resolve();
+        if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+          const mb = Math.floor(this.env.MEDIA_MAX_VIDEO_BYTES / 1024 / 1024);
+          return reject(
+            new AppException(
+              CATALOG_ERROR_CODES.MEDIA_TOO_LARGE,
+              `Videos can be up to ${mb} MB.`,
+              HttpStatus.PAYLOAD_TOO_LARGE,
+            ),
+          );
+        }
+        reject(
+          new AppException(
+            ERROR_CODES.VALIDATION_FAILED,
+            "Malformed upload.",
+            HttpStatus.BAD_REQUEST,
+          ),
+        );
+      }),
+    );
+    const files = (req.files ?? {}) as Record<string, Express.Multer.File[] | undefined>;
+    const poster = files.poster?.[0];
+    if (!poster) {
+      throw AppException.validation([
+        { path: "poster", message: "A cover image is required.", code: "required" },
+      ]);
+    }
+    if (poster.size > this.env.MEDIA_MAX_BYTES) {
+      throw AppException.validation([
+        { path: "poster", message: "The cover image is too large.", code: "too_large" },
+      ]);
+    }
+    return next.handle();
+  }
+}

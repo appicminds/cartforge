@@ -134,6 +134,7 @@ export function CoverImageField({
       <LibraryDialog
         open={library}
         single
+        type="image"
         exclude={new Set(value ? [value.id] : [])}
         onClose={() => setLibrary(false)}
         onAdd={([a]) => {

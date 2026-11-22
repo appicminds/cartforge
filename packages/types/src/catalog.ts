@@ -118,8 +118,18 @@ export interface StockMovementSummary {
 }
 
 export interface MediaUrls {
-  /** Original upload (EXIF-stripped). */
+  /**
+   * Always an image: the original upload (EXIF-stripped), or for a video its cover
+   * frame. Safe to put in an <img>.
+   */
   url: string;
+  media_type: "image" | "video";
+  /** The video file; null for images. */
+  video_url: string | null;
+  /** Videos only. */
+  duration_ms: number | null;
+  /** The file's type, e.g. "image/jpeg" or "video/mp4". */
+  mime_type: string;
   thumb_url: string | null;
   medium_url: string | null;
   large_url: string | null;
@@ -301,6 +311,8 @@ export interface StorefrontImage {
   alt: string | null;
   width: number | null;
   height: number | null;
+  /** Set when this gallery item is a video; the fields above are then its cover frame. */
+  video?: { url: string; mime_type: string; duration_ms: number | null } | null;
 }
 
 export interface StorefrontVariant {

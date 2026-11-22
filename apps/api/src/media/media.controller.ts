@@ -36,8 +36,11 @@ import {
 import {
   mediaListQuerySchema,
   mediaUpdateSchema,
+  videoCompleteSchema,
+  videoUploadStartSchema,
   type MediaListQuery,
   type MediaUpdate,
+  type VideoUploadStart,
 } from "@cartforge/validation";
 import { CurrentAuth, CurrentStore, Public, RequirePermissions } from "../auth/decorators";
 import { AppException } from "../common/app-exception";
@@ -46,7 +49,8 @@ import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { LocalStorageDriver } from "../storage/local.driver";
 import { IMMUTABLE_CACHE, STORAGE_DRIVER, type StorageDriver } from "../storage/storage.driver";
 import { MediaService, type MediaActor } from "./media.service";
-import { MediaUploadInterceptor } from "./upload.interceptor";
+import { MediaUploadInterceptor, VideoCompleteInterceptor } from "./upload.interceptor";
+import type { DirectUpload } from "../storage/storage.driver";
 
 const mediaId = new ParseUUIDPipe({
   exceptionFactory: () =>
@@ -99,6 +103,86 @@ export class MediaController {
         ? req.body.alt_text.trim().slice(0, 500) || null
         : null;
     const data = await this.media.upload(file, alt, this.actor(auth, store, req));
+    return { data, request_id: String(req.id) };
+  }
+
+  @Post("videos/uploads")
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.MEDIA_WRITE)
+  @ApiZodBody(videoUploadStartSchema)
+  @ApiOperation({
+    summary: "Start a video upload",
+    description:
+      "Returns the existing asset when this exact file (SHA-256) is already in the store. " +
+      "Otherwise `upload` says where to send it: `vercel-blob` (upload straight to Blob with " +
+      "`client_token` at `pathname`, then call POST /media/videos) or `api` (send the file " +
+      "as `file` with POST /media/videos).",
+  })
+  async startVideo(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Body(new ZodValidationPipe(videoUploadStartSchema)) body: VideoUploadStart,
+    @Req() req: Request,
+  ): Promise<DetailResponse<{ asset: MediaAssetSummary | null; upload: DirectUpload | null }>> {
+    return {
+      data: await this.media.startVideoUpload(body, this.actor(auth, store, req)),
+      request_id: String(req.id),
+    };
+  }
+
+  @Post("videos")
+  @RequirePermissions(PERMISSIONS.MEDIA_WRITE)
+  @UseInterceptors(VideoCompleteInterceptor)
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      required: [
+        "poster",
+        "filename",
+        "mime_type",
+        "checksum_sha256",
+        "width",
+        "height",
+        "duration_ms",
+      ],
+      properties: {
+        poster: { type: "string", format: "binary", description: "Cover frame (JPEG/PNG/WebP)" },
+        file: {
+          type: "string",
+          format: "binary",
+          description: "The video, only when the upload strategy is `api`",
+        },
+        filename: { type: "string", maxLength: 255 },
+        mime_type: { type: "string", enum: ["video/mp4", "video/webm", "video/quicktime"] },
+        checksum_sha256: { type: "string", pattern: "^[0-9a-f]{64}$" },
+        width: { type: "integer" },
+        height: { type: "integer" },
+        duration_ms: { type: "integer" },
+        alt_text: { type: "string", maxLength: 500 },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: "Register an uploaded video",
+    description:
+      "Multipart: `poster` (cover image), optional `file` (the video, for the `api` strategy), " +
+      "and fields filename, mime_type, checksum_sha256, width, height, duration_ms, alt_text.",
+  })
+  async completeVideo(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() store: StoreContext,
+    @Req() req: Request,
+  ): Promise<DetailResponse<MediaAssetSummary>> {
+    const input = new ZodValidationPipe(videoCompleteSchema).transform(req.body ?? {});
+    const files = (req.files ?? {}) as Record<string, Express.Multer.File[] | undefined>;
+    const data = await this.media.completeVideo(
+      input,
+      files.poster![0]!,
+      files.file?.[0],
+      this.actor(auth, store, req),
+    );
     return { data, request_id: String(req.id) };
   }
 
