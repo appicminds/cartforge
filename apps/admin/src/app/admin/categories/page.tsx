@@ -21,6 +21,7 @@ import {
   useToast,
   type MenuItem,
 } from "@cartforge/ui";
+import { CoverImageField, toCoverImage, type CoverImage } from "@/components/cover-image-field";
 import { ApiError } from "@/lib/api-client";
 import {
   useCategories,
@@ -143,6 +144,7 @@ export default function CategoriesPage() {
                 className="flex items-center gap-3 px-4 py-2.5"
                 style={{ paddingLeft: `${1 + c.depth * 1.75}rem` }}
               >
+                <CategoryThumb c={c} />
                 <div className="min-w-0 flex-1">
                   <span className="font-medium">{c.name}</span>
                   <span className="ml-2 text-xs text-fg-subtle">/{c.handle}</span>
@@ -169,6 +171,23 @@ export default function CategoriesPage() {
   );
 }
 
+function CategoryThumb({ c }: { c: CategorySummary }) {
+  const img = c.image ?? c.auto_image;
+  const url = img ? (img.thumb_url ?? img.url) : null;
+  return url ? (
+    <img
+      src={url}
+      alt=""
+      title={c.image ? undefined : "Product photo (no image chosen)"}
+      className="size-9 shrink-0 rounded-lg border border-border object-cover"
+    />
+  ) : (
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-sunken text-fg-subtle">
+      <FolderTree aria-hidden className="size-4" />
+    </div>
+  );
+}
+
 function CategoryDialog({
   editing,
   all,
@@ -180,6 +199,8 @@ function CategoryDialog({
 }) {
   const toast = useToast();
   const save = useSaveCategory();
+  const { store } = useSession();
+  const [image, setImage] = useState<CoverImage | null>(null);
   const [f, setF] = useState({
     name: "",
     handle: "",
@@ -195,6 +216,7 @@ function CategoryDialog({
   useEffect(() => {
     if (!editing) return;
     setError(null);
+    setImage(toCoverImage(current?.image ?? null));
     setF(
       current
         ? {
@@ -240,6 +262,7 @@ function CategoryDialog({
       seo_title: f.seo_title.trim() || null,
       seo_description: f.seo_description.trim() || null,
       status: f.status as "active" | "archived",
+      image_asset_id: image?.id ?? null,
     };
     try {
       await save.mutateAsync({ id: current?.id, body });
@@ -333,6 +356,16 @@ function CategoryDialog({
             />
           )}
         </Field>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Image</span>
+          <CoverImageField
+            value={image}
+            onChange={setImage}
+            auto={current?.auto_image ?? null}
+            storeId={store?.store_id}
+            emptyHint="No image yet"
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Page title (SEO)">
             {({ id }) => (

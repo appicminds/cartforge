@@ -24,7 +24,11 @@ const LIVE = { deleted_at: null } as const;
 const WITH_DERIVATIVES = { derivatives: true, _count: { select: { references: true } } } as const;
 
 /** Resource types that can reference media. Pages/themes/menus join in later modules. */
-export const MEDIA_RESOURCE = { PRODUCT: "product" } as const;
+export const MEDIA_RESOURCE = {
+  PRODUCT: "product",
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const;
 
 @Injectable()
 export class MediaService {

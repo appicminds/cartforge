@@ -27,7 +27,14 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     title: c.seo.title,
     description: c.seo.description || undefined,
     alternates: { canonical: page > 1 ? `${path}?page=${page}` : path },
-    openGraph: { title: c.seo.title, description: c.seo.description || undefined, url: path },
+    openGraph: {
+      title: c.seo.title,
+      description: c.seo.description || undefined,
+      url: path,
+      ...(c.image && {
+        images: [{ url: c.image.large_url ?? c.image.url, alt: c.image.alt ?? "" }],
+      }),
+    },
   };
 }
 

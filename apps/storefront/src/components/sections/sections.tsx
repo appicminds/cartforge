@@ -92,16 +92,13 @@ async function CategoryList({ s }: { s: SectionSettings<"category_list">; ctx: C
     .filter((c) => c.depth === 0 && c.product_count > 0)
     .slice(0, s.limit);
   if (!top.length) return null;
-  // One cached lookup per tile for a representative image.
-  const covers = await Promise.all(
-    top.map((c) => storefront.products({ category: c.handle, page_size: 1 })),
-  );
   return (
     <section className="sf-section sf-container">
       <SectionHeading title={s.heading} />
       <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-6">
-        {top.map((c, i) => {
-          const img = covers[i]?.data[0]?.images[0];
+        {top.map((c) => {
+          // The category's chosen image, else a product photo from it (picked by the API).
+          const img = c.image;
           return (
             <li
               key={c.id}

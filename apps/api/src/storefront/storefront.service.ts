@@ -5,7 +5,9 @@ import {
   type ListResponse,
   type StorefrontCategory,
   type StorefrontCategoryDetail,
+  type CatalogImage,
   type StorefrontCollectionSummary,
+  type StorefrontImage,
   type StorefrontPreviewProduct,
   type StorefrontProduct,
   type StorefrontSitemap,
@@ -13,6 +15,11 @@ import {
 } from "@cartforge/types";
 import type { StorefrontListQuery } from "@cartforge/validation";
 import { AppException } from "../common/app-exception";
+import {
+  categoryFallbackImages,
+  collectionFallbackImages,
+  loadCatalogImages,
+} from "../catalog/cover-images";
 import { mediaUrls } from "../media/media.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import { MarketsService, type ResolvedMarket } from "../commerce/markets/markets.service";
@@ -44,6 +51,7 @@ interface VisibleCategory {
   handle: string;
   depth: number;
   sort_order: number;
+  image_asset_id: string | null;
   description_html: string;
   seo_title: string | null;
   seo_description: string | null;
@@ -61,6 +69,18 @@ const stripHtml = (html: string) =>
     .replace(/\s+/g, " ")
     .trim();
 const num = (v: bigint | null) => (v === null ? null : Number(v));
+const publicImage = (i: CatalogImage | undefined): StorefrontImage | null =>
+  i
+    ? {
+        url: i.url,
+        thumb_url: i.thumb_url,
+        medium_url: i.medium_url,
+        large_url: i.large_url,
+        alt: i.alt,
+        width: i.width,
+        height: i.height,
+      }
+    : null;
 
 /**
  * Public catalog (PRD §8.11 "active products appear in the storefront catalog;
@@ -249,11 +269,13 @@ export class StorefrontService {
       if (redirect) throw new StorefrontRedirect(redirect.path_to);
       throw AppException.notFound("Collection");
     }
+    const [image] = await this.collectionImages(storeId, [c]);
     return {
       id: c.id,
       handle: c.handle,
       title: c.title,
       description_html: c.description_html,
+      image: image ?? null,
       seo: {
         title: c.seo_title ?? c.title,
         description: c.seo_description ?? stripHtml(c.description_html).slice(0, 160),
@@ -283,6 +305,7 @@ export class StorefrontService {
   async categories(storeId: string): Promise<StorefrontCategory[]> {
     const cats = await this.visibleCategories(storeId);
     const counts = await this.subtreeCounts(storeId);
+    const images = await this.categoryImages(storeId, cats);
     return this.treeOrder(cats).map((c) => ({
       id: c.id,
       parent_id: c.parent_id,
@@ -290,6 +313,7 @@ export class StorefrontService {
       handle: c.handle,
       depth: c.depth,
       product_count: counts.get(c.id) ?? 0,
+      image: images.get(c.id) ?? null,
     }));
   }
 
@@ -307,6 +331,7 @@ export class StorefrontService {
       .filter((x) => x.parent_id === c.id)
       .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
       .map((x) => ({ name: x.name, handle: x.handle }));
+    const images = await this.categoryImages(storeId, new Map([[c.id, c]]));
     return {
       id: c.id,
       parent_id: c.parent_id,
@@ -314,6 +339,7 @@ export class StorefrontService {
       handle: c.handle,
       depth: c.depth,
       product_count: counts.get(c.id) ?? 0,
+      image: images.get(c.id) ?? null,
       description_html: c.description_html,
       ancestors,
       children,
@@ -335,12 +361,14 @@ export class StorefrontService {
         },
       },
     });
-    return rows.map((c) => ({
+    const images = await this.collectionImages(storeId, rows);
+    return rows.map((c, i) => ({
       id: c.id,
       handle: c.handle,
       title: c.title,
       description_html: c.description_html,
       product_count: c._count.products,
+      image: images[i] ?? null,
     }));
   }
 
@@ -373,6 +401,50 @@ export class StorefrontService {
 
   // ───────────── Helpers ─────────────
 
+  /** Chosen image, else the newest product photo in the category (subcategories included). */
+  private async categoryImages(
+    storeId: string,
+    cats: CategoryMap,
+  ): Promise<Map<string, StorefrontImage>> {
+    const needFallback = [...cats.values()].some((c) => !c.image_asset_id);
+    const fallback = needFallback
+      ? await categoryFallbackImages(this.prisma, storeId, true)
+      : new Map<string, string>();
+    const byAsset = await loadCatalogImages(this.prisma, storeId, [
+      ...[...cats.values()].map((c) => c.image_asset_id),
+      ...fallback.values(),
+    ]);
+    const out = new Map<string, StorefrontImage>();
+    for (const c of cats.values()) {
+      const img =
+        publicImage(byAsset.get(c.image_asset_id ?? "")) ??
+        publicImage(byAsset.get(fallback.get(c.id) ?? ""));
+      if (img) out.set(c.id, img);
+    }
+    return out;
+  }
+
+  /** Chosen image, else the first product photo in the collection; aligned with `rows`. */
+  private async collectionImages(
+    storeId: string,
+    rows: { id: string; image_asset_id: string | null }[],
+  ): Promise<(StorefrontImage | null)[]> {
+    const fallback = await collectionFallbackImages(
+      this.prisma,
+      storeId,
+      rows.filter((r) => !r.image_asset_id).map((r) => r.id),
+    );
+    const byAsset = await loadCatalogImages(this.prisma, storeId, [
+      ...rows.map((r) => r.image_asset_id),
+      ...fallback.values(),
+    ]);
+    return rows.map(
+      (r) =>
+        publicImage(byAsset.get(r.image_asset_id ?? "")) ??
+        publicImage(byAsset.get(fallback.get(r.id) ?? "")),
+    );
+  }
+
   private async visibleCategories(storeId: string): Promise<CategoryMap> {
     const all = await this.prisma.category.findMany({
       where: { store_id: storeId },
@@ -383,6 +455,7 @@ export class StorefrontService {
         handle: true,
         status: true,
         sort_order: true,
+        image_asset_id: true,
         description_html: true,
         seo_title: true,
         seo_description: true,

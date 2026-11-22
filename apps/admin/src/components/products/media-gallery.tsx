@@ -512,16 +512,19 @@ function AltTextDialog({
   );
 }
 
-function LibraryDialog({
+export function LibraryDialog({
   open,
   exclude,
   onClose,
   onAdd,
+  single = false,
 }: {
   open: boolean;
   exclude: Set<string>;
   onClose: () => void;
   onAdd: (assets: MediaAssetSummary[]) => void;
+  /** Pick one image: choosing another replaces the selection. */
+  single?: boolean;
 }) {
   const [selected, setSelected] = useState<Map<string, MediaAssetSummary>>(new Map());
   const library = useMediaLibrary({ page: 1, page_size: 48 }, open);
@@ -533,7 +536,10 @@ function LibraryDialog({
     setSelected((s) => {
       const next = new Map(s);
       if (next.has(a.id)) next.delete(a.id);
-      else next.set(a.id, a);
+      else {
+        if (single) next.clear();
+        next.set(a.id, a);
+      }
       return next;
     });
 
@@ -543,7 +549,7 @@ function LibraryDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Select images"
+      title={single ? "Select an image" : "Select images"}
       description="Reuse images already uploaded to this store."
       className="w-[min(44rem,calc(100vw-2rem))]"
       footer={
@@ -552,7 +558,9 @@ function LibraryDialog({
             Cancel
           </Button>
           <Button disabled={!selected.size} onClick={() => onAdd([...selected.values()])}>
-            Add {selected.size || ""} {selected.size === 1 ? "image" : "images"}
+            {single
+              ? "Use image"
+              : `Add ${selected.size || ""} ${selected.size === 1 ? "image" : "images"}`}
           </Button>
         </>
       }

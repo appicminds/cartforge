@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma, storeScoped, type Category } from "@cartforge/database";
-import { CATALOG_ERROR_CODES, type CategorySummary } from "@cartforge/types";
+import { CATALOG_ERROR_CODES, type CatalogImage, type CategorySummary } from "@cartforge/types";
 import {
   MAX_CATEGORY_DEPTH,
   type CategoryCreate,
@@ -12,8 +12,10 @@ import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { OutboxService } from "../common/outbox.service";
 import { sanitizeRichText } from "../common/sanitize-html";
+import { MEDIA_RESOURCE, MediaService } from "../media/media.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { childrenIndex, depthOf, heightOf, isSelfOrDescendant } from "./category-tree";
+import { categoryFallbackImages, loadCatalogImages, syncCoverReference } from "./cover-images";
 import { nextFreeHandle } from "./handles";
 
 type Tx = Prisma.TransactionClient;
@@ -44,6 +46,7 @@ export class CategoriesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    private readonly media: MediaService,
   ) {}
 
   /** Whole tree in display order (depth-first, by sort_order then name). */
@@ -54,6 +57,11 @@ export class CategoriesService {
       JOIN products p ON p.id = pc.product_id AND p.deleted_at IS NULL
       WHERE pc.store_id = ${storeId}::uuid GROUP BY pc.category_id`;
     const countBy = new Map(counts.map((c) => [c.category_id, Number(c.n)]));
+    const fallback = await categoryFallbackImages(this.prisma, storeId, false);
+    const images = await loadCatalogImages(this.prisma, storeId, [
+      ...rows.map((r) => r.image_asset_id),
+      ...fallback.values(),
+    ]);
     const kids = childrenIndex(rows);
     const out: CategorySummary[] = [];
     const visit = (parent: string | null, depth: number, prefix: string[]) => {
@@ -69,6 +77,8 @@ export class CategoriesService {
             path.join(" › "),
             countBy.get(c.id) ?? 0,
             kids.get(c.id)?.length ?? 0,
+            (c.image_asset_id && images.get(c.image_asset_id)) || null,
+            images.get(fallback.get(c.id) ?? "") ?? null,
           ),
         );
         visit(c.id, depth + 1, path);
@@ -91,6 +101,8 @@ export class CategoriesService {
       this.assertPlacement(all, null, parentId);
       const handle = await this.resolveHandle(tx, actor.store_id, input.handle, input.name);
       const siblings = all.filter((c) => c.parent_id === parentId);
+      const imageId = input.image_asset_id ?? null;
+      if (imageId) await this.assertImage(tx, actor.store_id, imageId);
       const created = await tx.category.create({
         data: {
           store_id: actor.store_id,
@@ -101,9 +113,12 @@ export class CategoriesService {
           status: input.status ?? "active",
           seo_title: input.seo_title ?? null,
           seo_description: input.seo_description ?? null,
+          image_asset_id: imageId,
           sort_order: siblings.length ? Math.max(...siblings.map((s) => s.sort_order)) + 1 : 0,
         },
       });
+      if (imageId)
+        await syncCoverReference(tx, actor.store_id, MEDIA_RESOURCE.CATEGORY, created.id, imageId);
       await this.record(tx, actor, "category.created", created.id, {
         name: created.name,
         parent_id: parentId,
@@ -134,6 +149,17 @@ export class CategoriesService {
       if (input.status !== undefined) data.status = input.status;
       if (input.seo_title !== undefined) data.seo_title = input.seo_title;
       if (input.seo_description !== undefined) data.seo_description = input.seo_description;
+      if (input.image_asset_id !== undefined && input.image_asset_id !== current.image_asset_id) {
+        if (input.image_asset_id) await this.assertImage(tx, actor.store_id, input.image_asset_id);
+        data.image_asset_id = input.image_asset_id;
+        await syncCoverReference(
+          tx,
+          actor.store_id,
+          MEDIA_RESOURCE.CATEGORY,
+          id,
+          input.image_asset_id,
+        );
+      }
       if (!Object.keys(data).length) return;
       await tx.category.update({ where: { id }, data });
       await this.record(tx, actor, "category.updated", id, { changed: Object.keys(data) });
@@ -223,6 +249,7 @@ export class CategoriesService {
         });
       }
       await tx.category.delete({ where: { id } });
+      await syncCoverReference(tx, actor.store_id, MEDIA_RESOURCE.CATEGORY, id, null);
       await this.record(tx, actor, "category.deleted", id, {
         name: cat.name,
         products: productIds.length,
@@ -263,6 +290,16 @@ export class CategoriesService {
   }
 
   // ───────────── Helpers ─────────────
+
+  private async assertImage(tx: Tx, storeId: string, assetId: string): Promise<void> {
+    try {
+      await this.media.assertOwned(tx, storeId, [assetId]);
+    } catch {
+      throw AppException.validation([
+        { path: "image_asset_id", message: "Image not found.", code: "not_found" },
+      ]);
+    }
+  }
 
   private assertPlacement(all: Category[], id: string | null, parentId: string | null): void {
     if (!parentId) return;
@@ -352,6 +389,8 @@ export class CategoriesService {
     path: string,
     products: number,
     children: number,
+    image: CatalogImage | null,
+    autoImage: CatalogImage | null,
   ): CategorySummary {
     return {
       id: c.id,
@@ -365,6 +404,8 @@ export class CategoriesService {
       path,
       product_count: products,
       child_count: children,
+      image,
+      auto_image: autoImage,
       seo_title: c.seo_title,
       seo_description: c.seo_description,
       updated_at: c.updated_at.toISOString(),

@@ -21,16 +21,28 @@ export default async function Collections() {
           {cols.map((c) => (
             <li
               key={c.id}
-              className="relative rounded-[calc(var(--sf-radius)/2)] border border-line p-6 transition-colors hover:bg-surface"
+              className="group relative overflow-hidden rounded-[calc(var(--sf-radius)/2)] border border-line transition-colors hover:bg-surface"
             >
-              <h2 className="text-xl">
-                <Link href={`/collections/${c.handle}`} className="after:absolute after:inset-0">
-                  {c.title}
-                </Link>
-              </h2>
-              <p className="mt-2 text-sm text-muted">
-                {c.product_count} {c.product_count === 1 ? "product" : "products"}
-              </p>
+              {c.image && (
+                <div className="aspect-[4/3] overflow-hidden bg-surface">
+                  <img
+                    src={c.image.medium_url ?? c.image.url}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
+                </div>
+              )}
+              <div className="p-6">
+                <h2 className="text-xl">
+                  <Link href={`/collections/${c.handle}`} className="after:absolute after:inset-0">
+                    {c.title}
+                  </Link>
+                </h2>
+                <p className="mt-2 text-sm text-muted">
+                  {c.product_count} {c.product_count === 1 ? "product" : "products"}
+                </p>
+              </div>
             </li>
           ))}
         </ul>

@@ -207,6 +207,14 @@ export const CATALOG_ERROR_CODES = {
 
 // ───────────── Organization ─────────────
 
+/** A category or collection image (admin). */
+export interface CatalogImage extends MediaUrls {
+  media_asset_id: string;
+  alt: string | null;
+  width: number | null;
+  height: number | null;
+}
+
 export interface CategorySummary {
   id: string;
   parent_id: string | null;
@@ -221,6 +229,13 @@ export interface CategorySummary {
   path: string;
   product_count: number;
   child_count: number;
+  /** The image the merchant chose, or null. */
+  image: CatalogImage | null;
+  /**
+   * Used when no image is chosen: the main photo of the newest active product in this
+   * category or its subcategories. null when none of them has a photo.
+   */
+  auto_image: CatalogImage | null;
   seo_title: string | null;
   seo_description: string | null;
   updated_at: string;
@@ -245,6 +260,10 @@ export interface CollectionSummary {
   sort_order: CollectionSortOrder;
   collection_type: "manual" | "automated";
   product_count: number;
+  /** The image the merchant chose, or null. */
+  image: CatalogImage | null;
+  /** Used when no image is chosen: the main photo of the first active product with one. */
+  auto_image: CatalogImage | null;
   seo_title: string | null;
   seo_description: string | null;
   published_handle_locked: boolean;
@@ -338,6 +357,8 @@ export interface StorefrontCategory {
   depth: number;
   /** Active products in this category or any subcategory. */
   product_count: number;
+  /** The chosen image, else a product photo from the category; null when neither exists. */
+  image: StorefrontImage | null;
 }
 
 export interface StorefrontCategoryDetail extends StorefrontCategory {
@@ -354,6 +375,8 @@ export interface StorefrontCollectionSummary {
   title: string;
   description_html: string;
   product_count: number;
+  /** The chosen image, else a product photo from the collection; null when neither exists. */
+  image: StorefrontImage | null;
 }
 
 export interface StorefrontSitemap {
