@@ -250,7 +250,9 @@ describe("online store", () => {
   });
 
   it("custom CSS is checked when saving", async () => {
-    const t = (await owner.get("/themes").expect(200)).body.data.find((x: { role: string }) => x.role === "live");
+    const t = (await owner.get("/themes").expect(200)).body.data.find(
+      (x: { role: string }) => x.role === "live",
+    );
     const d = (await owner.get(`/themes/${t.id}`).expect(200)).body.data;
     d.data.templates.home[0].settings.custom_css = "</style><script>alert(1)</script>";
     const r = await owner.put(`/themes/${t.id}/data`, { data: d.data }).expect(422);
@@ -260,27 +262,36 @@ describe("online store", () => {
   });
 
   it("alternate templates: create in the theme, assign to a product, storefront sees it", async () => {
-    const t = (await owner.get("/themes").expect(200)).body.data.find((x: { role: string }) => x.role === "live");
+    const t = (await owner.get("/themes").expect(200)).body.data.find(
+      (x: { role: string }) => x.role === "live",
+    );
     const d = (await owner.get(`/themes/${t.id}`).expect(200)).body.data;
     d.data.alternates.product.bridal = [newSection("main_product"), newSection("faq")];
     await owner.put(`/themes/${t.id}/data`, { data: d.data }).expect(200);
     expect((await owner.get("/theme-templates").expect(200)).body.data.product).toEqual(["bridal"]);
 
     const p = (
-      await owner.post("/products", { title: `Bridal ${RUN}`, price_minor: 90000, status: "active" }).expect(201)
+      await owner
+        .post("/products", { title: `Bridal ${RUN}`, price_minor: 90000, status: "active" })
+        .expect(201)
     ).body.data;
     await owner.put(`/theme-templates/product/${p.id}`, { template: "nope" }).expect(422);
     expect(
-      (await owner.put(`/theme-templates/product/${p.id}`, { template: "bridal" }).expect(200)).body.data,
+      (await owner.put(`/theme-templates/product/${p.id}`, { template: "bridal" }).expect(200)).body
+        .data,
     ).toEqual({ template: "bridal", available: ["bridal"] });
-    expect((await sf(`/products/${p.handle}`).expect(200)).body.data.template_suffix).toBe("bridal");
+    expect((await sf(`/products/${p.handle}`).expect(200)).body.data.template_suffix).toBe(
+      "bridal",
+    );
     await owner.put(`/theme-templates/product/${p.id}`, { template: null }).expect(200);
     await owner.put(`/theme-templates/widget/${p.id}`, { template: null }).expect(404);
   });
 
   it("blog: a News blog, posts with drafts and scheduling, storefront and menu links", async () => {
     const blogs = (await owner.get("/blogs").expect(200)).body.data;
-    expect(blogs).toEqual([expect.objectContaining({ handle: "news", title: "News", article_count: 0 })]);
+    expect(blogs).toEqual([
+      expect.objectContaining({ handle: "news", title: "News", article_count: 0 }),
+    ]);
     const news = blogs[0].id;
     const style = (await owner.post("/blogs", { title: "Style guide" }).expect(201)).body.data;
     expect(style.handle).toBe("style-guide");
@@ -304,7 +315,9 @@ describe("online store", () => {
       published: true,
     });
     expect(post.published_at).toBeTruthy();
-    await owner.post("/articles", { blog_id: news, title: "Coming soon", published: false }).expect(201);
+    await owner
+      .post("/articles", { blog_id: news, title: "Coming soon", published: false })
+      .expect(201);
     await owner
       .post("/articles", {
         blog_id: news,
@@ -326,10 +339,21 @@ describe("online store", () => {
     });
     await sf("/blogs/news/coming-soon").expect(404);
     const { token } = (
-      await owner.post(`/themes/${(await owner.get("/themes").expect(200)).body.data[0].id}/preview-link`, {}).expect(200)
+      await owner
+        .post(
+          `/themes/${(await owner.get("/themes").expect(200)).body.data[0].id}/preview-link`,
+          {},
+        )
+        .expect(200)
     ).body.data;
-    expect((await sf("/blogs/news/coming-soon", token).expect(200)).body.data.title).toBe("Coming soon");
-    expect((await sf("/blogs").expect(200)).body.data.find((b: { handle: string }) => b.handle === "news").articles).toHaveLength(1);
+    expect((await sf("/blogs/news/coming-soon", token).expect(200)).body.data.title).toBe(
+      "Coming soon",
+    );
+    expect(
+      (await sf("/blogs").expect(200)).body.data.find(
+        (b: { handle: string }) => b.handle === "news",
+      ).articles,
+    ).toHaveLength(1);
 
     const menus = (await owner.get("/menus").expect(200)).body.data;
     await owner

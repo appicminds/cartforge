@@ -112,7 +112,12 @@ export const templateAssignSchema = z
 export const blogSchema = z
   .object({
     title: z.string().trim().min(1, "Enter a title").max(200),
-    handle: z.string().trim().max(255).regex(HANDLE, "Lowercase letters, numbers and hyphens").optional(),
+    handle: z
+      .string()
+      .trim()
+      .max(255)
+      .regex(HANDLE, "Lowercase letters, numbers and hyphens")
+      .optional(),
   })
   .strict();
 export type BlogData = z.output<typeof blogSchema>;
@@ -121,7 +126,12 @@ export const articleSchema = z
   .object({
     blog_id: z.string().uuid("Choose a blog"),
     title: z.string().trim().min(1, "Enter a title").max(200),
-    handle: z.string().trim().max(255).regex(HANDLE, "Lowercase letters, numbers and hyphens").optional(),
+    handle: z
+      .string()
+      .trim()
+      .max(255)
+      .regex(HANDLE, "Lowercase letters, numbers and hyphens")
+      .optional(),
     body_html: z.string().max(200_000).default(""),
     excerpt: z.string().trim().max(500).default(""),
     image_id: z.string().uuid().nullable().default(null),

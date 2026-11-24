@@ -138,11 +138,18 @@ test("customize a theme in the editor", async ({ page }) => {
 
   // Custom CSS on a section: unsafe CSS is refused, scoped CSS reaches the store.
   await page.getByRole("tab", { name: "Sections" }).click();
-  await page.getByRole("list", { name: "Home page" }).getByRole("button", { name: "Video", exact: true }).click();
+  await page
+    .getByRole("list", { name: "Home page" })
+    .getByRole("button", { name: "Video", exact: true })
+    .click();
   await page.getByLabel("Custom CSS").fill("h2 { background: url(https://evil.example/x.png) }");
-  await expect(page.getByTestId("theme-problems")).toContainText("Video: Images and fonts from links");
+  await expect(page.getByTestId("theme-problems")).toContainText(
+    "Video: Images and fonts from links",
+  );
   await page.getByLabel("Custom CSS").fill(":scope { outline: 3px solid rgb(255, 0, 0) }");
-  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", { timeout: 10_000 });
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
   await expect
     .poll(
       () =>
@@ -158,17 +165,28 @@ test("customize a theme in the editor", async ({ page }) => {
   await page.getByRole("dialog").getByRole("textbox", { name: "Name" }).fill("bridal");
   await page.getByRole("dialog").getByRole("button", { name: "Create template" }).click();
   await expect(page.getByRole("list", { name: "Products: bridal" })).toBeVisible();
-  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", { timeout: 10_000 });
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
 
   // Dynamic values: insert {{ product.title }} into a text block.
-  await page.getByRole("list", { name: "Products: bridal" }).getByRole("button", { name: "Add section" });
+  await page
+    .getByRole("list", { name: "Products: bridal" })
+    .getByRole("button", { name: "Add section" });
   await page.getByRole("button", { name: "Add section" }).nth(1).click();
   await page.getByRole("dialog").getByRole("button", { name: "Rich text" }).click();
-  await page.getByRole("button", { name: /^Heading/ }).first().click();
+  await page
+    .getByRole("button", { name: /^Heading/ })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Insert dynamic value into Heading" }).click();
   await page.getByRole("button", { name: /Product title/ }).click();
-  await expect(page.getByLabel("Heading", { exact: true })).toHaveValue(/\{\{ product\.title \}\}$/);
-  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", { timeout: 10_000 });
+  await expect(page.getByLabel("Heading", { exact: true })).toHaveValue(
+    /\{\{ product\.title \}\}$/,
+  );
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
   await page.getByLabel("Page to edit").selectOption("home");
 
   // Another page type.
