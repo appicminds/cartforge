@@ -38,7 +38,7 @@ export function ThemeTemplateCard({
           <p className="text-fg-muted">
             Uses the default layout. To give some {kind}s a different layout, create a template in
             the{" "}
-            <Link href="/admin/online-store" className="text-primary hover:underline">
+            <Link href="/admin/online-store" className="text-primary underline underline-offset-2">
               theme editor
             </Link>
             .

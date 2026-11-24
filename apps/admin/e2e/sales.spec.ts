@@ -47,7 +47,10 @@ test("run a sale on a product, then end it", async ({ page }) => {
   const productId = await makeProduct(title, 4000);
   await signIn(page, "admin@cartforge.test");
   await page.getByRole("link", { name: "Discounts" }).click();
-  await page.getByRole("link", { name: "Sales" }).click();
+  await page
+    .getByRole("navigation", { name: "Discounts" })
+    .getByRole("link", { name: "Sales" })
+    .click();
   await expect(page).toHaveURL(/\/admin\/discounts\/sales$/);
   await scan(page, "sales list");
   await page.getByRole("link", { name: "Run a sale" }).click();
