@@ -146,7 +146,7 @@ test("customize a theme in the editor", async ({ page }) => {
   await expect(page.getByTestId("theme-problems")).toContainText(
     "Video: Images and fonts from links",
   );
-  await page.getByLabel("Custom CSS").fill(":scope { outline: 3px solid rgb(255, 0, 0) }");
+  await page.getByLabel("Custom CSS").fill(":scope { border-top: 3px solid rgb(255, 0, 0) }");
   await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
     timeout: 10_000,
   });
@@ -155,7 +155,7 @@ test("customize a theme in the editor", async ({ page }) => {
       () =>
         preview
           .locator('[data-cf-type="video"]')
-          .evaluate((el) => getComputedStyle(el).outlineColor),
+          .evaluate((el) => getComputedStyle(el).borderTopColor),
       { timeout: 10_000 },
     )
     .toBe("rgb(255, 0, 0)");
