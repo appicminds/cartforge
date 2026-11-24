@@ -38,6 +38,8 @@ export type Field =
   /** "/path" on the store, or an https:// link. */
   | (Base & { type: "link"; default?: string; placeholder?: string })
   | (Base & { type: "collection" })
+  /** A blog's handle. */
+  | (Base & { type: "blog" })
   | (Base & { type: "category" })
   | (Base & { type: "product" })
   | (Base & { type: "products"; max: number })
@@ -173,6 +175,7 @@ export function checkField(
     case "collection":
     case "category":
     case "product":
+    case "blog":
       if (raw === null || raw === "") return { ok: true, value: null };
       return typeof raw === "string" && HANDLE.test(raw) && raw.length <= 255
         ? { ok: true, value: raw }

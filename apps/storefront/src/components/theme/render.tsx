@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import { storefront } from "@/lib/api";
 import { getTheme } from "@/lib/theme";
 import { Hero, ImageBanner, SlideshowSection } from "./banners";
+import { FeaturedBlog } from "./blog";
 import { FooterSection } from "./footer";
 import { BannerSlider, ImageGrid, ImageOnlyBanner } from "./images";
 import { AnnouncementBar, HeaderSection } from "./header";
@@ -42,6 +43,7 @@ const COMPONENTS: Record<string, (p: Props) => ReactNode | Promise<ReactNode>> =
   image_only_banner: ImageOnlyBanner,
   banner_slider: BannerSlider,
   image_grid: ImageGrid,
+  featured_blog: FeaturedBlog,
   slideshow: SlideshowSection,
   hero: Hero,
   featured_collection: FeaturedCollection,

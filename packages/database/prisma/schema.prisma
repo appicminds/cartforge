@@ -154,6 +154,8 @@ model Store {
   themes              Theme[]
   menus               Menu[]
   pages               Page[]
+  blogs               Blog[]
+  articles            Article[]
   variants            ProductVariant[]
   media               MediaAsset[]
   inventory_locations InventoryLocation[]
@@ -1567,4 +1569,48 @@ model Page {
 
   @@unique([store_id, handle])
   @@map("pages")
+}
+
+/// A blog (e.g. "News", "Style guide"): a list of articles at /blogs/:handle.
+model Blog {
+  id         String   @id @default(uuid()) @db.Uuid
+  store_id   String   @db.Uuid
+  handle     String   @db.VarChar(255)
+  title      String   @db.VarChar(200)
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  updated_at DateTime @updatedAt @db.Timestamptz(3)
+
+  store    Store     @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  articles Article[]
+
+  @@unique([store_id, handle])
+  @@map("blogs")
+}
+
+/// A blog post, shown at /blogs/:blog/:handle once published.
+model Article {
+  id              String    @id @default(uuid()) @db.Uuid
+  store_id        String    @db.Uuid
+  blog_id         String    @db.Uuid
+  title           String    @db.VarChar(200)
+  handle          String    @db.VarChar(255)
+  body_html       String    @default("")
+  excerpt         String    @default("") @db.VarChar(500)
+  image_id        String?   @db.Uuid
+  author          String?   @db.VarChar(100)
+  tags            String[]  @default([])
+  published       Boolean   @default(false)
+  /// Shown as the post date; set when first published (can be changed).
+  published_at    DateTime? @db.Timestamptz(3)
+  seo_title       String?   @db.VarChar(200)
+  seo_description String?   @db.VarChar(320)
+  created_at      DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at      DateTime  @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  blog  Blog  @relation(fields: [blog_id], references: [id], onDelete: Cascade)
+
+  @@unique([blog_id, handle])
+  @@index([store_id, published, published_at])
+  @@map("articles")
 }

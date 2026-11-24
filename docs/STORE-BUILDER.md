@@ -122,11 +122,66 @@ A full-screen editor with three panels:
 - Endpoints are in `API.md` under "Store builder". Theme content is described by
   `@cartforge/theme-engine` (`SECTION_DEFS`, `GLOBAL_SETTINGS`, `validateTheme`).
 
-## Not yet (Round 2)
+## Round 2
 
-- Alternate templates (a different product layout for some products).
-- Blog and articles.
-- Custom CSS per section.
-- Dynamic sources (fill settings from product fields or metafields).
-- Translations.
+### Custom CSS
+
+- Every section has **Advanced → Custom CSS**. **Theme settings → Custom CSS** applies to the
+  whole store.
+- A section's CSS only affects that section: every selector is prefixed with the section. Use
+  `:scope` for the section itself, e.g. `:scope { padding-top: 0 }`.
+- `@media`, `@supports`, `@container` and `@keyframes` work.
+- For safety these are refused with a message, and the CSS isn't saved:
+  - `url(…)`, `image-set(…)`, `@import`, `@font-face`, `@charset`;
+  - `expression(…)`, `behavior`, `-moz-binding`, `javascript:`;
+  - backslash escapes and `<`;
+  - unclosed braces or comments.
+- At most 5,000 characters per box.
+
+### Dynamic values
+
+- Text, multi-line text and rich text settings can contain placeholders that are filled in for
+  the page being shown. The **{ }** button next to a field inserts them.
+
+  | Page                       | Placeholders                                                                                                                     |
+  | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+  | Products                   | `{{ product.title }}`, `{{ product.vendor }}`, `{{ product.price }}`, `{{ product.compare_at_price }}`, `{{ product.category }}` |
+  | Collections and categories | `{{ collection.title }}`, `{{ collection.product_count }}`                                                                       |
+  | Pages                      | `{{ page.title }}`                                                                                                               |
+  | Search                     | `{{ search.terms }}`                                                                                                             |
+  | Blogs and blog posts       | `{{ blog.title }}`, `{{ article.title }}`, `{{ article.author }}`, `{{ article.date }}`                                          |
+  | Everywhere                 | `{{ store.name }}`                                                                                                               |
+
+- Values are plain text: they're HTML-escaped in rich text, and unknown placeholders become empty.
+
+### Alternate templates
+
+- Products, collections and pages can have extra layouts, e.g. **Products: bridal**.
+- In the editor, use the page picker → **Create a … template** (it starts as a copy of the
+  default). The trash button next to the picker deletes the template being edited.
+- Choose one on a product, collection or page under **Theme template**. Only templates in the
+  live theme (draft or published) can be chosen.
+- A missing template falls back to the default. In the editor's preview, `?view=<name>` shows an
+  alternate.
+- Up to 10 per kind. Names use lowercase letters, numbers and hyphens.
+
+### Blog
+
+- **Online store → Blog posts**.
+  - A **News** blog is created the first time you open it. **Manage blogs** adds, renames or
+    deletes blogs; deleting a blog deletes its posts.
+- Each post has: title, content, excerpt, featured image (from the media library), author, tags,
+  a published switch with a publish date (a future date schedules it), SEO fields and a handle.
+- On the store:
+  - `/blogs/<blog>`: posts newest first, filter by tag, paginated;
+  - `/blogs/<blog>/<post>`: the post, with JSON-LD `BlogPosting` and share links;
+  - drafts and scheduled posts only show in theme previews.
+- The theme has **Blogs** and **Blog posts** templates (layout, image, date, author, excerpt, tags,
+  share). The **Blog posts** section shows the latest posts on any page.
+- Menus can link to a blog, and blogs and posts are in the sitemap.
+
+## Not yet
+
+- Translations (with a Markets language setting).
 - App blocks (needs the developer platform).
+- Metafields as dynamic sources.

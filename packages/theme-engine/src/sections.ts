@@ -15,6 +15,8 @@ export const TEMPLATE_KEYS = [
   "cart",
   "search",
   "page",
+  "blog",
+  "article",
   "not_found",
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
@@ -27,6 +29,8 @@ export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   cart: "Cart",
   search: "Search",
   page: "Pages",
+  blog: "Blogs",
+  article: "Blog posts",
   not_found: "404 page",
 };
 
@@ -39,6 +43,8 @@ export const TEMPLATE_PREVIEW_PATHS: Record<TemplateKey, string> = {
   cart: "/cart",
   search: "/search?q=a",
   page: "/",
+  blog: "/blogs/news",
+  article: "/blogs/news",
   not_found: "/this-page-does-not-exist",
 };
 
@@ -942,6 +948,23 @@ export const SECTION_DEFS: SectionDef[] = [
     ],
   },
 
+  {
+    type: "featured_blog",
+    name: "Blog posts",
+    category: "text",
+    enabled_on: { templates: "*" },
+    settings: [
+      heading("From the blog"),
+      { id: "blog", type: "blog", label: "Blog", info: "Empty: your first blog." },
+      { id: "limit", type: "range", label: "Posts to show", min: 1, max: 9, default: 3 },
+      columns(3, 1, 4),
+      { id: "show_image", type: "checkbox", label: "Show featured image", default: true },
+      { id: "show_date", type: "checkbox", label: "Show date", default: true },
+      { id: "show_excerpt", type: "checkbox", label: "Show excerpt", default: true },
+      scheme(),
+    ],
+  },
+
   // ───────────── Main sections (one per template) ─────────────
   {
     type: "main_product",
@@ -1097,6 +1120,60 @@ export const SECTION_DEFS: SectionDef[] = [
     main: "page",
     enabled_on: { templates: ["page"] },
     settings: [
+      {
+        id: "width",
+        type: "select",
+        label: "Width",
+        options: o(["narrow", "Narrow"], ["wide", "Wide"]),
+        default: "narrow",
+      },
+      scheme(),
+    ],
+  },
+  {
+    type: "main_blog",
+    name: "Blog posts list",
+    category: "main",
+    main: "blog",
+    enabled_on: { templates: ["blog"] },
+    settings: [
+      {
+        id: "layout",
+        type: "select",
+        label: "Layout",
+        options: o(["grid", "Grid"], ["list", "List"]),
+        default: "grid",
+      },
+      columns(3, 1, 4),
+      {
+        id: "per_page",
+        type: "range",
+        label: "Posts per page",
+        min: 4,
+        max: 24,
+        step: 2,
+        default: 12,
+      },
+      { id: "show_image", type: "checkbox", label: "Show featured image", default: true },
+      { id: "show_date", type: "checkbox", label: "Show date", default: true },
+      { id: "show_author", type: "checkbox", label: "Show author", default: false },
+      { id: "show_excerpt", type: "checkbox", label: "Show excerpt", default: true },
+      { id: "show_tags", type: "checkbox", label: "Show tag filter", default: true },
+      scheme(),
+    ],
+  },
+  {
+    type: "main_article",
+    name: "Blog post",
+    category: "main",
+    main: "article",
+    enabled_on: { templates: ["article"] },
+    settings: [
+      { id: "show_image", type: "checkbox", label: "Show featured image", default: true },
+      { id: "show_date", type: "checkbox", label: "Show date", default: true },
+      { id: "show_author", type: "checkbox", label: "Show author", default: true },
+      { id: "show_tags", type: "checkbox", label: "Show tags", default: true },
+      { id: "show_share", type: "checkbox", label: "Show share links", default: true },
       {
         id: "width",
         type: "select",

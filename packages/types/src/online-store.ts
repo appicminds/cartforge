@@ -6,6 +6,8 @@ export const ONLINE_STORE_ERROR_CODES = {
   THEME_LIMIT: "THEME_LIMIT",
   MENU_NOT_FOUND: "MENU_NOT_FOUND",
   PAGE_NOT_FOUND: "PAGE_NOT_FOUND",
+  BLOG_NOT_FOUND: "BLOG_NOT_FOUND",
+  ARTICLE_NOT_FOUND: "ARTICLE_NOT_FOUND",
 } as const;
 
 export const MAX_THEMES = 6;
@@ -71,11 +73,12 @@ export type MenuLinkType =
   | "category"
   | "product"
   | "page"
+  | "blog"
   | "url";
 
 export interface MenuLink {
   type: MenuLinkType;
-  /** collection / category / product / page id. */
+  /** collection / category / product / page / blog id. */
   id?: string;
   /** type "url": a path on the store or an https link. */
   url?: string;
@@ -146,4 +149,69 @@ export interface TemplateAssignment {
   template: string | null;
   /** Names that can be chosen. */
   available: string[];
+}
+
+// ───────────── Blog ─────────────
+
+export interface BlogView {
+  id: string;
+  handle: string;
+  title: string;
+  article_count: number;
+}
+
+export interface ArticleImage {
+  media_asset_id: string;
+  url: string;
+  medium_url: string | null;
+  large_url: string | null;
+  alt: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+export interface ArticleView {
+  id: string;
+  blog_id: string;
+  blog_title: string;
+  blog_handle: string;
+  title: string;
+  handle: string;
+  body_html: string;
+  excerpt: string;
+  image: ArticleImage | null;
+  author: string | null;
+  tags: string[];
+  published: boolean;
+  published_at: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  updated_at: string;
+}
+
+export interface StorefrontArticleSummary {
+  title: string;
+  handle: string;
+  blog_handle: string;
+  excerpt: string;
+  image: ArticleImage | null;
+  author: string | null;
+  tags: string[];
+  published_at: string | null;
+}
+
+export interface StorefrontBlog {
+  handle: string;
+  title: string;
+  articles: StorefrontArticleSummary[];
+  meta: { page: number; page_size: number; total: number; total_pages: number };
+  /** Tags used in the blog, for filtering. */
+  tags: string[];
+}
+
+export interface StorefrontArticle extends StorefrontArticleSummary {
+  body_html: string;
+  blog_title: string;
+  seo: { title: string; description: string };
+  updated_at: string;
 }

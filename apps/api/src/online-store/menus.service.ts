@@ -227,6 +227,7 @@ export class MenusService {
       category: new Set<string>(),
       product: new Set<string>(),
       page: new Set<string>(),
+      blog: new Set<string>(),
     };
     const collect = (items: MenuItem[]) => {
       for (const i of items) {
@@ -236,7 +237,7 @@ export class MenusService {
       }
     };
     for (const items of byHandle.values()) collect(items);
-    const [collections, categories, products, pages] = await Promise.all([
+    const [collections, categories, products, pages, blogs] = await Promise.all([
       ids.collection.size
         ? this.prisma.collection.findMany({
             where: { store_id: storeId, id: { in: [...ids.collection] }, status: "active" },
@@ -266,12 +267,19 @@ export class MenusService {
             select: { id: true, handle: true },
           })
         : [],
+      ids.blog.size
+        ? this.prisma.blog.findMany({
+            where: { store_id: storeId, id: { in: [...ids.blog] } },
+            select: { id: true, handle: true },
+          })
+        : [],
     ]);
     const path = {
       collection: new Map(collections.map((c) => [c.id, `/collections/${c.handle}`])),
       category: new Map(categories.map((c) => [c.id, `/categories/${c.handle}`])),
       product: new Map(products.map((p) => [p.id, `/products/${p.handle}`])),
       page: new Map(pages.map((p) => [p.id, `/pages/${p.handle}`])),
+      blog: new Map(blogs.map((b) => [b.id, `/blogs/${b.handle}`])),
     };
     const fixed: Record<string, string> = {
       home: "/",

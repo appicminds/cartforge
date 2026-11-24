@@ -10,6 +10,7 @@ import {
   Home,
   Layers,
   Menu,
+  Newspaper,
   Paintbrush,
   Package,
   Percent,
@@ -126,6 +127,12 @@ export const NAV: NavSection[] = [
             label: "Pages",
             href: "/admin/online-store/pages",
             icon: FileText,
+            permission: PERMISSIONS.STORE_READ,
+          },
+          {
+            label: "Blog posts",
+            href: "/admin/online-store/blog",
+            icon: Newspaper,
             permission: PERMISSIONS.STORE_READ,
           },
           {

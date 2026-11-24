@@ -27,6 +27,7 @@ const link = z
       "category",
       "product",
       "page",
+      "blog",
       "url",
     ]),
     id: z.string().uuid().optional(),
@@ -34,7 +35,7 @@ const link = z
   })
   .strict()
   .superRefine((l, ctx) => {
-    if (["collection", "category", "product", "page"].includes(l.type) && !l.id)
+    if (["collection", "category", "product", "page", "blog"].includes(l.type) && !l.id)
       ctx.addIssue({ code: "custom", path: ["id"], message: "Choose what to link to" });
     if (l.type === "url" && !(l.url && SAFE_LINK.test(l.url)))
       ctx.addIssue({
@@ -107,3 +108,31 @@ export const templateAssignSchema = z
     template: z.string().max(30).regex(HANDLE, "Lowercase letters, numbers and hyphens").nullable(),
   })
   .strict();
+
+export const blogSchema = z
+  .object({
+    title: z.string().trim().min(1, "Enter a title").max(200),
+    handle: z.string().trim().max(255).regex(HANDLE, "Lowercase letters, numbers and hyphens").optional(),
+  })
+  .strict();
+export type BlogData = z.output<typeof blogSchema>;
+
+export const articleSchema = z
+  .object({
+    blog_id: z.string().uuid("Choose a blog"),
+    title: z.string().trim().min(1, "Enter a title").max(200),
+    handle: z.string().trim().max(255).regex(HANDLE, "Lowercase letters, numbers and hyphens").optional(),
+    body_html: z.string().max(200_000).default(""),
+    excerpt: z.string().trim().max(500).default(""),
+    image_id: z.string().uuid().nullable().default(null),
+    author: z.string().trim().max(100).nullable().default(null),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    published: z.boolean().default(false),
+    /** Post date; empty = now when first published. */
+    published_at: z.coerce.date().nullable().default(null),
+    seo_title: z.string().trim().max(200).nullable().default(null),
+    seo_description: z.string().trim().max(320).nullable().default(null),
+  })
+  .strict();
+export type ArticleInput = z.input<typeof articleSchema>;
+export type ArticleData = z.output<typeof articleSchema>;

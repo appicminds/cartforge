@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   Res,
 } from "@nestjs/common";
@@ -19,7 +20,11 @@ import {
   HEADERS,
   PERMISSIONS,
   type DetailResponse,
+  type ArticleView,
+  type BlogView,
   type MenuView,
+  type StorefrontArticle,
+  type StorefrontBlog,
   type PageView,
   type StorefrontPage,
   type StorefrontThemePayload,
@@ -34,12 +39,16 @@ import {
   type ThemeVersionSummary,
 } from "@cartforge/types";
 import {
+  articleSchema,
+  blogSchema,
   menuSchema,
   pageSchema,
   templateAssignSchema,
   themeCreateSchema,
   themeDataSchema,
   themeRenameSchema,
+  type ArticleData,
+  type BlogData,
   type MenuData,
   type PageData,
 } from "@cartforge/validation";
@@ -52,6 +61,7 @@ import { ThemePreviewTokens } from "../storefront/preview-token";
 import { InvalidatesStorefront } from "../storefront/revalidation";
 import { StorefrontService } from "../storefront/storefront.service";
 import { MenusService } from "./menus.service";
+import { BlogService } from "./blog.service";
 import { PagesService } from "./pages.service";
 import { ThemesService } from "./themes.service";
 
@@ -436,6 +446,143 @@ export class PagesController {
   }
 }
 
+/** Admin: Online store → Blog posts (blogs). */
+@ApiTags("online-store")
+@ApiCookieAuth()
+@ApiHeader({ name: "X-Store-Id", required: true })
+@InvalidatesStorefront()
+@Controller("blogs")
+export class BlogsController {
+  constructor(private readonly blog: BlogService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "Blogs (a News blog is created on first use)" })
+  async list(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+  ): Promise<DetailResponse<BlogView[]>> {
+    return ok(req, await this.blog.blogs(s.store_id));
+  }
+
+  @Post()
+  @RequirePermissions(PERMISSIONS.CONTENT_WRITE)
+  @ApiZodBody(blogSchema)
+  @ApiOperation({ summary: "Add a blog" })
+  async create(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(blogSchema)) body: BlogData,
+  ): Promise<DetailResponse<BlogView>> {
+    return ok(req, await this.blog.createBlog(s.store_id, body, actor(auth, req)));
+  }
+
+  @Put(":id")
+  @RequirePermissions(PERMISSIONS.CONTENT_WRITE)
+  @ApiZodBody(blogSchema)
+  @ApiOperation({ summary: "Rename a blog" })
+  async update(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Blog")) id: string,
+    @Body(new ZodValidationPipe(blogSchema)) body: BlogData,
+  ): Promise<DetailResponse<BlogView>> {
+    return ok(req, await this.blog.updateBlog(s.store_id, id, body, actor(auth, req)));
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermissions(PERMISSIONS.CONTENT_WRITE)
+  @ApiOperation({ summary: "Delete a blog and its articles" })
+  async remove(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Blog")) id: string,
+  ): Promise<void> {
+    await this.blog.removeBlog(s.store_id, id, actor(auth, req));
+  }
+}
+
+/** Admin: Online store → Blog posts. */
+@ApiTags("online-store")
+@ApiCookieAuth()
+@ApiHeader({ name: "X-Store-Id", required: true })
+@InvalidatesStorefront()
+@Controller("articles")
+export class ArticlesController {
+  constructor(private readonly blog: BlogService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "Blog posts (blog_id, q)" })
+  async list(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Query("blog_id") blogId?: string,
+    @Query("q") q?: string,
+  ): Promise<DetailResponse<ArticleView[]>> {
+    const blog_id = blogId && /^[0-9a-f-]{36}$/i.test(blogId) ? blogId : undefined;
+    return ok(
+      req,
+      await this.blog.articles(s.store_id, { blog_id, q: q?.slice(0, 100) || undefined }),
+    );
+  }
+
+  @Get(":id")
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "One blog post" })
+  async get(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Article")) id: string,
+  ): Promise<DetailResponse<ArticleView>> {
+    return ok(req, await this.blog.article(s.store_id, id));
+  }
+
+  @Post()
+  @RequirePermissions(PERMISSIONS.CONTENT_WRITE)
+  @ApiZodBody(articleSchema)
+  @ApiOperation({ summary: "Add a blog post" })
+  async create(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(articleSchema)) body: ArticleData,
+  ): Promise<DetailResponse<ArticleView>> {
+    return ok(req, await this.blog.createArticle(s.store_id, body, actor(auth, req)));
+  }
+
+  @Put(":id")
+  @RequirePermissions(PERMISSIONS.CONTENT_WRITE)
+  @ApiZodBody(articleSchema)
+  @ApiOperation({ summary: "Save a blog post" })
+  async update(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Article")) id: string,
+    @Body(new ZodValidationPipe(articleSchema)) body: ArticleData,
+  ): Promise<DetailResponse<ArticleView>> {
+    return ok(req, await this.blog.updateArticle(s.store_id, id, body, actor(auth, req)));
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermissions(PERMISSIONS.CONTENT_WRITE)
+  @ApiOperation({ summary: "Delete a blog post" })
+  async remove(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Article")) id: string,
+  ): Promise<void> {
+    await this.blog.removeArticle(s.store_id, id, actor(auth, req));
+  }
+}
+
 /** Storefront: the theme to render, and content pages. */
 @ApiTags("storefront")
 @ApiHeader({ name: "X-Store-Id", required: true })
@@ -448,7 +595,72 @@ export class StorefrontOnlineStoreController {
     private readonly themes: ThemesService,
     private readonly pages: PagesService,
     private readonly previews: ThemePreviewTokens,
+    private readonly blog: BlogService,
   ) {}
+
+  private async previewing(req: Request, storeId: string) {
+    const token = this.preview(req);
+    return !!token && !!this.previews.verify(token, storeId);
+  }
+
+  @Get("blogs")
+  @ApiOperation({ summary: "Blogs with their published articles (for sitemaps)" })
+  async blogs(@Req() req: Request) {
+    const store = await this.storefront.assertStore(req.get(HEADERS.STORE_ID));
+    return ok(req, await this.blog.sitemap(store.id));
+  }
+
+  @Get("blogs/:handle")
+  @ApiOperation({ summary: "A blog's published articles, newest first (page, page_size, tag)" })
+  async blogPage(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param("handle") handle: string,
+    @Query("page") page?: string,
+    @Query("page_size") pageSize?: string,
+    @Query("tag") tag?: string,
+  ): Promise<DetailResponse<StorefrontBlog>> {
+    const store = await this.storefront.assertStore(req.get(HEADERS.STORE_ID));
+    const preview = await this.previewing(req, store.id);
+    if (preview) res.setHeader("Cache-Control", "private, no-store");
+    const n = (v: string | undefined, d: number, max: number) =>
+      Math.min(max, Math.max(1, Number.parseInt(v ?? "", 10) || d));
+    return ok(
+      req,
+      await this.blog.storefrontBlog(
+        store.id,
+        handle.slice(0, 255),
+        {
+          page: n(page, 1, 500),
+          page_size: n(pageSize, 12, 48),
+          tag: tag?.slice(0, 40) || undefined,
+        },
+        preview,
+      ),
+    );
+  }
+
+  @Get("blogs/:handle/:article")
+  @ApiOperation({ summary: "A published article (drafts too while previewing a theme)" })
+  async articlePage(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param("handle") handle: string,
+    @Param("article") article: string,
+  ): Promise<DetailResponse<StorefrontArticle>> {
+    const store = await this.storefront.assertStore(req.get(HEADERS.STORE_ID));
+    const preview = await this.previewing(req, store.id);
+    if (preview) res.setHeader("Cache-Control", "private, no-store");
+    return ok(
+      req,
+      await this.blog.storefrontArticle(
+        store.id,
+        handle.slice(0, 255),
+        article.slice(0, 255),
+        preview,
+      ),
+    );
+  }
 
   private preview(req: Request) {
     const t = req.get("x-theme-preview");

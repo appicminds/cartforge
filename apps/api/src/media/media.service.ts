@@ -41,6 +41,7 @@ export const MEDIA_RESOURCE = {
   PRODUCT: "product",
   CATEGORY: "category",
   COLLECTION: "collection",
+  ARTICLE: "article",
 } as const;
 
 @Injectable()

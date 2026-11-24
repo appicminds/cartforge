@@ -15,7 +15,7 @@ import { Button, Dialog, Input, Select, Spinner, Textarea } from "@cartforge/ui"
 import { ChipPicker } from "@/components/chip-picker";
 import { useCategories, useCollections } from "@/lib/catalog";
 import { ACCEPTED_TYPES, uploadMedia, useMediaLibrary } from "@/lib/media";
-import { useMenus, usePages } from "@/lib/online-store";
+import { useBlogs, useMenus, usePages } from "@/lib/online-store";
 import { useProductList } from "@/lib/products";
 import { useSession } from "@/lib/session";
 
@@ -297,6 +297,7 @@ function LinkInput({
   const collections = useCollections({ page_size: 100 });
   const categories = useCategories();
   const pages = usePages();
+  const blogs = useBlogs();
   const options = useMemo(
     () => [
       { v: "/", l: "Home" },
@@ -312,8 +313,9 @@ function LinkInput({
         l: `Category: ${c.path}`,
       })),
       ...(pages.data ?? []).map((p) => ({ v: `/pages/${p.handle}`, l: `Page: ${p.title}` })),
+      ...(blogs.data ?? []).map((b) => ({ v: `/blogs/${b.handle}`, l: `Blog: ${b.title}` })),
     ],
-    [collections.data, categories.data, pages.data],
+    [collections.data, categories.data, pages.data, blogs.data],
   );
   return (
     <>
@@ -393,6 +395,28 @@ function MultiRef({
       value={value}
       onChange={onChange}
     />
+  );
+}
+
+function BlogSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const blogs = useBlogs();
+  return (
+    <Select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
+      <option value="">Automatic</option>
+      {(blogs.data ?? []).map((b) => (
+        <option key={b.id} value={b.handle}>
+          {b.title}
+        </option>
+      ))}
+    </Select>
   );
 }
 
@@ -657,6 +681,16 @@ export function SettingField({
           <SingleRef
             id={id}
             kind={field.type}
+            value={typeof value === "string" ? value : null}
+            onChange={onChange}
+          />
+        </Labelled>
+      );
+    case "blog":
+      return (
+        <Labelled id={id} field={field} error={error}>
+          <BlogSelect
+            id={id}
             value={typeof value === "string" ? value : null}
             onChange={onChange}
           />

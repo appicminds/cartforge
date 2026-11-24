@@ -248,4 +248,102 @@ describe("online store", () => {
     await owner.post(`/themes/${t.id}/publish`, {}).expect(200);
     expect((await sf("/theme").expect(200)).body.data.images).toEqual({});
   });
+
+  it("custom CSS is checked when saving", async () => {
+    const t = (await owner.get("/themes").expect(200)).body.data.find((x: { role: string }) => x.role === "live");
+    const d = (await owner.get(`/themes/${t.id}`).expect(200)).body.data;
+    d.data.templates.home[0].settings.custom_css = "</style><script>alert(1)</script>";
+    const r = await owner.put(`/themes/${t.id}/data`, { data: d.data }).expect(422);
+    expect(r.body.error.fields[0].path).toBe("data.templates.home.0.settings.custom_css");
+    d.data.templates.home[0].settings.custom_css = "h2 { letter-spacing: 0.1em }";
+    await owner.put(`/themes/${t.id}/data`, { data: d.data }).expect(200);
+  });
+
+  it("alternate templates: create in the theme, assign to a product, storefront sees it", async () => {
+    const t = (await owner.get("/themes").expect(200)).body.data.find((x: { role: string }) => x.role === "live");
+    const d = (await owner.get(`/themes/${t.id}`).expect(200)).body.data;
+    d.data.alternates.product.bridal = [newSection("main_product"), newSection("faq")];
+    await owner.put(`/themes/${t.id}/data`, { data: d.data }).expect(200);
+    expect((await owner.get("/theme-templates").expect(200)).body.data.product).toEqual(["bridal"]);
+
+    const p = (
+      await owner.post("/products", { title: `Bridal ${RUN}`, price_minor: 90000, status: "active" }).expect(201)
+    ).body.data;
+    await owner.put(`/theme-templates/product/${p.id}`, { template: "nope" }).expect(422);
+    expect(
+      (await owner.put(`/theme-templates/product/${p.id}`, { template: "bridal" }).expect(200)).body.data,
+    ).toEqual({ template: "bridal", available: ["bridal"] });
+    expect((await sf(`/products/${p.handle}`).expect(200)).body.data.template_suffix).toBe("bridal");
+    await owner.put(`/theme-templates/product/${p.id}`, { template: null }).expect(200);
+    await owner.put(`/theme-templates/widget/${p.id}`, { template: null }).expect(404);
+  });
+
+  it("blog: a News blog, posts with drafts and scheduling, storefront and menu links", async () => {
+    const blogs = (await owner.get("/blogs").expect(200)).body.data;
+    expect(blogs).toEqual([expect.objectContaining({ handle: "news", title: "News", article_count: 0 })]);
+    const news = blogs[0].id;
+    const style = (await owner.post("/blogs", { title: "Style guide" }).expect(201)).body.data;
+    expect(style.handle).toBe("style-guide");
+
+    const post = (
+      await owner
+        .post("/articles", {
+          blog_id: news,
+          title: "Eid styling tips",
+          body_html: "<p>Pair <strong>lawn</strong> with chiffon.</p><script>x</script>",
+          tags: ["eid", "lawn", "eid"],
+          author: "Sana",
+          published: true,
+        })
+        .expect(201)
+    ).body.data;
+    expect(post).toMatchObject({
+      handle: "eid-styling-tips",
+      body_html: "<p>Pair <strong>lawn</strong> with chiffon.</p>",
+      tags: ["eid", "lawn"],
+      published: true,
+    });
+    expect(post.published_at).toBeTruthy();
+    await owner.post("/articles", { blog_id: news, title: "Coming soon", published: false }).expect(201);
+    await owner
+      .post("/articles", {
+        blog_id: news,
+        title: "Next week",
+        published: true,
+        published_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+      })
+      .expect(201);
+
+    const blog = (await sf("/blogs/news").expect(200)).body.data;
+    expect(blog.articles.map((a: { title: string }) => a.title)).toEqual(["Eid styling tips"]);
+    expect(blog.tags).toEqual(["eid", "lawn"]);
+    expect(blog.articles[0].excerpt).toBe("Pair lawn with chiffon.");
+    expect((await sf("/blogs/news?tag=lawn").expect(200)).body.data.meta.total).toBe(1);
+    expect((await sf("/blogs/news/eid-styling-tips").expect(200)).body.data).toMatchObject({
+      blog_title: "News",
+      author: "Sana",
+      seo: { title: "Eid styling tips", description: "Pair lawn with chiffon." },
+    });
+    await sf("/blogs/news/coming-soon").expect(404);
+    const { token } = (
+      await owner.post(`/themes/${(await owner.get("/themes").expect(200)).body.data[0].id}/preview-link`, {}).expect(200)
+    ).body.data;
+    expect((await sf("/blogs/news/coming-soon", token).expect(200)).body.data.title).toBe("Coming soon");
+    expect((await sf("/blogs").expect(200)).body.data.find((b: { handle: string }) => b.handle === "news").articles).toHaveLength(1);
+
+    const menus = (await owner.get("/menus").expect(200)).body.data;
+    await owner
+      .put(`/menus/${menus[1].id}`, {
+        title: "Footer",
+        items: [{ id: "blog", title: "Journal", link: { type: "blog", id: style.id } }],
+      })
+      .expect(200);
+    expect((await sf("/theme").expect(200)).body.data.menus.footer).toEqual([
+      { title: "Journal", url: "/blogs/style-guide", children: [] },
+    ]);
+
+    // Deleting a blog deletes its posts.
+    await owner.delete(`/blogs/${style.id}`).expect(204);
+    await sf("/blogs/style-guide").expect(404);
+  });
 });

@@ -507,3 +507,13 @@ Goal (PRD §11): merchants design their store like Shopify's theme editor. See `
 | SB-05 | Editor: section/block tree, drag and arrows, click to select, undo/redo, autosave, desktop/phone, publish, history | ✅     | admin `online-store.spec`      |
 | SB-06 | Theme settings: typography, layout, buttons, cards, color schemes with contrast warnings, favicon, social links    | ✅     | admin `online-store.spec`      |
 | SB-07 | Menus (3 levels, linked by id) and content pages with templates                                                    | ✅     | `online-store.e2e`, admin spec |
+
+## Next 3b — Store builder (Round 2)
+
+| ID    | Task                                                                                                        | Status | Evidence                                     |
+| ----- | ----------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
+| SB-08 | Brand color builds the color schemes (WCAG AA for any color); image-only banners, banner slider, image grid | ✅     | theme-engine `theme.test`, admin spec        |
+| SB-09 | Custom CSS per section and theme-wide: checked (no url/@import/escapes/“<”) and scoped                      | ✅     | `custom-css.test`, `online-store.e2e`        |
+| SB-10 | Dynamic values (`{{ product.title }}`…) in text settings, HTML-escaped                                      | ✅     | `theme.test`, admin spec                     |
+| SB-11 | Alternate templates for products, collections and pages; Theme template card; `?view=` in previews          | ✅     | `theme.test`, `online-store.e2e`, admin spec |
+| SB-12 | Blog: blogs, posts (drafts, scheduling, tags, images), storefront pages, templates, section, menus, sitemap | ✅     | `online-store.e2e`, admin spec               |

@@ -1,6 +1,8 @@
 import "server-only";
 import type {
   ListResponse,
+  StorefrontArticle,
+  StorefrontBlog,
   StorefrontPage,
   StorefrontThemePayload,
   StorefrontCategory,
@@ -191,6 +193,33 @@ export const storefront = {
       `/pages/${encodeURIComponent(handle)}`,
       token ? { fresh: true, headers: { "X-Theme-Preview": token } } : {},
     );
+  }),
+  blog: cache(async (handle: string, page = 1, tag = "", pageSize = 12) => {
+    const token = (await headers()).get(THEME_PREVIEW_HEADER);
+    const qs = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (tag) qs.set("tag", tag);
+    return get<StorefrontBlog>(
+      `/blogs/${encodeURIComponent(handle)}?${qs}`,
+      token ? { fresh: true, headers: { "X-Theme-Preview": token } } : {},
+    );
+  }),
+  article: cache(async (blog: string, handle: string) => {
+    const token = (await headers()).get(THEME_PREVIEW_HEADER);
+    return get<StorefrontArticle>(
+      `/blogs/${encodeURIComponent(blog)}/${encodeURIComponent(handle)}`,
+      token ? { fresh: true, headers: { "X-Theme-Preview": token } } : {},
+    );
+  }),
+  blogs: cache(async () => {
+    const r = await get<
+      {
+        handle: string;
+        title: string;
+        updated_at: string;
+        articles: { handle: string; updated_at: string }[];
+      }[]
+    >("/blogs");
+    return r.kind === "ok" ? r.data : [];
   }),
   pages: cache(async () => {
     const r = await get<{ handle: string; title: string; updated_at: string }[]>("/pages");

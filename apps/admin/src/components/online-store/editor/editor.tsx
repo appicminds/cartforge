@@ -65,6 +65,8 @@ import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 import {
   storefrontUrl,
+  useArticles,
+  useBlogs,
   usePages,
   useSaveTheme,
   useStorefrontBase,
@@ -132,6 +134,8 @@ function templateForPath(path: string): TemplateKey | null {
   if (p === "/cart") return "cart";
   if (p === "/search") return "search";
   if (/^\/pages\/[^/]+$/.test(p)) return "page";
+  if (/^\/blogs\/[^/]+\/[^/]+$/.test(p)) return "article";
+  if (/^\/blogs\/[^/]+$/.test(p)) return "blog";
   return null;
 }
 
@@ -190,6 +194,8 @@ export function ThemeEditor({
     order: "desc",
   });
   const pages = usePages();
+  const blogs = useBlogs();
+  const articles = useArticles();
   const versions = useThemeVersions(theme.id, versionsOpen);
 
   // ── Validation (same rules as the API) ──
@@ -203,13 +209,19 @@ export function ThemeEditor({
         const p = products.data?.data[0];
         return p ? `/products/${p.handle}` : "/products";
       }
+      if (t === "blog" || t === "article") {
+        const a = articles.data?.find((x) => x.published) ?? articles.data?.[0];
+        const b = blogs.data?.[0];
+        if (t === "article" && a) return `/blogs/${a.blog_handle}/${a.handle}`;
+        return b ? `/blogs/${b.handle}` : "/";
+      }
       if (t === "page") {
         const p = pages.data?.find((x) => x.published) ?? pages.data?.[0];
         return p ? `/pages/${p.handle}` : "/";
       }
       return TEMPLATE_PREVIEW_PATHS[t];
     },
-    [products.data, pages.data],
+    [products.data, pages.data, blogs.data, articles.data],
   );
 
   useEffect(() => {

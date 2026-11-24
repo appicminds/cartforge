@@ -17,7 +17,7 @@ import {
 } from "@cartforge/ui";
 import { ApiError } from "@/lib/api-client";
 import { useCategories, useCollections } from "@/lib/catalog";
-import { useMenuAction, usePages } from "@/lib/online-store";
+import { useBlogs, useMenuAction, usePages } from "@/lib/online-store";
 import { useProductList } from "@/lib/products";
 import { useSession } from "@/lib/session";
 
@@ -30,6 +30,7 @@ const LINK_TYPES: { value: MenuLinkType; label: string }[] = [
   { value: "category", label: "A category" },
   { value: "product", label: "A product" },
   { value: "page", label: "A page" },
+  { value: "blog", label: "A blog" },
   { value: "url", label: "Web address" },
 ];
 const MAX_DEPTH = 3;
@@ -68,6 +69,7 @@ function LinkPicker({
   const categories = useCategories();
   const products = useProductList({ page: 1, page_size: 100, sort: "title", order: "asc" });
   const pages = usePages();
+  const blogs = useBlogs();
   const options =
     link.type === "collection"
       ? (collections.data?.data ?? []).map((c) => ({ id: c.id, label: c.title }))
@@ -77,7 +79,9 @@ function LinkPicker({
           ? (products.data?.data ?? []).map((p) => ({ id: p.id, label: p.title }))
           : link.type === "page"
             ? (pages.data ?? []).map((p) => ({ id: p.id, label: p.title }))
-            : null;
+            : link.type === "blog"
+              ? (blogs.data ?? []).map((b) => ({ id: b.id, label: b.title }))
+              : null;
   return (
     <div className="flex flex-wrap gap-2">
       <Select

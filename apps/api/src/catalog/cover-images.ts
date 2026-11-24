@@ -9,7 +9,10 @@ import { MEDIA_RESOURCE } from "../media/media.service";
  */
 
 type Db = Prisma.TransactionClient;
-type ImageOwner = typeof MEDIA_RESOURCE.CATEGORY | typeof MEDIA_RESOURCE.COLLECTION;
+type ImageOwner =
+  | typeof MEDIA_RESOURCE.CATEGORY
+  | typeof MEDIA_RESOURCE.COLLECTION
+  | typeof MEDIA_RESOURCE.ARTICLE;
 
 /** Keeps media_references in step with the chosen image, so the image can't be deleted. */
 export async function syncCoverReference(

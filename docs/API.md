@@ -410,17 +410,22 @@ curl -s -b jar -H "X-Store-Id: $STORE" -H "X-CSRF-Token: $(awk '/cf_csrf/{print 
 See `STORE-BUILDER.md`. Reading needs `store.read`; themes need `themes.write`; menus and pages
 need `content.write`.
 
-| Method & path                                                           | Notes                                                                               |
-| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `GET /themes`, `GET /themes/presets`                                    | The library (a live Foundry theme is created on first use); presets                 |
-| `POST /themes`                                                          | `{ preset, name? }` → unpublished theme (max 6, `THEME_LIMIT`)                      |
-| `GET /themes/:id`                                                       | `data` (theme-engine `ThemeData`) and the images it uses                            |
-| `PUT /themes/:id/data`                                                  | `{ data }`, validated strictly (422 with `data.*` paths); returns contrast warnings |
-| `POST /themes/:id/publish`, `…/discard`                                 | Make live (keeps a version) / drop unpublished edits on the live theme              |
-| `GET /themes/:id/versions`, `POST …/versions/:v/restore`                | History; restore (published right away on the live theme)                           |
-| `POST /themes/:id/duplicate`, `PATCH /themes/:id`, `DELETE /themes/:id` | Copy, rename, delete (not the live theme, 409)                                      |
-| `POST /themes/:id/preview-link`                                         | 1-hour token; open the storefront with `?theme_preview=<token>`                     |
-| `GET/POST /menus`, `GET/PUT/DELETE /menus/:id`                          | `{ title, handle?, items: [{ id, title, link: { type, id?, url? }, children }] }`   |
-| `GET/POST /pages`, `GET/PUT/DELETE /pages/:id`                          | `{ title, handle?, body_html, seo_title, seo_description, published }`              |
-| `GET /storefront/theme`                                                 | Live theme (or the draft with `X-Theme-Preview`), images and resolved menus         |
-| `GET /storefront/pages`, `GET /storefront/pages/:handle`                | Published pages (drafts too with a valid preview token)                             |
+| Method & path                                                                                      | Notes                                                                                                                          |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /themes`, `GET /themes/presets`                                                               | The library (a live Foundry theme is created on first use); presets                                                            |
+| `POST /themes`                                                                                     | `{ preset, name? }` → unpublished theme (max 6, `THEME_LIMIT`)                                                                 |
+| `GET /themes/:id`                                                                                  | `data` (theme-engine `ThemeData`) and the images it uses                                                                       |
+| `PUT /themes/:id/data`                                                                             | `{ data }`, validated strictly (422 with `data.*` paths); returns contrast warnings                                            |
+| `POST /themes/:id/publish`, `…/discard`                                                            | Make live (keeps a version) / drop unpublished edits on the live theme                                                         |
+| `GET /themes/:id/versions`, `POST …/versions/:v/restore`                                           | History; restore (published right away on the live theme)                                                                      |
+| `POST /themes/:id/duplicate`, `PATCH /themes/:id`, `DELETE /themes/:id`                            | Copy, rename, delete (not the live theme, 409)                                                                                 |
+| `POST /themes/:id/preview-link`                                                                    | 1-hour token; open the storefront with `?theme_preview=<token>`                                                                |
+| `GET/POST /menus`, `GET/PUT/DELETE /menus/:id`                                                     | `{ title, handle?, items: [{ id, title, link: { type, id?, url? }, children }] }`                                              |
+| `GET/POST /pages`, `GET/PUT/DELETE /pages/:id`                                                     | `{ title, handle?, body_html, seo_title, seo_description, published }`                                                         |
+| `GET /storefront/theme`                                                                            | Live theme (or the draft with `X-Theme-Preview`), images and resolved menus                                                    |
+| `GET /storefront/pages`, `GET /storefront/pages/:handle`                                           | Published pages (drafts too with a valid preview token)                                                                        |
+| `GET /theme-templates`                                                                             | Alternate template names in the live theme, per kind                                                                           |
+| `GET/PUT /theme-templates/:kind/:id`                                                               | `{ template }` for a product, collection or page (kind's write permission)                                                     |
+| `GET/POST /blogs`, `PUT/DELETE /blogs/:id`                                                         | `{ title, handle? }`; a News blog is created on first use                                                                      |
+| `GET/POST /articles`, `GET/PUT/DELETE /articles/:id`                                               | `{ blog_id, title, handle?, body_html, excerpt, image_id, author, tags, published, published_at, seo_title, seo_description }` |
+| `GET /storefront/blogs`, `GET /storefront/blogs/:handle`, `GET /storefront/blogs/:handle/:article` | Sitemap list; posts (`page`, `page_size`, `tag`); one post                                                                     |

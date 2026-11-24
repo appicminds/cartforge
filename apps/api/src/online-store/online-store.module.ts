@@ -1,8 +1,11 @@
 import { Module } from "@nestjs/common";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { ThemePreviewTokens } from "../storefront/preview-token";
+import { BlogService } from "./blog.service";
 import { MenusService } from "./menus.service";
 import {
+  ArticlesController,
+  BlogsController,
   MenusController,
   PagesController,
   StorefrontOnlineStoreController,
@@ -19,12 +22,15 @@ import { ThemesService } from "./themes.service";
     ThemeTemplatesController,
     MenusController,
     PagesController,
+    BlogsController,
+    ArticlesController,
     StorefrontOnlineStoreController,
   ],
   providers: [
     ThemesService,
     MenusService,
     PagesService,
+    BlogService,
     {
       provide: ThemePreviewTokens,
       inject: [API_ENV],

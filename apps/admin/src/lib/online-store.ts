@@ -13,8 +13,10 @@ import type {
   ThemeVersionSummary,
   TemplateAssignment,
   TemplateTargetKind,
+  ArticleView,
+  BlogView,
 } from "@cartforge/types";
-import type { MenuInput, PageInput } from "@cartforge/validation";
+import type { ArticleInput, MenuInput, PageInput } from "@cartforge/validation";
 import { apiRequest } from "./api-client";
 import { storeKey, useSession } from "./session";
 
@@ -202,5 +204,66 @@ export function useAssignTemplate(kind: TemplateTargetKind, id: string) {
         storeId,
       }).then((r) => r.data),
     onSuccess: (data) => qc.setQueryData(storeKey(storeId, "theme-templates", kind, id), data),
+  });
+}
+
+// ───────────── Blog ─────────────
+
+export const useBlogs = () => useGet<BlogView[]>(["blogs"], "/blogs");
+export const useArticles = (blogId?: string) =>
+  useGet<ArticleView[]>(
+    ["articles", blogId ?? "all"],
+    blogId ? `/articles?blog_id=${blogId}` : "/articles",
+  );
+export const useArticle = (id: string | undefined) =>
+  useGet<ArticleView>(["articles", "one", id], id ? `/articles/${id}` : null);
+
+export function useBlogAction() {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      a:
+        | { kind: "save"; id?: string; title: string; handle?: string }
+        | { kind: "delete"; id: string },
+    ): Promise<BlogView | null> => {
+      if (a.kind === "delete") {
+        await apiRequest(`/blogs/${a.id}`, { method: "DELETE", storeId });
+        return null;
+      }
+      return apiRequest<DetailResponse<BlogView>>(a.id ? `/blogs/${a.id}` : "/blogs", {
+        method: a.id ? "PUT" : "POST",
+        body: { title: a.title, ...(a.handle ? { handle: a.handle } : {}) },
+        storeId,
+      }).then((r) => r.data);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: storeKey(storeId, "blogs") });
+      void qc.invalidateQueries({ queryKey: storeKey(storeId, "articles") });
+    },
+  });
+}
+
+export function useArticleAction() {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      a: { kind: "save"; id?: string; body: ArticleInput } | { kind: "delete"; id: string },
+    ): Promise<ArticleView | null> => {
+      if (a.kind === "delete") {
+        await apiRequest(`/articles/${a.id}`, { method: "DELETE", storeId });
+        return null;
+      }
+      return apiRequest<DetailResponse<ArticleView>>(a.id ? `/articles/${a.id}` : "/articles", {
+        method: a.id ? "PUT" : "POST",
+        body: a.body,
+        storeId,
+      }).then((r) => r.data);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: storeKey(storeId, "articles") });
+      void qc.invalidateQueries({ queryKey: storeKey(storeId, "blogs") });
+    },
   });
 }
