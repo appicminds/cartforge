@@ -24,6 +24,7 @@ import {
   Textarea,
   useToast,
 } from "@cartforge/ui";
+import { CoverImageField, toCoverImage } from "@/components/cover-image-field";
 import { ApiError } from "@/lib/api-client";
 import { useBreadcrumbTitle } from "@/lib/breadcrumbs";
 import {
@@ -67,7 +68,7 @@ export default function CollectionPage() {
 }
 
 function CollectionEditor({ c }: { c: CollectionDetail }) {
-  const { can } = useSession();
+  const { can, store } = useSession();
   const canWrite = can(PERMISSIONS.COLLECTIONS_WRITE);
   const toast = useToast();
   const router = useRouter();
@@ -83,6 +84,7 @@ function CollectionEditor({ c }: { c: CollectionDetail }) {
     sort_order: c.sort_order,
     seo_title: c.seo_title ?? "",
     seo_description: c.seo_description ?? "",
+    image: toCoverImage(c.image),
   });
   const [f, setF] = useState(initial);
   const [error, setError] = useState<{ message: string; field?: string } | null>(null);
@@ -113,6 +115,7 @@ function CollectionEditor({ c }: { c: CollectionDetail }) {
           sort_order: f.sort_order,
           seo_title: f.seo_title.trim() || null,
           seo_description: f.seo_description.trim() || null,
+          image_asset_id: f.image?.id ?? null,
         },
       });
       toast.success("Collection saved");
@@ -362,6 +365,19 @@ function CollectionEditor({ c }: { c: CollectionDetail }) {
           </Card>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
+          <Card>
+            <CardHeader title="Image" />
+            <CardBody>
+              <CoverImageField
+                value={f.image}
+                onChange={(image) => setF((s) => ({ ...s, image }))}
+                auto={c.auto_image}
+                storeId={store?.store_id}
+                disabled={!canWrite}
+                emptyHint="No image yet"
+              />
+            </CardBody>
+          </Card>
           <Card>
             <CardHeader title="Visibility" />
             <CardBody className="flex flex-col gap-4">

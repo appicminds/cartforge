@@ -54,6 +54,8 @@ const categoryFields = {
   parent_id: uuidSchema.nullable().optional(),
   description_html: z.string().max(20_000).optional(),
   status: z.enum(["active", "archived"]).optional(),
+  /** Uploaded media asset; null removes the image (a product photo is used instead). */
+  image_asset_id: uuidSchema.nullable().optional(),
   ...seoFields,
 };
 
@@ -103,6 +105,8 @@ const collectionFields = {
   description_html: z.string().max(20_000).optional(),
   status: z.enum(["draft", "active", "archived"]).optional(),
   sort_order: z.enum(COLLECTION_SORTS).optional(),
+  /** Uploaded media asset; null removes the image (a product photo is used instead). */
+  image_asset_id: uuidSchema.nullable().optional(),
   ...seoFields,
 };
 

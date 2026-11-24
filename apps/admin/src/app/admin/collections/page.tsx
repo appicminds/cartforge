@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Layers, Plus } from "lucide-react";
-import { PERMISSIONS } from "@cartforge/types";
+import { PERMISSIONS, type CollectionSummary } from "@cartforge/types";
 import {
   Alert,
   Badge,
@@ -111,13 +111,20 @@ export default function CollectionsPage() {
               {rows.map((c) => (
                 <Tr key={c.id}>
                   <Td>
-                    <Link
-                      href={`/admin/collections/${c.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {c.title}
-                    </Link>
-                    <span className="block text-xs text-fg-subtle">/collections/{c.handle}</span>
+                    <div className="flex items-center gap-3">
+                      <CollectionThumb c={c} />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/admin/collections/${c.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {c.title}
+                        </Link>
+                        <span className="block text-xs text-fg-subtle">
+                          /collections/{c.handle}
+                        </span>
+                      </div>
+                    </div>
                   </Td>
                   <Td>
                     <Badge tone={STATUS_TONE[c.status]}>
@@ -168,6 +175,22 @@ export default function CollectionsPage() {
           </Field>
         </form>
       </Dialog>
+    </div>
+  );
+}
+
+function CollectionThumb({ c }: { c: CollectionSummary }) {
+  const img = c.image ?? c.auto_image;
+  return img ? (
+    <img
+      src={img.thumb_url ?? img.url}
+      alt=""
+      title={c.image ? undefined : "Product photo (no image chosen)"}
+      className="size-9 shrink-0 rounded-lg border border-border object-cover"
+    />
+  ) : (
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-sunken text-fg-subtle">
+      <Layers aria-hidden className="size-4" />
     </div>
   );
 }

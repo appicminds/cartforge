@@ -134,7 +134,7 @@ function ImageField({
   const [q, setQ] = useState("");
   const [uploading, setUploading] = useState(false);
   const storeId = useSession().store?.store_id;
-  const lib = useMediaLibrary({ q: q || undefined, page: 1, page_size: 48 }, open);
+  const lib = useMediaLibrary({ q: q || undefined, page: 1, page_size: 48, type: "image" }, open);
   const img = value ? ctx.images[value] : undefined;
   const pick = (a: {
     id: string;

@@ -119,11 +119,6 @@ export async function ProductRecommendations({
   return <Grid section={section} ctx={ctx} title={str(s, "heading")} products={others} />;
 }
 
-/** One cached lookup per tile for a representative image. */
-async function coverFor(q: { collection?: string; category?: string }) {
-  return (await storefront.products({ ...q, page_size: 1 })).data[0]?.images[0];
-}
-
 function Tiles({
   section,
   title,
@@ -190,18 +185,18 @@ export async function CollectionList({ section }: { section: SectionInstance; ct
         .filter((c): c is (typeof all)[number] => !!c)
     : all.filter((c) => c.product_count > 0).slice(0, 6);
   if (!list.length) return null;
-  const covers = await Promise.all(list.map((c) => coverFor({ collection: c.handle })));
   return (
     <Tiles
       section={section}
       title={str(s, "heading")}
       ratio={str(s, "image_ratio")}
-      tiles={list.map((c, i) => ({
+      tiles={list.map((c) => ({
         key: c.id,
         href: `/collections/${c.handle}`,
         name: c.title,
         count: c.product_count,
-        image: covers[i],
+        // Chosen image, else a product photo from the collection (picked by the API).
+        image: c.image ?? undefined,
       }))}
     />
   );
@@ -213,18 +208,18 @@ export async function CategoryList({ section }: { section: SectionInstance; ctx:
     .filter((c) => c.depth === 0 && c.product_count > 0)
     .slice(0, num(s, "limit", 6));
   if (!top.length) return null;
-  const covers = await Promise.all(top.map((c) => coverFor({ category: c.handle })));
   return (
     <Tiles
       section={section}
       title={str(s, "heading")}
       ratio="landscape"
-      tiles={top.map((c, i) => ({
+      tiles={top.map((c) => ({
         key: c.id,
         href: `/categories/${c.handle}`,
         name: c.name,
         count: c.product_count,
-        image: covers[i],
+        // Chosen image, else a product photo from the category (picked by the API).
+        image: c.image ?? undefined,
       }))}
     />
   );

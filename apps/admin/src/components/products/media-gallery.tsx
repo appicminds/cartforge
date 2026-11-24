@@ -8,13 +8,14 @@ import {
   Images,
   MoreHorizontal,
   Pencil,
+  Play,
   RotateCw,
   Star,
   Trash2,
   X,
 } from "lucide-react";
 import type { MediaAssetSummary } from "@cartforge/types";
-import { MEDIA_ACCEPT } from "@cartforge/validation";
+import { MEDIA_ACCEPT, MEDIA_VIDEO_ACCEPT } from "@cartforge/validation";
 import {
   Alert,
   Badge,
@@ -32,6 +33,8 @@ import { ApiError } from "@/lib/api-client";
 import {
   ACCEPTED_TYPES,
   formatBytes,
+  formatDuration,
+  isVideoFile,
   uploadMedia,
   useMediaLibrary,
   type UploadHandle,
@@ -45,6 +48,9 @@ export interface GalleryItem {
   medium_url: string | null;
   width: number | null;
   height: number | null;
+  /** "video" shows a play badge; the image fields above are then its cover frame. */
+  media_type?: "image" | "video";
+  duration_ms?: number | null;
 }
 
 export interface GalleryValue {
@@ -74,7 +80,19 @@ export function toGalleryItem(
     medium_url: a.medium_url,
     width: a.width,
     height: a.height,
+    media_type: a.media_type,
+    duration_ms: a.duration_ms,
   };
+}
+
+/** Play badge and length for video tiles. */
+export function VideoBadge({ durationMs }: { durationMs: number | null | undefined }) {
+  return (
+    <span className="pointer-events-none absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">
+      <Play aria-hidden className="size-3 fill-current" />
+      {durationMs ? formatDuration(durationMs) : "Video"}
+    </span>
+  );
 }
 
 /**
@@ -154,10 +172,13 @@ export function MediaGallery({
 
   const enqueue = (files: FileList | File[]) => {
     const list = Array.from(files);
-    const rejected = list.filter((f) => !ACCEPTED_TYPES.includes(f.type));
+    const ok = (f: File) => ACCEPTED_TYPES.includes(f.type) || isVideoFile(f);
+    const rejected = list.filter((f) => !ok(f));
     if (rejected.length)
-      toast.error(`${rejected.map((f) => f.name).join(", ")}: only JPEG, PNG or WebP images.`);
-    for (const file of list.filter((f) => ACCEPTED_TYPES.includes(f.type))) {
+      toast.error(
+        `${rejected.map((f) => f.name).join(", ")}: only JPEG, PNG or WebP images, or MP4, WebM or MOV videos.`,
+      );
+    for (const file of list.filter(ok)) {
       const key = `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`;
       setPending((all) => [
         ...all,
@@ -268,10 +289,14 @@ export function MediaGallery({
               >
                 <img
                   src={(isPrimary ? item.medium_url : item.thumb_url) ?? item.url}
-                  alt={item.alt_text || `Product image ${index + 1}`}
+                  alt={
+                    item.alt_text ||
+                    `Product ${item.media_type === "video" ? "video" : "image"} ${index + 1}`
+                  }
                   className="size-full object-cover"
                   draggable={false}
                 />
+                {item.media_type === "video" && <VideoBadge durationMs={item.duration_ms} />}
                 {isPrimary && (
                   <Badge tone="neutral" className="absolute left-2 top-2 bg-surface/90 shadow-sm">
                     <Star aria-hidden className="size-3" /> Primary
@@ -296,11 +321,22 @@ export function MediaGallery({
               key={p.key}
               className="relative aspect-square overflow-hidden rounded-lg border border-border bg-surface-sunken"
             >
-              <img
-                src={p.preview}
-                alt=""
-                className={cn("size-full object-cover", !p.error && "opacity-50")}
-              />
+              {isVideoFile(p.file) ? (
+                <video
+                  src={p.preview}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  aria-hidden
+                  className={cn("size-full object-cover", !p.error && "opacity-50")}
+                />
+              ) : (
+                <img
+                  src={p.preview}
+                  alt=""
+                  className={cn("size-full object-cover", !p.error && "opacity-50")}
+                />
+              )}
               {p.error ? (
                 <div
                   role="alert"
@@ -392,7 +428,7 @@ export function MediaGallery({
               disabled={disabled}
               onClick={() => inputRef.current?.click()}
             >
-              Upload images
+              Upload images or videos
             </Button>
             <Button
               variant="ghost"
@@ -403,13 +439,15 @@ export function MediaGallery({
               <Images aria-hidden /> Select existing
             </Button>
           </div>
-          <p className="text-xs text-fg-subtle">or drop JPEG, PNG or WebP images here</p>
+          <p className="text-xs text-fg-subtle">
+            or drop images (JPEG, PNG, WebP) or videos (MP4, WebM, MOV) here
+          </p>
         </div>
       )}
 
       {!empty && !disabled && (
         <div className="flex items-center justify-between text-xs text-fg-subtle">
-          <span>Drag to reorder. The first image is the primary image.</span>
+          <span>Drag to reorder. The first item is the primary image.</span>
           <Button
             variant="link"
             size="sm"
@@ -424,10 +462,10 @@ export function MediaGallery({
       <input
         ref={inputRef}
         type="file"
-        accept={MEDIA_ACCEPT}
+        accept={`${MEDIA_ACCEPT},${MEDIA_VIDEO_ACCEPT}`}
         multiple
         hidden
-        aria-label="Upload images"
+        aria-label="Upload images or videos"
         onChange={(e) => {
           if (e.target.files) enqueue(e.target.files);
           e.target.value = "";
@@ -512,19 +550,25 @@ function AltTextDialog({
   );
 }
 
-function LibraryDialog({
+export function LibraryDialog({
   open,
   exclude,
   onClose,
   onAdd,
+  single = false,
+  type,
 }: {
   open: boolean;
   exclude: Set<string>;
   onClose: () => void;
   onAdd: (assets: MediaAssetSummary[]) => void;
+  /** Pick one image: choosing another replaces the selection. */
+  single?: boolean;
+  /** Only images (e.g. covers) or only videos; both when omitted. */
+  type?: "image" | "video";
 }) {
   const [selected, setSelected] = useState<Map<string, MediaAssetSummary>>(new Map());
-  const library = useMediaLibrary({ page: 1, page_size: 48 }, open);
+  const library = useMediaLibrary({ page: 1, page_size: 48, type }, open);
   useEffect(() => {
     if (open) setSelected(new Map());
   }, [open]);
@@ -533,7 +577,10 @@ function LibraryDialog({
     setSelected((s) => {
       const next = new Map(s);
       if (next.has(a.id)) next.delete(a.id);
-      else next.set(a.id, a);
+      else {
+        if (single) next.clear();
+        next.set(a.id, a);
+      }
       return next;
     });
 
@@ -543,7 +590,7 @@ function LibraryDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Select images"
+      title={single ? "Select an image" : "Select images"}
       description="Reuse images already uploaded to this store."
       className="w-[min(44rem,calc(100vw-2rem))]"
       footer={
@@ -552,7 +599,9 @@ function LibraryDialog({
             Cancel
           </Button>
           <Button disabled={!selected.size} onClick={() => onAdd([...selected.values()])}>
-            Add {selected.size || ""} {selected.size === 1 ? "image" : "images"}
+            {single
+              ? "Use image"
+              : `Add ${selected.size || ""} ${selected.size === 1 ? "image" : "images"}`}
           </Button>
         </>
       }
@@ -589,6 +638,7 @@ function LibraryDialog({
                   )}
                 >
                   <img src={a.thumb_url ?? a.url} alt="" className="size-full object-cover" />
+                  {a.media_type === "video" && <VideoBadge durationMs={a.duration_ms} />}
                   {isSel && (
                     <span
                       aria-hidden

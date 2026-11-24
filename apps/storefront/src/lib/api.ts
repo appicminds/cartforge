@@ -6,6 +6,7 @@ import type {
   StorefrontCategory,
   StorefrontCategoryDetail,
   StorefrontCollectionSummary,
+  StorefrontImage,
   StorefrontPreviewProduct,
   StorefrontProduct,
   StorefrontMarket,
@@ -170,6 +171,7 @@ export const storefront = {
       title: string;
       description_html: string;
       template_suffix?: string | null;
+      image: StorefrontImage | null;
       seo: { title: string; description: string };
     }>(`/collections/${encodeURIComponent(handle)}`),
   ),

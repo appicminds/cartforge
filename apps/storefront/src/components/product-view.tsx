@@ -31,21 +31,44 @@ function Gallery({
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-hidden rounded-[var(--sf-card-radius)] bg-surface">
-        <img
-          key={img.url}
-          src={img.large_url ?? img.url}
-          srcSet={
-            [img.medium_url && `${img.medium_url} 600w`, img.large_url && `${img.large_url} 1200w`]
-              .filter(Boolean)
-              .join(", ") || undefined
-          }
-          sizes="(min-width: 1024px) 55vw, 100vw"
-          alt={img.alt ?? title}
-          width={img.width ?? undefined}
-          height={img.height ?? undefined}
-          fetchPriority="high"
-          className="h-auto w-full object-contain"
-        />
+        {img.video ? (
+          // No type attribute: Chrome plays H.264 .mov files but skips a "video/quicktime" source.
+          <video
+            key={img.video.url}
+            src={img.video.url}
+            poster={img.large_url ?? img.url}
+            controls
+            playsInline
+            muted
+            loop
+            // Started by the shopper choosing it, not on page load (saves their data).
+            autoPlay={active !== 0}
+            preload={active === 0 ? "metadata" : "auto"}
+            width={img.width ?? undefined}
+            height={img.height ?? undefined}
+            aria-label={img.alt ?? `${title} video`}
+            className="h-auto max-h-[80vh] w-full bg-black object-contain"
+          />
+        ) : (
+          <img
+            key={img.url}
+            src={img.large_url ?? img.url}
+            srcSet={
+              [
+                img.medium_url && `${img.medium_url} 600w`,
+                img.large_url && `${img.large_url} 1200w`,
+              ]
+                .filter(Boolean)
+                .join(", ") || undefined
+            }
+            sizes="(min-width: 1024px) 55vw, 100vw"
+            alt={img.alt ?? title}
+            width={img.width ?? undefined}
+            height={img.height ?? undefined}
+            fetchPriority="high"
+            className="h-auto w-full object-contain"
+          />
+        )}
       </div>
       {images.length > 1 && (
         <ul className="grid grid-cols-5 gap-2" aria-label="Product images">
@@ -55,7 +78,7 @@ function Gallery({
                 type="button"
                 onClick={() => onSelect(i)}
                 aria-current={i === active ? "true" : undefined}
-                className={`block w-full overflow-hidden rounded-[var(--sf-card-radius)] border-2 bg-surface ${i === active ? "border-ink" : "border-transparent hover:border-line"}`}
+                className={`relative block w-full overflow-hidden rounded-[var(--sf-card-radius)] border-2 bg-surface ${i === active ? "border-ink" : "border-transparent hover:border-line"}`}
               >
                 <img
                   src={im.thumb_url ?? im.url}
@@ -63,8 +86,20 @@ function Gallery({
                   loading="lazy"
                   className="aspect-square w-full object-cover"
                 />
+                {im.video && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 flex items-center justify-center bg-black/20"
+                  >
+                    <span className="flex size-7 items-center justify-center rounded-full bg-white/90 text-black">
+                      <svg viewBox="0 0 24 24" className="ml-0.5 size-3.5 fill-current">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </span>
+                )}
                 <span className="sr-only">
-                  Show image {i + 1} of {images.length}
+                  Show {im.video ? "video" : "image"} {i + 1} of {images.length}
                 </span>
               </button>
             </li>

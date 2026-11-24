@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma, storeScoped, type Collection } from "@cartforge/database";
 import {
   CATALOG_ERROR_CODES,
+  type CatalogImage,
   type CollectionDetail,
   type CollectionProductItem,
   type CollectionSummary,
@@ -17,8 +18,10 @@ import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { OutboxService } from "../common/outbox.service";
 import { sanitizeRichText } from "../common/sanitize-html";
+import { MEDIA_RESOURCE, MediaService } from "../media/media.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { CatalogActor } from "./categories.service";
+import { collectionFallbackImages, loadCatalogImages, syncCoverReference } from "./cover-images";
 import { nextFreeHandle } from "./handles";
 import { recordRedirect } from "./redirects";
 
@@ -44,6 +47,7 @@ export class CollectionsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly outbox: OutboxService,
+    private readonly media: MediaService,
   ) {}
 
   async list(
@@ -64,8 +68,9 @@ export class CollectionsService {
         include: { _count: { select: { products: { where: { product: { deleted_at: null } } } } } },
       }),
     ]);
+    const images = await this.images(storeId, rows);
     return {
-      data: rows.map((r) => this.toSummary(r, r._count.products)),
+      data: rows.map((r) => this.toSummary(r, r._count.products, images)),
       meta: {
         page: q.page,
         page_size: q.page_size,
@@ -79,12 +84,15 @@ export class CollectionsService {
     const c = await this.prisma.collection.findFirst({ where: storeScoped(storeId, { id }) });
     if (!c) throw notFound();
     const products = await this.members(storeId, id);
-    return { ...this.toSummary(c, products.length), products };
+    const images = await this.images(storeId, [c]);
+    return { ...this.toSummary(c, products.length, images), products };
   }
 
   async create(input: CollectionCreate, actor: CatalogActor): Promise<CollectionDetail> {
     const id = await this.prisma.$transaction(async (tx) => {
       const handle = await this.resolveHandle(tx, actor.store_id, input.handle, input.title);
+      const imageId = input.image_asset_id ?? null;
+      if (imageId) await this.assertImage(tx, actor.store_id, imageId);
       const c = await tx.collection.create({
         data: {
           store_id: actor.store_id,
@@ -95,10 +103,13 @@ export class CollectionsService {
           sort_order: input.sort_order ?? "manual",
           seo_title: input.seo_title ?? null,
           seo_description: input.seo_description ?? null,
+          image_asset_id: imageId,
           created_by: actor.user_id,
           updated_by: actor.user_id,
         },
       });
+      if (imageId)
+        await syncCoverReference(tx, actor.store_id, MEDIA_RESOURCE.COLLECTION, c.id, imageId);
       await this.record(tx, actor, "collection.created", c.id, { title: c.title });
       return c.id;
     });
@@ -147,6 +158,17 @@ export class CollectionsService {
       if (input.sort_order !== undefined) data.sort_order = input.sort_order;
       if (input.seo_title !== undefined) data.seo_title = input.seo_title;
       if (input.seo_description !== undefined) data.seo_description = input.seo_description;
+      if (input.image_asset_id !== undefined && input.image_asset_id !== c.image_asset_id) {
+        if (input.image_asset_id) await this.assertImage(tx, actor.store_id, input.image_asset_id);
+        data.image_asset_id = input.image_asset_id;
+        await syncCoverReference(
+          tx,
+          actor.store_id,
+          MEDIA_RESOURCE.COLLECTION,
+          id,
+          input.image_asset_id,
+        );
+      }
       if (!Object.keys(data).length) return;
       data.updated_by = actor.user_id;
       await tx.collection.update({ where: { id }, data });
@@ -216,6 +238,7 @@ export class CollectionsService {
       const c = await tx.collection.findFirst({ where: storeScoped(actor.store_id, { id }) });
       if (!c) throw notFound();
       await tx.collection.delete({ where: { id } });
+      await syncCoverReference(tx, actor.store_id, MEDIA_RESOURCE.COLLECTION, id, null);
       await this.record(tx, actor, "collection.deleted", id, { title: c.title, handle: c.handle });
     });
   }
@@ -245,6 +268,30 @@ export class CollectionsService {
   }
 
   // ───────────── Helpers ─────────────
+
+  private async assertImage(tx: Tx, storeId: string, assetId: string): Promise<void> {
+    try {
+      await this.media.assertOwned(tx, storeId, [assetId]);
+    } catch {
+      throw AppException.validation([
+        { path: "image_asset_id", message: "Image not found.", code: "not_found" },
+      ]);
+    }
+  }
+
+  /** Chosen images plus product-photo fallbacks, for toSummary. */
+  private async images(storeId: string, rows: Collection[]) {
+    const fallback = await collectionFallbackImages(
+      this.prisma,
+      storeId,
+      rows.map((r) => r.id),
+    );
+    const byAsset = await loadCatalogImages(this.prisma, storeId, [
+      ...rows.map((r) => r.image_asset_id),
+      ...fallback.values(),
+    ]);
+    return { fallback, byAsset };
+  }
 
   private async assertProducts(tx: Tx, storeId: string, ids: string[]): Promise<void> {
     if (!ids.length) return;
@@ -339,7 +386,11 @@ export class CollectionsService {
     });
   }
 
-  private toSummary(c: Collection, count: number): CollectionSummary {
+  private toSummary(
+    c: Collection,
+    count: number,
+    images: { fallback: Map<string, string>; byAsset: Map<string, CatalogImage> },
+  ): CollectionSummary {
     return {
       id: c.id,
       title: c.title,
@@ -349,6 +400,8 @@ export class CollectionsService {
       sort_order: c.sort_order,
       collection_type: c.collection_type,
       product_count: count,
+      image: (c.image_asset_id && images.byAsset.get(c.image_asset_id)) || null,
+      auto_image: images.byAsset.get(images.fallback.get(c.id) ?? "") ?? null,
       seo_title: c.seo_title,
       seo_description: c.seo_description,
       published_handle_locked: c.status === "active",

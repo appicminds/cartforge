@@ -213,6 +213,8 @@ export function toFormValues(p: ProductDetail | undefined, currency: string): Pr
           medium_url: m.medium_url,
           width: m.width,
           height: m.height,
+          media_type: m.media_type,
+          duration_ms: m.duration_ms,
         })),
       primary: null,
     },
@@ -539,8 +541,8 @@ function ProductFormInner({
 
           <Card>
             <CardHeader
-              title="Images"
-              description="JPEG, PNG or WebP. The primary image is shown in listings."
+              title="Media"
+              description="Images (JPEG, PNG, WebP) and videos (MP4, WebM, MOV). The primary item is shown in listings."
             />
             <CardBody>
               <Controller

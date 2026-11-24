@@ -24,10 +24,10 @@ async function addCategory(page: Page, name: string, parent?: string) {
 test.describe("Organization, SEO, bulk, duplicate (Sprint 4)", () => {
   test("categories: nested tree and delete with reassignment", async ({ page }) => {
     await signIn(page, "catalog@cartforge.test");
-    await page
-      .getByRole("navigation", { name: "Main" })
-      .getByRole("link", { name: "Categories" })
-      .click();
+    const nav = page.getByRole("navigation", { name: "Main" });
+    // Categories sits under Products in the menu.
+    await nav.getByRole("link", { name: "Products" }).click();
+    await nav.getByRole("link", { name: "Categories" }).click();
     await addCategory(page, `Garden ${RUN}`);
     await addCategory(page, `Pots ${RUN}`, `Garden ${RUN}`);
     await addCategory(page, `Seeds ${RUN}`);

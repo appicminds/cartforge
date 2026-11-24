@@ -1,13 +1,26 @@
 import { HttpStatus, Inject, Injectable, Logger } from "@nestjs/common";
 import { Prisma, storeScoped } from "@cartforge/database";
 import { CATALOG_ERROR_CODES, type ListResponse, type MediaAssetSummary } from "@cartforge/types";
-import type { MediaListQuery, MediaUpdate } from "@cartforge/validation";
+import {
+  MEDIA_VIDEO_EXT,
+  type MediaListQuery,
+  type MediaUpdate,
+  type MediaVideoMimeType,
+  type VideoComplete,
+  type VideoUploadStart,
+} from "@cartforge/validation";
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { PrismaService } from "../prisma/prisma.service";
-import { STORAGE_DRIVER, type StorageDriver, type StoredObject } from "../storage/storage.driver";
-import { checksumOf, InvalidImageError, processImage } from "./image-processor";
-import { toMediaSummary } from "./media.mapper";
+import { API_ENV, type ApiEnv } from "../config/env";
+import {
+  STORAGE_DRIVER,
+  type DirectUpload,
+  type StorageDriver,
+  type StoredObject,
+} from "../storage/storage.driver";
+import { checksumOf, InvalidImageError, processImage, sniffVideoFamily } from "./image-processor";
+import { POSTER, toMediaSummary } from "./media.mapper";
 
 export interface UploadedFile {
   buffer: Buffer;
@@ -24,7 +37,11 @@ const LIVE = { deleted_at: null } as const;
 const WITH_DERIVATIVES = { derivatives: true, _count: { select: { references: true } } } as const;
 
 /** Resource types that can reference media. Pages/themes/menus join in later modules. */
-export const MEDIA_RESOURCE = { PRODUCT: "product" } as const;
+export const MEDIA_RESOURCE = {
+  PRODUCT: "product",
+  CATEGORY: "category",
+  COLLECTION: "collection",
+} as const;
 
 @Injectable()
 export class MediaService {
@@ -34,7 +51,200 @@ export class MediaService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
+
+  // ───────────── Videos ─────────────
+
+  private videoKey(storeId: string, checksum: string, mime: MediaVideoMimeType) {
+    return `stores/${storeId}/media/${checksum}/original.${MEDIA_VIDEO_EXT[mime]}`;
+  }
+
+  private tooLarge() {
+    const mb = Math.floor(this.env.MEDIA_MAX_VIDEO_BYTES / 1024 / 1024);
+    return new AppException(
+      CATALOG_ERROR_CODES.MEDIA_TOO_LARGE,
+      `Videos can be up to ${mb} MB.`,
+      HttpStatus.PAYLOAD_TOO_LARGE,
+      [{ path: "file", message: `Videos can be up to ${mb} MB.`, code: "too_large" }],
+    );
+  }
+
+  private invalidVideo(message: string) {
+    return new AppException(
+      CATALOG_ERROR_CODES.MEDIA_INVALID_FILE,
+      message,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      [{ path: "file", message, code: "invalid_video" }],
+    );
+  }
+
+  /**
+   * Step 1 of a video upload: returns the existing asset when this exact file is already
+   * in the store, otherwise where to send the file.
+   */
+  async startVideoUpload(
+    input: VideoUploadStart,
+    actor: MediaActor,
+  ): Promise<{ asset: MediaAssetSummary | null; upload: DirectUpload | null }> {
+    if (input.size_bytes > this.env.MEDIA_MAX_VIDEO_BYTES) throw this.tooLarge();
+    const existing = await this.findByChecksum(actor.store_id, input.checksum_sha256);
+    if (existing) return { asset: toMediaSummary(existing, { deduplicated: true }), upload: null };
+    const key = this.videoKey(actor.store_id, input.checksum_sha256, input.mime_type);
+    const upload = await this.storage.directUpload(
+      key,
+      input.mime_type,
+      this.env.MEDIA_MAX_VIDEO_BYTES,
+    );
+    return { asset: null, upload };
+  }
+
+  /**
+   * Step 2: registers the video with its cover frame (made in the browser — videos
+   * aren't decoded on the server). The video is either uploaded already (Vercel Blob)
+   * or arrives here as `file`.
+   */
+  async completeVideo(
+    input: VideoComplete,
+    poster: UploadedFile,
+    file: UploadedFile | undefined,
+    actor: MediaActor,
+  ): Promise<MediaAssetSummary> {
+    let checksum = input.checksum_sha256;
+    const stored: StoredObject[] = [];
+    let video: StoredObject & { size: number };
+
+    if (file) {
+      if (file.buffer.length > this.env.MEDIA_MAX_VIDEO_BYTES) throw this.tooLarge();
+      checksum = checksumOf(file.buffer); // the real one, not the browser's claim
+      const existing = await this.findByChecksum(actor.store_id, checksum);
+      if (existing) return toMediaSummary(existing, { deduplicated: true });
+      if (!this.matchesType(sniffVideoFamily(file.buffer.subarray(0, 64)), input.mime_type))
+        throw this.invalidVideo("This file isn't an MP4, WebM or MOV video.");
+      const obj = await this.storage.put(
+        this.videoKey(actor.store_id, checksum, input.mime_type),
+        file.buffer,
+        input.mime_type,
+      );
+      stored.push(obj);
+      video = { ...obj, size: file.buffer.length };
+    } else {
+      const existing = await this.findByChecksum(actor.store_id, checksum);
+      if (existing) return toMediaSummary(existing, { deduplicated: true });
+      const key = this.videoKey(actor.store_id, checksum, input.mime_type);
+      const info = await this.storage.stat(key);
+      if (!info) throw this.invalidVideo("The video didn't finish uploading. Please try again.");
+      if (info.size > this.env.MEDIA_MAX_VIDEO_BYTES) {
+        await this.safeDelete([info]);
+        throw this.tooLarge();
+      }
+      if (
+        !this.matchesType(sniffVideoFamily(await this.storage.readStart(key, 64)), input.mime_type)
+      ) {
+        await this.safeDelete([info]);
+        throw this.invalidVideo("This file isn't an MP4, WebM or MOV video.");
+      }
+      video = { key: info.key, url: info.url, size: info.size };
+      // Not added to `stored`: a retry may reuse the upload if registering fails below.
+    }
+
+    let image;
+    try {
+      image = await processImage(poster.buffer);
+    } catch (err) {
+      if (stored.length) await this.safeDelete(stored);
+      if (err instanceof InvalidImageError)
+        throw new AppException(
+          CATALOG_ERROR_CODES.MEDIA_INVALID_FILE,
+          `Cover image: ${err.message}`,
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          [{ path: "poster", message: err.message, code: "invalid_image" }],
+        );
+      throw err;
+    }
+
+    const prefix = `stores/${actor.store_id}/media/${checksum}`;
+    try {
+      const posterObj = await this.storage.put(
+        `${prefix}/${POSTER}.${image.ext}`,
+        image.original.body,
+        image.mime,
+      );
+      stored.push(posterObj);
+      const sized = await Promise.all(
+        image.derivatives.map(async (d) => {
+          const obj = await this.storage.put(`${prefix}/${d.name}.webp`, d.body, "image/webp");
+          stored.push(obj);
+          return { ...d, name: d.name as string, obj, mime: "image/webp" };
+        }),
+      );
+      const derivs = [
+        ...sized,
+        { name: POSTER, ...image.original, obj: posterObj, mime: image.mime as string },
+      ];
+
+      const asset = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.mediaAsset.create({
+          data: {
+            store_id: actor.store_id,
+            storage_driver: this.storage.name,
+            storage_key: video.key,
+            url: video.url,
+            original_filename: input.filename.slice(0, 255) || null,
+            mime_type: input.mime_type,
+            size_bytes: video.size,
+            width: input.width,
+            height: input.height,
+            duration_ms: input.duration_ms,
+            checksum_sha256: checksum,
+            alt_text: input.alt_text,
+            created_by: actor.user_id,
+            derivatives: {
+              create: derivs.map((d) => ({
+                name: d.name,
+                storage_key: d.obj.key,
+                url: d.obj.url,
+                mime_type: d.mime,
+                width: d.width,
+                height: d.height,
+                size_bytes: d.body.length,
+              })),
+            },
+          },
+          include: WITH_DERIVATIVES,
+        });
+        await this.audit.recordIn(tx, {
+          action: "media.uploaded",
+          resource_type: "media",
+          resource_id: created.id,
+          store_id: actor.store_id,
+          actor_user_id: actor.user_id,
+          metadata: {
+            mime_type: input.mime_type,
+            size_bytes: created.size_bytes,
+            duration_ms: input.duration_ms,
+          },
+          request_id: actor.request_id,
+        });
+        return created;
+      });
+      return toMediaSummary(asset);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const winner = await this.findByChecksum(actor.store_id, checksum);
+        if (winner) return toMediaSummary(winner, { deduplicated: true });
+      }
+      if (!(await this.findByChecksum(actor.store_id, checksum))) await this.safeDelete(stored);
+      throw err;
+    }
+  }
+
+  /** MP4 and MOV share a container; WebM is its own. */
+  private matchesType(family: "isobmff" | "webm" | null, mime: MediaVideoMimeType): boolean {
+    return family === "webm"
+      ? mime === "video/webm"
+      : family === "isobmff" && mime !== "video/webm";
+  }
 
   async upload(
     file: UploadedFile,
@@ -144,6 +354,7 @@ export class MediaService {
   ): Promise<Omit<ListResponse<MediaAssetSummary>, "request_id">> {
     const where: Prisma.MediaAssetWhereInput = storeScoped(storeId, {
       ...LIVE,
+      ...(q.type && { mime_type: { startsWith: q.type === "video" ? "video/" : "image/" } }),
       ...(q.q && {
         OR: [
           { original_filename: { contains: q.q, mode: "insensitive" as const } },

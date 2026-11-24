@@ -23,6 +23,19 @@ export function sniffImageType(buf: Buffer): MediaMimeType | null {
   return null;
 }
 
+/**
+ * Video container from its first bytes: ISO-BMFF (MP4/MOV: a box type at offset 4)
+ * or WebM (EBML header). Codecs aren't checked; browsers report what they can't play.
+ */
+export function sniffVideoFamily(buf: Buffer): "isobmff" | "webm" | null {
+  if (buf.length >= 4 && buf.readUInt32BE(0) === 0x1a45dfa3) return "webm";
+  if (buf.length >= 8) {
+    const box = buf.toString("latin1", 4, 8);
+    if (["ftyp", "moov", "mdat", "wide", "free", "skip", "pnot"].includes(box)) return "isobmff";
+  }
+  return null;
+}
+
 export const DERIVATIVES = [
   { name: "thumb", size: 160 },
   { name: "medium", size: 640 },
