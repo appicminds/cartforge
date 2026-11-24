@@ -15,3 +15,5 @@ export const THEME_PREVIEW_HEADER = "x-cf-theme-preview";
 export const THEME_PREVIEW_COOKIE = "cf_theme_preview";
 /** `?theme_preview=<token>` starts a theme preview, `?theme_preview=` ends it. */
 export const THEME_PREVIEW_PARAM = "theme_preview";
+/** Theme previews only: `?view=<name>` shows that alternate template (editor). */
+export const TEMPLATE_VIEW_HEADER = "x-cf-template-view";

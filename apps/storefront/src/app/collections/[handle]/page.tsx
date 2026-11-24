@@ -33,11 +33,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function CollectionPage({ params, searchParams }: Props) {
   const { handle } = await params;
   const { sort, page } = parseListParams(await searchParams);
-  const [c, store, main] = await Promise.all([
-    load(handle),
-    storefront.store(),
-    mainSection("collection"),
-  ]);
+  const [c, store] = await Promise.all([load(handle), storefront.store()]);
+  const main = await mainSection("collection", c.template_suffix);
   const g = gridSettings(main?.settings);
   const result = await storefront.products({
     collection: c.handle,
@@ -48,6 +45,11 @@ export default async function CollectionPage({ params, searchParams }: Props) {
   return (
     <TemplateSections
       template="collection"
+      suffix={c.template_suffix}
+      dynamic={{
+        "collection.title": c.title,
+        "collection.product_count": String(result.meta.total),
+      }}
       main={() => (
         <div className="sf-container py-10 md:py-14">
           <Breadcrumbs

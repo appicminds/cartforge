@@ -100,3 +100,14 @@ export const pageSchema = z
   .strict();
 export type PageInput = z.input<typeof pageSchema>;
 export type PageData = z.output<typeof pageSchema>;
+
+/** Pick an alternate theme template for a product, collection or page (null = default). */
+export const templateAssignSchema = z
+  .object({
+    template: z
+      .string()
+      .max(30)
+      .regex(HANDLE, "Lowercase letters, numbers and hyphens")
+      .nullable(),
+  })
+  .strict();

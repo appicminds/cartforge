@@ -23,6 +23,9 @@ import {
   type PageView,
   type StorefrontPage,
   type StorefrontThemePayload,
+  type TemplateAssignment,
+  type TemplateTargetKind,
+  type ThemeTemplateNames,
   type ThemeDetail,
   type ThemePresetSummary,
   type ThemePreviewLink,
@@ -33,6 +36,7 @@ import {
 import {
   menuSchema,
   pageSchema,
+  templateAssignSchema,
   themeCreateSchema,
   themeDataSchema,
   themeRenameSchema,
@@ -227,6 +231,66 @@ export class ThemesController {
     @Param("id", uuid("Theme")) id: string,
   ): Promise<DetailResponse<ThemePreviewLink>> {
     return ok(req, await this.themes.previewLink(s.store_id, id));
+  }
+}
+
+const KIND_PERMISSION = {
+  product: PERMISSIONS.PRODUCTS_WRITE,
+  collection: PERMISSIONS.COLLECTIONS_WRITE,
+  page: PERMISSIONS.CONTENT_WRITE,
+} as const;
+const kindOf = (k: string): TemplateTargetKind => {
+  if (k === "product" || k === "collection" || k === "page") return k;
+  throw AppException.notFound("Resource");
+};
+
+/** Admin: which alternate theme template a product, collection or page uses. */
+@ApiTags("online-store")
+@ApiCookieAuth()
+@ApiHeader({ name: "X-Store-Id", required: true })
+@Controller("theme-templates")
+export class ThemeTemplatesController {
+  constructor(private readonly themes: ThemesService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "Alternate template names in the live theme, per kind" })
+  async names(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+  ): Promise<DetailResponse<ThemeTemplateNames>> {
+    return ok(req, await this.themes.templateNames(s.store_id));
+  }
+
+  @Get(":kind/:id")
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "The template a product, collection or page uses" })
+  async get(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("kind") kind: string,
+    @Param("id", uuid("Resource")) id: string,
+  ): Promise<DetailResponse<TemplateAssignment>> {
+    return ok(req, await this.themes.assignment(s.store_id, kindOf(kind), id));
+  }
+
+  @Put(":kind/:id")
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiZodBody(templateAssignSchema)
+  @ApiOperation({
+    summary: "Choose a template (null = default); needs the kind's write permission",
+  })
+  async set(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("kind") kind: string,
+    @Param("id", uuid("Resource")) id: string,
+    @Body(new ZodValidationPipe(templateAssignSchema)) body: { template: string | null },
+  ): Promise<DetailResponse<TemplateAssignment>> {
+    const k = kindOf(kind);
+    if (!s.permissions.has(KIND_PERMISSION[k])) throw AppException.forbidden();
+    return ok(req, await this.themes.assign(s.store_id, k, id, body.template, actor(auth, req)));
   }
 }
 

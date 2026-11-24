@@ -158,6 +158,17 @@ export const GLOBAL_SETTINGS: SettingsGroup[] = [
     ],
   },
   {
+    key: "custom_css",
+    name: "Custom CSS",
+    settings: [
+      {
+        type: "paragraph",
+        label: "CSS for the whole store. Each section also has its own Custom CSS box.",
+      },
+      { id: "custom_css", type: "css", label: "Custom CSS" },
+    ],
+  },
+  {
     key: "social",
     name: "Social media",
     settings: [

@@ -169,6 +169,7 @@ export const storefront = {
       handle: string;
       title: string;
       description_html: string;
+      template_suffix?: string | null;
       seo: { title: string; description: string };
     }>(`/collections/${encodeURIComponent(handle)}`),
   ),

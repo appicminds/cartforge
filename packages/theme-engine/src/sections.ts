@@ -1127,6 +1127,18 @@ export const SECTION_DEFS: SectionDef[] = [
   },
 ];
 
+// Every section can carry its own CSS, scoped to it.
+for (const d of SECTION_DEFS)
+  d.settings.push(
+    { type: "header", label: "Advanced" },
+    {
+      id: "custom_css",
+      type: "css",
+      label: "Custom CSS",
+      info: "Applies to this section only. Example: h2 { letter-spacing: 0.1em; } — use :scope for the section itself.",
+    },
+  );
+
 export const SECTIONS: Record<string, SectionDef> = Object.fromEntries(
   SECTION_DEFS.map((d) => [d.type, d]),
 );

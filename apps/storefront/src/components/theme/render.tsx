@@ -1,4 +1,12 @@
-import type { SectionInstance, TemplateKey } from "@cartforge/theme-engine";
+import {
+  fillSection,
+  templateFor,
+  type SectionInstance,
+  type TemplateKey,
+} from "@cartforge/theme-engine";
+import { headers } from "next/headers";
+import { TEMPLATE_VIEW_HEADER } from "@/lib/site-headers";
+import { formatMoney } from "@/lib/money";
 import type { ReactNode } from "react";
 import { storefront } from "@/lib/api";
 import { getTheme } from "@/lib/theme";
@@ -68,13 +76,33 @@ export async function TemplateSections({
   template,
   main,
   product,
+  dynamic = {},
+  suffix,
 }: {
   template: TemplateKey;
+  /** Alternate template chosen for this product, collection or page. */
+  suffix?: string | null;
   main?: (section: SectionInstance) => ReactNode;
   product?: SectionCtx["product"];
+  /** Values for `{{ … }}` placeholders in text settings (collection.title, page.title…). */
+  dynamic?: Record<string, string>;
 }) {
   const ctx = await baseCtx({ product });
-  const sections = ctx.theme.data.templates[template].filter((s) => !s.disabled);
+  const values: Record<string, string> = { "store.name": ctx.store.name, ...dynamic };
+  if (product) {
+    const money = (m: number | null) =>
+      m === null ? "" : formatMoney(m, product.currency, ctx.store.locale);
+    Object.assign(values, {
+      "product.title": product.title,
+      "product.vendor": product.vendor ?? "",
+      "product.price": money(product.price_min_minor),
+      "product.compare_at_price": money(product.compare_at_min_minor),
+      "product.category": product.categories[0]?.name ?? "",
+    });
+  }
+  const sections = templateFor(ctx.theme.data, template, await viewOr(suffix))
+    .filter((s) => !s.disabled)
+    .map((s) => fillSection(s, values));
   return (
     <>
       {sections.map((s, i) => {
@@ -100,7 +128,9 @@ export async function GroupSections({
   cartCount?: number;
 }) {
   const ctx = { ...(await baseCtx()), first: false };
-  const sections = ctx.theme.data.groups[group].filter((s) => !s.disabled);
+  const sections = ctx.theme.data.groups[group]
+    .filter((s) => !s.disabled)
+    .map((s) => fillSection(s, { "store.name": ctx.store.name }));
   return (
     <>
       {sections.map((s) => {
@@ -113,7 +143,17 @@ export async function GroupSections({
   );
 }
 
-/** A main section's settings, for pages that render outside a template (fallbacks). */
-export async function mainSection(template: TemplateKey): Promise<SectionInstance | undefined> {
-  return (await getTheme()).data.templates[template].find((s) => s.type.startsWith("main_"));
+/** In theme previews, `?view=<name>` (set by middleware) overrides the chosen template. */
+async function viewOr(suffix: string | null | undefined): Promise<string | null> {
+  return (await headers()).get(TEMPLATE_VIEW_HEADER) ?? suffix ?? null;
+}
+
+/** A template's main section (its settings shape the page's own content). */
+export async function mainSection(
+  template: TemplateKey,
+  suffix?: string | null,
+): Promise<SectionInstance | undefined> {
+  return templateFor((await getTheme()).data, template, await viewOr(suffix)).find((s) =>
+    s.type.startsWith("main_"),
+  );
 }

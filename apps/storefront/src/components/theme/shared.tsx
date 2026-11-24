@@ -1,4 +1,4 @@
-import type { SectionInstance } from "@cartforge/theme-engine";
+import { scopeCss, type SectionInstance } from "@cartforge/theme-engine";
 import type { StorefrontProduct, StorefrontStore, ThemeImage } from "@cartforge/types";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -57,6 +57,10 @@ export function Shell({
   label?: string;
 }) {
   const scheme = section.settings.color_scheme;
+  const css =
+    typeof section.settings.custom_css === "string"
+      ? scopeCss(section.settings.custom_css, `[data-cf-section="${section.id}"]`)
+      : "";
   return (
     <Tag
       data-cf-section={section.id}
@@ -64,6 +68,8 @@ export function Shell({
       aria-label={label}
       className={`${typeof scheme === "string" ? `sf-scheme-${scheme}` : ""} ${className}`.trim()}
     >
+      {/* Checked by @cartforge/theme-engine (no url(), @import, "<"…) and scoped to this section. */}
+      {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
       {children}
     </Tag>
   );

@@ -289,6 +289,8 @@ model Product {
   updated_by        String?       @db.Uuid
   created_at        DateTime      @default(now()) @db.Timestamptz(3)
   updated_at        DateTime      @updatedAt @db.Timestamptz(3)
+  /// Alternate theme template ("bridal" → the theme's product.bridal); null = default.
+  template_suffix   String?       @db.VarChar(30)
   /// Next 8 (Markets): markets this product isn't sold in.
   hidden_market_ids String[]      @default([]) @db.Uuid
   deleted_at        DateTime?     @db.Timestamptz(3)
@@ -656,6 +658,8 @@ model Collection {
   updated_by       String?          @db.Uuid
   created_at       DateTime         @default(now()) @db.Timestamptz(3)
   updated_at       DateTime         @updatedAt @db.Timestamptz(3)
+  /// Alternate theme template; null = default.
+  template_suffix  String?          @db.VarChar(30)
 
   store    Store               @relation(fields: [store_id], references: [id], onDelete: Cascade)
   products CollectionProduct[]
@@ -1554,6 +1558,8 @@ model Page {
   published       Boolean  @default(true)
   created_at      DateTime @default(now()) @db.Timestamptz(3)
   updated_at      DateTime @updatedAt @db.Timestamptz(3)
+  /// Alternate theme template; null = default.
+  template_suffix String?  @db.VarChar(30)
 
   store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
 

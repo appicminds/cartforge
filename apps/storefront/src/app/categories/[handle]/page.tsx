@@ -56,6 +56,10 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   return (
     <TemplateSections
       template="collection"
+      dynamic={{
+        "collection.title": c.name,
+        "collection.product_count": String(result.meta.total),
+      }}
       main={() => (
         <div className="sf-container py-10 md:py-14">
           <script

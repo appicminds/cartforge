@@ -30,6 +30,11 @@ import {
   TEMPLATE_KEYS,
   TEMPLATE_LABELS,
   TEMPLATE_PREVIEW_PATHS,
+  ALT_NAME,
+  ALT_TEMPLATE_KEYS,
+  DYNAMIC_SOURCES,
+  MAX_ALTERNATES,
+  allSections,
   canAddTo,
   newBlock,
   newId,
@@ -37,6 +42,7 @@ import {
   schemeContrastProblems,
   validateTheme,
   withBrandSchemes,
+  type AltTemplateKey,
   type BlockInstance,
   type ColorScheme,
   type SectionDef,
@@ -70,7 +76,7 @@ import { useProductList } from "@/lib/products";
 import { SettingsForm, SettingField, type FieldCtx } from "./fields";
 import { useHistory } from "./history";
 
-type Where = { group: "header" | "footer" } | { template: TemplateKey };
+type Where = { group: "header" | "footer" } | { template: TemplateKey; alt?: string | null };
 type Sel =
   | null
   | { kind: "section"; where: Where; id: string }
@@ -79,8 +85,32 @@ type Sel =
   | { kind: "scheme"; id: string };
 
 const listOf = (d: ThemeData, w: Where): SectionInstance[] =>
-  "group" in w ? d.groups[w.group] : d.templates[w.template];
-const pathOf = (w: Where) => ("group" in w ? `groups.${w.group}` : `templates.${w.template}`);
+  "group" in w
+    ? d.groups[w.group]
+    : w.alt
+      ? (d.alternates[w.template as AltTemplateKey]?.[w.alt] ?? [])
+      : d.templates[w.template];
+const pathOf = (w: Where) =>
+  "group" in w
+    ? `groups.${w.group}`
+    : w.alt
+      ? `alternates.${w.template}.${w.alt}`
+      : `templates.${w.template}`;
+
+/** "templates.home.3.blocks.1…" / "alternates.product.bridal.0…" → where + indexes. */
+function parsePath(path: string): { where: Where; section: number; block?: number } | null {
+  const m =
+    /^(?:groups\.(header|footer)|templates\.(\w+)|alternates\.(\w+)\.([a-z0-9-]+))\.(\d+)(?:\.blocks\.(\d+))?/.exec(
+      path,
+    );
+  if (!m) return null;
+  const where: Where = m[1]
+    ? { group: m[1] as "header" | "footer" }
+    : m[2]
+      ? { template: m[2] as TemplateKey }
+      : { template: m[3] as TemplateKey, alt: m[4] };
+  return { where, section: Number(m[5]), block: m[6] !== undefined ? Number(m[6]) : undefined };
+}
 const sameWhere = (a: Where, b: Where) => pathOf(a) === pathOf(b);
 
 /** A short label for a block in the list ("Heading: New season"). */
@@ -128,6 +158,11 @@ export function ThemeEditor({
   const base = useStorefrontBase();
   const [images, setImages] = useState<Record<string, ThemeImage>>(theme.images);
   const [template, setTemplate] = useState<TemplateKey>("home");
+  /** An alternate template of `template` being edited (null = the default one). */
+  const [alt, setAlt] = useState<string | null>(null);
+  const [creating, setCreating] = useState<AltTemplateKey | null>(null);
+  const [altName, setAltName] = useState("");
+  const [deletingAlt, setDeletingAlt] = useState(false);
   const [sel, setSel] = useState<Sel>(null);
   const [tab, setTab] = useState<"sections" | "settings">("sections");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -188,9 +223,13 @@ export function ThemeEditor({
   }, [theme.id]);
 
   const navigate = useCallback(
-    (t: TemplateKey) => {
+    (t: TemplateKey, a: string | null = null) => {
       setTemplate(t);
-      if (base && token) setFrameSrc(storefrontUrl(base, pathFor(t), { theme_preview: token }));
+      setAlt(a);
+      if (base && token)
+        setFrameSrc(
+          storefrontUrl(base, pathFor(t), { theme_preview: token, ...(a ? { view: a } : {}) }),
+        );
     },
     [base, token, pathFor],
   );
@@ -219,10 +258,14 @@ export function ThemeEditor({
       if (m.type === "ready") {
         post({ type: "inspect", on: inspect });
         const t = m.path ? templateForPath(m.path) : null;
-        if (t) setTemplate(t);
+        if (t) {
+          setTemplate(t);
+          const view = new URLSearchParams(m.path?.split("?")[1] ?? "").get("view");
+          setAlt(view && data.alternates[t as AltTemplateKey]?.[view] ? view : null);
+        }
       }
       if (m.type === "select" && m.section) {
-        const wheres: Where[] = [{ group: "header" }, { group: "footer" }, { template }];
+        const wheres: Where[] = [{ group: "header" }, { group: "footer" }, { template, alt }];
         const where = wheres.find((w) => listOf(data, w).some((s) => s.id === m.section));
         if (!where) return;
         setTab("sections");
@@ -237,7 +280,7 @@ export function ThemeEditor({
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [data, template, inspect, post]);
+  }, [data, template, alt, inspect, post]);
 
   useEffect(() => post({ type: "inspect", on: inspect }), [inspect, post]);
   useEffect(() => {
@@ -317,6 +360,10 @@ export function ThemeEditor({
   // ── Changes ──
   const fieldCtx: FieldCtx = {
     schemes: data.color_schemes,
+    dynamic:
+      sel && "where" in sel && "template" in sel.where
+        ? DYNAMIC_SOURCES[sel.where.template]
+        : DYNAMIC_SOURCES.home,
     images,
     addImage: (id, img) => setImages((m) => ({ ...m, [id]: img })),
   };
@@ -800,11 +847,7 @@ export function ThemeEditor({
                   h.change((d) => {
                     d.color_schemes = d.color_schemes.filter((x) => x.id !== sc.id);
                     const first = d.color_schemes[0]!.id;
-                    for (const s of [
-                      ...d.groups.header,
-                      ...d.groups.footer,
-                      ...Object.values(d.templates).flat(),
-                    ])
+                    for (const s of allSections(d))
                       if (s.settings.color_scheme === sc.id) s.settings.color_scheme = first;
                   });
                   setSel({ kind: "settings", group: "colors" });
@@ -863,21 +906,18 @@ export function ThemeEditor({
 
   /** "Slideshow › Slide: Use a path…" for the problems list. */
   const describe = (path: string, message: string) => {
-    const m = /^(groups\.(header|footer)|templates\.(\w+))\.(\d+)(?:\.blocks\.(\d+))?/.exec(path);
-    if (!m) return message;
-    const where: Where = m[2]
-      ? { group: m[2] as "header" | "footer" }
-      : { template: m[3] as TemplateKey };
-    const s = listOf(data, where)[Number(m[4])];
+    const p = parsePath(path);
+    if (!p) return message;
+    const s = listOf(data, p.where)[p.section];
     const def = s && SECTIONS[s.type];
     if (!s || !def) return message;
-    const b = m[5] !== undefined ? s.blocks[Number(m[5])] : undefined;
+    const b = p.block !== undefined ? s.blocks[p.block] : undefined;
     const bname = b && def.blocks?.find((x) => x.type === b.type)?.name;
     return `${def.name}${bname ? ` › ${bname}` : ""}: ${message}`;
   };
   const goTo = (path: string) => {
-    const m = /^(groups\.(header|footer)|templates\.(\w+))\.(\d+)(?:\.blocks\.(\d+))?/.exec(path);
-    if (!m) {
+    const p = parsePath(path);
+    if (!p) {
       if (path.startsWith("settings."))
         setSel({
           kind: "settings",
@@ -887,13 +927,12 @@ export function ThemeEditor({
         });
       return;
     }
-    const where: Where = m[2]
-      ? { group: m[2] as "header" | "footer" }
-      : { template: m[3] as TemplateKey };
-    if ("template" in where && where.template !== template) navigate(where.template);
-    const s = listOf(data, where)[Number(m[4])];
+    const where = p.where;
+    if ("template" in where && (where.template !== template || (where.alt ?? null) !== alt))
+      navigate(where.template, where.alt ?? null);
+    const s = listOf(data, where)[p.section];
     if (!s) return;
-    const b = m[5] !== undefined ? s.blocks[Number(m[5])] : undefined;
+    const b = p.block !== undefined ? s.blocks[p.block] : undefined;
     setTab("sections");
     setSel(
       b ? { kind: "block", where, id: s.id, block: b.id } : { kind: "section", where, id: s.id },
@@ -926,16 +965,51 @@ export function ThemeEditor({
         </div>
         <Select
           aria-label="Page to edit"
-          value={template}
-          onChange={(e) => navigate(e.target.value as TemplateKey)}
-          className="ml-auto w-48 lg:ml-6"
+          value={alt ? `${template}:${alt}` : template}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v.startsWith("new:")) {
+              setAltName("");
+              setCreating(v.slice(4) as AltTemplateKey);
+              return;
+            }
+            const [t, a] = v.split(":") as [TemplateKey, string | undefined];
+            navigate(t, a ?? null);
+          }}
+          className="ml-auto w-56 lg:ml-6"
         >
-          {TEMPLATE_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {TEMPLATE_LABELS[k]}
-            </option>
-          ))}
+          {TEMPLATE_KEYS.map((k) => {
+            const alts = (ALT_TEMPLATE_KEYS as readonly string[]).includes(k)
+              ? Object.keys(data.alternates[k as AltTemplateKey])
+              : null;
+            return alts ? (
+              <optgroup key={k} label={TEMPLATE_LABELS[k]}>
+                <option value={k}>{TEMPLATE_LABELS[k]}: default</option>
+                {alts.map((a) => (
+                  <option key={a} value={`${k}:${a}`}>
+                    {TEMPLATE_LABELS[k]}: {a}
+                  </option>
+                ))}
+                <option value={`new:${k}`}>
+                  + Create a {TEMPLATE_LABELS[k].toLowerCase()} template…
+                </option>
+              </optgroup>
+            ) : (
+              <option key={k} value={k}>
+                {TEMPLATE_LABELS[k]}
+              </option>
+            );
+          })}
         </Select>
+        {alt && (
+          <IconAction
+            label={`Delete the ${alt} template`}
+            danger
+            onClick={() => setDeletingAlt(true)}
+          >
+            <Trash2 />
+          </IconAction>
+        )}
         <div className="flex items-center gap-1 lg:ml-auto">
           <IconAction label="Undo" onClick={h.undo} disabled={!h.canUndo}>
             <Undo2 />
@@ -1025,7 +1099,10 @@ export function ThemeEditor({
             {tab === "sections" ? (
               <>
                 {sectionList({ where: { group: "header" }, title: "Header" })}
-                {sectionList({ where: { template }, title: TEMPLATE_LABELS[template] })}
+                {sectionList({
+                  where: { template, alt },
+                  title: alt ? `${TEMPLATE_LABELS[template]}: ${alt}` : TEMPLATE_LABELS[template],
+                })}
                 {sectionList({ where: { group: "footer" }, title: "Footer" })}
               </>
             ) : (
@@ -1097,6 +1174,77 @@ export function ThemeEditor({
           {panel}
         </aside>
       </div>
+
+      <Dialog
+        open={!!creating}
+        onClose={() => setCreating(null)}
+        title="Create a template"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCreating(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !creating ||
+                !ALT_NAME.test(altName) ||
+                altName.length > 30 ||
+                !!data.alternates[creating]?.[altName] ||
+                Object.keys(data.alternates[creating] ?? {}).length >= MAX_ALTERNATES
+              }
+              onClick={() => {
+                if (!creating) return;
+                const key = creating;
+                h.change((d) => {
+                  d.alternates[key][altName] = structuredClone(d.templates[key]);
+                });
+                setCreating(null);
+                navigate(key, altName);
+              }}
+            >
+              Create template
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 text-sm">
+          <p className="text-fg-muted">
+            A different layout you can choose for some{" "}
+            {creating === "product"
+              ? "products"
+              : creating === "collection"
+                ? "collections"
+                : "pages"}{" "}
+            (e.g. bridal). It starts as a copy of the default. Choose it on the{" "}
+            {creating ?? "product"}&apos;s page under “Theme template”.
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-medium">Name</span>
+            <Input
+              value={altName}
+              placeholder="bridal"
+              maxLength={30}
+              onChange={(e) => setAltName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+            />
+          </label>
+        </div>
+      </Dialog>
+      <ConfirmDialog
+        open={deletingAlt}
+        title={`Delete the ${alt ?? ""} template?`}
+        description="Anything using it goes back to the default template."
+        confirmLabel="Delete template"
+        destructive
+        onConfirm={() => {
+          const key = template as AltTemplateKey;
+          const name = alt;
+          if (name) h.change((d) => void delete d.alternates[key][name]);
+          setDeletingAlt(false);
+          setSel(null);
+          navigate(template, null);
+        }}
+        onClose={() => setDeletingAlt(false)}
+      />
 
       <AddSectionDialog
         where={adding}

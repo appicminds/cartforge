@@ -19,6 +19,7 @@ export default async function Search({ searchParams }: Props) {
   return (
     <TemplateSections
       template="search"
+      dynamic={{ "search.terms": q }}
       main={() => (
         <div className="sf-container py-10 md:py-14">
           <h1 className="text-3xl md:text-5xl">Search</h1>

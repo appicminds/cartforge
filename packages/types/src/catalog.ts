@@ -319,6 +319,8 @@ export interface StorefrontProduct {
   published_at: string | null;
   /** Content changes since the last publish, for sitemaps and caching. */
   updated_at: string;
+  /** Alternate theme template chosen for this product (null = default). */
+  template_suffix?: string | null;
 }
 
 /** Store identity and presentation settings for the storefront (Next 2). */

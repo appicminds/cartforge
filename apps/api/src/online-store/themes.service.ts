@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma, type Theme } from "@cartforge/database";
 import {
+  ALT_TEMPLATE_KEYS,
   PRESETS,
   contrastProblems,
   defaultTheme,
@@ -18,7 +19,10 @@ import {
   type ThemeImage,
   type ThemePresetSummary,
   type ThemeSaveResult,
+  type TemplateAssignment,
+  type TemplateTargetKind,
   type ThemeSummary,
+  type ThemeTemplateNames,
   type ThemeVersionSummary,
 } from "@cartforge/types";
 import { AuditService } from "../audit/audit.service";
@@ -350,6 +354,83 @@ export class ThemesService {
         ];
       }),
     );
+  }
+
+  // ───────────── Alternate templates ─────────────
+
+  /** Alternate template names of the live theme (saved draft and published). */
+  async templateNames(storeId: string): Promise<ThemeTemplateNames> {
+    await this.ensureLive(storeId);
+    const t = await this.prisma.theme.findFirst({ where: { store_id: storeId, role: "live" } });
+    const out: ThemeTemplateNames = { product: [], collection: [], page: [] };
+    if (!t) return out;
+    for (const raw of [t.data, t.live_data]) {
+      const d = validateTheme(raw, false).theme;
+      for (const k of ALT_TEMPLATE_KEYS)
+        out[k] = [...new Set([...out[k], ...Object.keys(d.alternates[k])])].sort();
+    }
+    return out;
+  }
+
+  private async target(storeId: string, kind: TemplateTargetKind, id: string) {
+    const where = { id, store_id: storeId };
+    const row =
+      kind === "product"
+        ? await this.prisma.product.findFirst({
+            where: { ...where, deleted_at: null },
+            select: { template_suffix: true },
+          })
+        : kind === "collection"
+          ? await this.prisma.collection.findFirst({ where, select: { template_suffix: true } })
+          : await this.prisma.page.findFirst({ where, select: { template_suffix: true } });
+    if (!row) throw AppException.notFound(kind[0]!.toUpperCase() + kind.slice(1));
+    return row;
+  }
+
+  async assignment(
+    storeId: string,
+    kind: TemplateTargetKind,
+    id: string,
+  ): Promise<TemplateAssignment> {
+    const [row, names] = await Promise.all([
+      this.target(storeId, kind, id),
+      this.templateNames(storeId),
+    ]);
+    return { template: row.template_suffix, available: names[kind] };
+  }
+
+  async assign(
+    storeId: string,
+    kind: TemplateTargetKind,
+    id: string,
+    template: string | null,
+    actor: Actor,
+  ): Promise<TemplateAssignment> {
+    await this.target(storeId, kind, id);
+    const names = await this.templateNames(storeId);
+    if (template && !names[kind].includes(template))
+      throw AppException.validation([
+        {
+          path: "template",
+          message: "Create this template in the theme editor first",
+          code: "unknown",
+        },
+      ]);
+    await this.audited(
+      storeId,
+      "theme.template_assigned",
+      actor,
+      id,
+      { kind, template },
+      async (tx) => {
+        const data = { template_suffix: template };
+        if (kind === "product") await tx.product.update({ where: { id }, data });
+        else if (kind === "collection") await tx.collection.update({ where: { id }, data });
+        else await tx.page.update({ where: { id }, data });
+      },
+    );
+    await this.refresh(storeId);
+    return { template, available: names[kind] };
   }
 
   // ───────────── Storefront ─────────────

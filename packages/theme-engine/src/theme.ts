@@ -38,7 +38,36 @@ export interface ThemeData {
   color_schemes: ColorScheme[];
   groups: Record<GroupKey, SectionInstance[]>;
   templates: Record<TemplateKey, SectionInstance[]>;
+  /** Alternate templates by name, e.g. alternates.product.bridal (chosen per product). */
+  alternates: Record<AltTemplateKey, Record<string, SectionInstance[]>>;
 }
+
+/** Templates that can have alternates. */
+export const ALT_TEMPLATE_KEYS = ["product", "collection", "page"] as const;
+export type AltTemplateKey = (typeof ALT_TEMPLATE_KEYS)[number];
+export const ALT_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const MAX_ALTERNATES = 10;
+
+/** The section list for a page: the named alternate when it exists, else the default. */
+export function templateFor(
+  t: ThemeData,
+  key: TemplateKey,
+  suffix?: string | null,
+): SectionInstance[] {
+  if (suffix && (ALT_TEMPLATE_KEYS as readonly string[]).includes(key)) {
+    const alt = t.alternates[key as AltTemplateKey]?.[suffix];
+    if (alt) return alt;
+  }
+  return t.templates[key];
+}
+
+/** Every section list in the theme (groups, templates and alternates). */
+export const allSections = (t: ThemeData): SectionInstance[] => [
+  ...t.groups.header,
+  ...t.groups.footer,
+  ...Object.values(t.templates).flat(),
+  ...Object.values(t.alternates).flatMap((m) => Object.values(m).flat()),
+];
 
 const ID = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -275,8 +304,41 @@ export function validateTheme(
         sectionsOf(templates[k], { template: k }, ctx, `templates.${k}`, e),
       ]),
     ) as Record<TemplateKey, SectionInstance[]>,
+    alternates: alternatesOf(r.alternates, ctx, e),
   };
   return { theme, errors };
+}
+
+function alternatesOf(
+  raw: unknown,
+  ctx: { fonts: Set<string>; schemes: Set<string>; firstScheme: string },
+  errors: FieldError[] | null,
+): ThemeData["alternates"] {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out = { product: {}, collection: {}, page: {} } as ThemeData["alternates"];
+  for (const key of ALT_TEMPLATE_KEYS) {
+    const m = (r[key] && typeof r[key] === "object" ? r[key] : {}) as Record<string, unknown>;
+    const names = Object.keys(m);
+    if (names.length > MAX_ALTERNATES)
+      errors?.push({ path: `alternates.${key}`, message: `At most ${MAX_ALTERNATES} templates` });
+    for (const name of names.slice(0, MAX_ALTERNATES)) {
+      if (!ALT_NAME.test(name) || name.length > 30) {
+        errors?.push({
+          path: `alternates.${key}.${name}`,
+          message: "Template names use lowercase letters, numbers and hyphens",
+        });
+        continue;
+      }
+      out[key][name] = sectionsOf(
+        m[name],
+        { template: key },
+        ctx,
+        `alternates.${key}.${name}`,
+        errors,
+      );
+    }
+  }
+  return out;
 }
 
 /** Everything a theme references that the API resolves when serving it. */
@@ -298,7 +360,7 @@ export function themeReferences(t: ThemeData): {
     }
   };
   visit(GLOBAL_FIELDS, t.settings);
-  const all = [...t.groups.header, ...t.groups.footer, ...Object.values(t.templates).flat()];
+  const all = allSections(t);
   for (const s of all) {
     const def = SECTIONS[s.type];
     if (!def) continue;
@@ -313,7 +375,7 @@ export function themeReferences(t: ThemeData): {
 
 /** Rich-text values, so the API can sanitize them before saving. */
 export function mapRichText(t: ThemeData, fn: (html: string) => string): ThemeData {
-  const all = [...t.groups.header, ...t.groups.footer, ...Object.values(t.templates).flat()];
+  const all = allSections(t);
   for (const s of all) {
     const def = SECTIONS[s.type];
     if (!def) continue;

@@ -41,6 +41,7 @@ export default async function Product({ params }: Props) {
   return (
     <TemplateSections
       template="product"
+      suffix={product.template_suffix}
       product={product}
       main={(main) => <ProductPage product={product} store={store} main={main} />}
     />

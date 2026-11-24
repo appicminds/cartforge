@@ -132,4 +132,18 @@ export interface StorefrontPage {
   body_html: string;
   seo: { title: string; description: string };
   updated_at: string;
+  template_suffix?: string | null;
+}
+
+// ───────────── Alternate templates ─────────────
+
+export type TemplateTargetKind = "product" | "collection" | "page";
+
+/** Alternate template names in the live theme (draft and published), per kind. */
+export type ThemeTemplateNames = Record<TemplateTargetKind, string[]>;
+
+export interface TemplateAssignment {
+  template: string | null;
+  /** Names that can be chosen. */
+  available: string[];
 }

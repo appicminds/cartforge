@@ -7,6 +7,9 @@ import {
   contrastProblems,
   contrastRatio,
   defaultTheme,
+  fillDynamic,
+  fillSection,
+  templateFor,
   googleFontsUrl,
   newSection,
   parseVideo,
@@ -175,5 +178,43 @@ describe("theme engine", () => {
     expect(canAddTo(by("product_recommendations"), { template: "home" })).toBe(false);
     expect(canAddTo(by("main_product"), { template: "product" })).toBe(false);
     expect(canAddTo(by("announcement_bar"), { group: "header" })).toBe(true);
+  });
+});
+
+describe("dynamic values", () => {
+  it("fills placeholders in text, escaping HTML in rich text", () => {
+    expect(
+      fillDynamic("Shop {{ product.title }} by {{product.vendor}}{{ x.y }}", {
+        "product.title": "Lawn",
+        "product.vendor": "Silsila",
+      }),
+    ).toBe("Shop Lawn by Silsila");
+    const s = newSection("rich_text");
+    s.blocks[1]!.settings.text = "<p>About {{ product.title }}</p>";
+    const filled = fillSection(s, { "product.title": "<b>Eid</b> & co" });
+    expect(filled.blocks[1]!.settings.text).toBe("<p>About &lt;b&gt;Eid&lt;/b&gt; &amp; co</p>");
+    expect(s.blocks[1]!.settings.text).toBe("<p>About {{ product.title }}</p>"); // untouched
+  });
+});
+
+describe("alternate templates", () => {
+  it("validates named alternates and picks them by suffix", () => {
+    const t = defaultTheme();
+    const bridal = [newSection("main_product"), newSection("faq")];
+    t.alternates.product.bridal = bridal;
+    const { theme, errors } = validateTheme(JSON.parse(JSON.stringify(t)));
+    expect(errors).toEqual([]);
+    expect(templateFor(theme, "product", "bridal").map((s) => s.type)).toEqual([
+      "main_product",
+      "faq",
+    ]);
+    expect(templateFor(theme, "product", "missing")).toBe(theme.templates.product);
+    expect(templateFor(theme, "home", "bridal")).toBe(theme.templates.home);
+    const bad = JSON.parse(JSON.stringify(t));
+    bad.alternates.product["Not OK"] = [];
+    bad.alternates.product.bridal.push({ id: "h", type: "header", settings: {}, blocks: [] });
+    expect(validateTheme(bad).errors.map((e) => e.path)).toEqual(
+      expect.arrayContaining(["alternates.product.Not OK", "alternates.product.bridal.2.type"]),
+    );
   });
 });

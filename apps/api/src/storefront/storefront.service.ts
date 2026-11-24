@@ -258,6 +258,7 @@ export class StorefrontService {
       handle: c.handle,
       title: c.title,
       description_html: c.description_html,
+      template_suffix: c.template_suffix,
       seo: {
         title: c.seo_title ?? c.title,
         description: c.seo_description ?? stripHtml(c.description_html).slice(0, 160),
@@ -537,6 +538,7 @@ export class StorefrontService {
         description: p.seo_description ?? stripHtml(p.description_html).slice(0, 160),
       },
       published_at: p.published_at?.toISOString() ?? null,
+      template_suffix: p.template_suffix,
       updated_at: p.updated_at.toISOString(),
     };
   }

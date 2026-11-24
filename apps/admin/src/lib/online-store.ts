@@ -11,6 +11,8 @@ import type {
   ThemeSaveResult,
   ThemeSummary,
   ThemeVersionSummary,
+  TemplateAssignment,
+  TemplateTargetKind,
 } from "@cartforge/types";
 import type { MenuInput, PageInput } from "@cartforge/validation";
 import { apiRequest } from "./api-client";
@@ -178,5 +180,27 @@ export function usePageAction() {
       }).then((r) => r.data);
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: storeKey(storeId, "pages") }),
+  });
+}
+
+// ───────────── Alternate templates ─────────────
+
+export const useTemplateAssignment = (kind: TemplateTargetKind, id: string | undefined) =>
+  useGet<TemplateAssignment>(
+    ["theme-templates", kind, id],
+    id ? `/theme-templates/${kind}/${id}` : null,
+  );
+
+export function useAssignTemplate(kind: TemplateTargetKind, id: string) {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (template: string | null) =>
+      apiRequest<DetailResponse<TemplateAssignment>>(`/theme-templates/${kind}/${id}`, {
+        method: "PUT",
+        body: { template },
+        storeId,
+      }).then((r) => r.data),
+    onSuccess: (data) => qc.setQueryData(storeKey(storeId, "theme-templates", kind, id), data),
   });
 }

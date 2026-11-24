@@ -24,6 +24,10 @@ export default async function AllProducts({ searchParams }: Props) {
   return (
     <TemplateSections
       template="collection"
+      dynamic={{
+        "collection.title": "All products",
+        "collection.product_count": String(result.meta.total),
+      }}
       main={() => (
         <div className="sf-container py-10 md:py-14">
           <Breadcrumbs items={[{ name: "Home", href: "/" }, { name: "All products" }]} />

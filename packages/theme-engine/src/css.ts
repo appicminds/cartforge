@@ -1,3 +1,4 @@
+import { scopeCss } from "./custom-css";
 import { fontByKey, googleFontsUrl } from "./fonts";
 import { SCHEME_ID } from "./fields";
 import type { ColorScheme } from "./settings";
@@ -43,7 +44,9 @@ export function themeCss(t: ThemeData): string {
     s.button_style === "outline"
       ? ".sf-button:not([data-variant]){background:transparent;color:var(--sf-accent)}"
       : "";
-  return `:root{${vars}}${schemes}${outline}`;
+  // Theme-wide custom CSS (checked and unscoped); sections add their own when rendered.
+  const custom = typeof s.custom_css === "string" ? scopeCss(s.custom_css, null) : "";
+  return `:root{${vars}}${schemes}${outline}${custom}`;
 }
 
 /** The Google Fonts stylesheet the theme needs (null: system fonts only). */

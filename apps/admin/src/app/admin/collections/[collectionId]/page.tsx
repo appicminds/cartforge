@@ -1,5 +1,6 @@
 "use client";
 
+import { ThemeTemplateCard } from "@/components/online-store/template-card";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -391,6 +392,7 @@ function CollectionEditor({ c }: { c: CollectionDetail }) {
               </Field>
             </CardBody>
           </Card>
+          <ThemeTemplateCard kind="collection" id={c.id} />
         </div>
       </fieldset>
 

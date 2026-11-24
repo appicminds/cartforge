@@ -6,6 +6,7 @@ import {
   MenusController,
   PagesController,
   StorefrontOnlineStoreController,
+  ThemeTemplatesController,
   ThemesController,
 } from "./online-store.controller";
 import { PagesService } from "./pages.service";
@@ -15,6 +16,7 @@ import { ThemesService } from "./themes.service";
 @Module({
   controllers: [
     ThemesController,
+    ThemeTemplatesController,
     MenusController,
     PagesController,
     StorefrontOnlineStoreController,

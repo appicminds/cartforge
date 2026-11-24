@@ -9,6 +9,7 @@ import {
   THEME_PREVIEW_COOKIE,
   THEME_PREVIEW_HEADER,
   THEME_PREVIEW_PARAM,
+  TEMPLATE_VIEW_HEADER,
 } from "./lib/site-headers";
 
 /**
@@ -100,6 +101,7 @@ export async function middleware(req: NextRequest) {
   headers.delete(NO_STORE_HEADER);
   headers.delete(PREVIEW_HEADER);
   headers.delete(THEME_PREVIEW_HEADER);
+  headers.delete(TEMPLATE_VIEW_HEADER);
   if (!storeId) {
     headers.set(NO_STORE_HEADER, "1");
     return NextResponse.rewrite(new URL("/store-not-found", req.url), {
@@ -113,7 +115,12 @@ export async function middleware(req: NextRequest) {
   // Theme editor / preview link: the API checks the token; a bad one shows the live theme.
   const themeToken = req.cookies.get(THEME_PREVIEW_COOKIE)?.value;
   const themePreview = !!themeToken && TOKEN_RE.test(themeToken);
-  if (themePreview) headers.set(THEME_PREVIEW_HEADER, themeToken);
+  if (themePreview) {
+    headers.set(THEME_PREVIEW_HEADER, themeToken);
+    const view = req.nextUrl.searchParams.get("view");
+    if (view && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(view) && view.length <= 30)
+      headers.set(TEMPLATE_VIEW_HEADER, view);
+  }
   const res = NextResponse.next({ request: { headers } });
   if (preview || themePreview) res.headers.set("X-Robots-Tag", "noindex");
   if (themePreview) res.headers.set("Cache-Control", "private, no-store");

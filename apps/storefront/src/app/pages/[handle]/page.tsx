@@ -29,6 +29,8 @@ export default async function ContentPage({ params }: Props) {
   return (
     <TemplateSections
       template="page"
+      suffix={p.template_suffix}
+      dynamic={{ "page.title": p.title }}
       main={(main) => (
         <div
           className={`sf-container py-10 md:py-14 ${main.settings.width === "wide" ? "max-w-5xl" : "max-w-3xl"}`}

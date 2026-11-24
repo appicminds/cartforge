@@ -152,6 +152,7 @@ export class PagesService {
       title: p.title,
       handle: p.handle,
       body_html: p.body_html,
+      template_suffix: p.template_suffix,
       seo: {
         title: p.seo_title ?? p.title,
         description: p.seo_description ?? stripHtml(p.body_html).slice(0, 160),

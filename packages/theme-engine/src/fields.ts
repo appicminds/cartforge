@@ -1,3 +1,4 @@
+import { checkCss } from "./custom-css";
 /**
  * Setting fields: one vocabulary drives validation (here), the editor's forms
  * (admin) and rendering (storefront). Every value is constrained — hex colors,
@@ -44,6 +45,8 @@ export type Field =
   | (Base & { type: "menu"; default: string })
   /** A YouTube or Vimeo address. */
   | (Base & { type: "video" })
+  /** Custom CSS: checked for safety and scoped when rendered (see custom-css.ts). */
+  | (Base & { type: "css"; default?: string })
   /** Editor-only headings and notes: no value. */
   | { type: "header"; id?: undefined; label: string; info?: string }
   | { type: "paragraph"; id?: undefined; label: string; info?: string };
@@ -92,6 +95,7 @@ export function defaultValue(f: ValueField): unknown {
     case "textarea":
     case "richtext":
     case "link":
+    case "css":
       return f.default ?? "";
     case "select":
     case "radio":
@@ -184,6 +188,11 @@ export function checkField(
       return typeof raw === "string" && (raw === "" || HANDLE.test(raw))
         ? { ok: true, value: raw }
         : bad("Choose a menu");
+    case "css": {
+      if (typeof raw !== "string") return bad("Must be text");
+      const problem = checkCss(raw);
+      return problem ? bad(problem) : { ok: true, value: raw };
+    }
     case "video":
       if (raw === null || raw === "") return { ok: true, value: null };
       return typeof raw === "string" && parseVideo(raw)

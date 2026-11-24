@@ -50,7 +50,7 @@ export default async function Preview({ params, searchParams }: Props) {
         store={store}
         structuredData={false}
         canBuy={p.status === "active"}
-        main={await mainSection("product")}
+        main={await mainSection("product", p.template_suffix)}
       />
     </>
   );

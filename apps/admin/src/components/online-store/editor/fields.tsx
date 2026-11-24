@@ -3,7 +3,13 @@
 import dynamic from "next/dynamic";
 import { useId, useMemo, useState } from "react";
 import { ImagePlus, Upload, X } from "lucide-react";
-import { FONTS, isValueField, type ColorScheme, type Field } from "@cartforge/theme-engine";
+import {
+  FONTS,
+  isValueField,
+  type ColorScheme,
+  type DynamicSource,
+  type Field,
+} from "@cartforge/theme-engine";
 import type { ThemeImage } from "@cartforge/types";
 import { Button, Dialog, Input, Select, Spinner, Textarea } from "@cartforge/ui";
 import { ChipPicker } from "@/components/chip-picker";
@@ -23,7 +29,60 @@ export interface FieldCtx {
   images: Record<string, ThemeImage>;
   /** Remember an image picked from the library (for thumbnails). */
   addImage: (id: string, img: ThemeImage) => void;
+  /** Placeholders available on the page being edited ({{ product.title }}…). */
+  dynamic?: DynamicSource[];
 }
+
+/** "Insert dynamic value": adds a {{ … }} placeholder to a text setting. */
+function DynamicMenu({
+  sources,
+  onPick,
+  label,
+}: {
+  sources: DynamicSource[];
+  onPick: (key: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!sources.length) return null;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label={`Insert dynamic value into ${label}`}
+        title="Insert dynamic value"
+        aria-expanded={open}
+        onClick={() => setOpen((x) => !x)}
+        className="rounded px-1.5 font-mono text-xs text-primary hover:bg-surface-sunken"
+      >
+        {"{ }"}
+      </button>
+      {open && (
+        <ul className="absolute right-0 top-full z-20 mt-1 w-56 rounded-md border border-border bg-surface p-1 shadow-lg">
+          <li className="px-2 py-1 text-xs text-fg-muted">Filled in for each page</li>
+          {sources.map((d) => (
+            <li key={d.key}>
+              <button
+                type="button"
+                onClick={() => (setOpen(false), onPick(d.key))}
+                className="flex w-full justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-sunken"
+              >
+                {d.label}
+                <span className="font-mono text-[10px] text-fg-subtle">{d.key}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const insertPlaceholder = (value: string, key: string, html: boolean) => {
+  const tag = `{{ ${key} }}`;
+  if (!html) return value ? `${value} ${tag}` : tag;
+  return value.endsWith("</p>") ? `${value.slice(0, -4)} ${tag}</p>` : `${value}<p>${tag}</p>`;
+};
 
 const labelCls = "mb-1.5 block text-sm font-medium";
 
@@ -32,17 +91,22 @@ function Labelled({
   field,
   error,
   children,
+  extra,
 }: {
   id: string;
   field: { label: string; info?: string };
   error?: string;
   children: React.ReactNode;
+  extra?: React.ReactNode;
 }) {
   return (
     <div>
-      <label htmlFor={id} className={labelCls}>
-        {field.label}
-      </label>
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor={id} className={labelCls}>
+          {field.label}
+        </label>
+        {extra}
+      </div>
       {children}
       {field.info && <p className="mt-1 text-xs text-fg-muted">{field.info}</p>}
       {error && (
@@ -390,10 +454,18 @@ export function SettingField({
       <p className="text-xs text-fg-muted">{field.label}</p>
     );
   const str = typeof value === "string" ? value : "";
+  const dyn = (html: boolean) =>
+    ctx.dynamic?.length ? (
+      <DynamicMenu
+        sources={ctx.dynamic}
+        label={field.label}
+        onPick={(key) => onChange(insertPlaceholder(str, key, html))}
+      />
+    ) : null;
   switch (field.type) {
     case "text":
       return (
-        <Labelled id={id} field={field} error={error}>
+        <Labelled id={id} field={field} error={error} extra={dyn(false)}>
           <Input
             id={id}
             value={str}
@@ -405,7 +477,7 @@ export function SettingField({
       );
     case "textarea":
       return (
-        <Labelled id={id} field={field} error={error}>
+        <Labelled id={id} field={field} error={error} extra={dyn(false)}>
           <Textarea
             id={id}
             value={str}
@@ -418,9 +490,12 @@ export function SettingField({
     case "richtext":
       return (
         <div>
-          <span id={id} className={labelCls}>
-            {field.label}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span id={id} className={labelCls}>
+              {field.label}
+            </span>
+            {dyn(true)}
+          </div>
           <RichTextEditor value={str} onChange={onChange} labelledBy={id} />
           {error && <p className="mt-1 text-xs text-danger">{error}</p>}
         </div>
@@ -605,6 +680,20 @@ export function SettingField({
       return (
         <Labelled id={id} field={field} error={error}>
           <MenuSelect id={id} value={str} onChange={onChange} />
+        </Labelled>
+      );
+    case "css":
+      return (
+        <Labelled id={id} field={field} error={error}>
+          <Textarea
+            id={id}
+            value={str}
+            rows={6}
+            spellCheck={false}
+            placeholder={"h2 {\n  letter-spacing: 0.08em;\n}"}
+            className="font-mono text-xs"
+            onChange={(e) => onChange(e.target.value)}
+          />
         </Labelled>
       );
     case "video":

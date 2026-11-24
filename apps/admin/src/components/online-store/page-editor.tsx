@@ -16,6 +16,7 @@ import {
   Textarea,
   useToast,
 } from "@cartforge/ui";
+import { ThemeTemplateCard } from "@/components/online-store/template-card";
 import { Toggle } from "@/components/toggle";
 import { ApiError } from "@/lib/api-client";
 import { storefrontUrl, usePageAction, useStorefrontBase } from "@/lib/online-store";
@@ -178,6 +179,7 @@ export function PageEditor({
             )}
           </CardBody>
         </Card>
+        {page && <ThemeTemplateCard kind="page" id={page.id} />}
         {canEdit && (
           <div className="flex flex-wrap gap-2">
             <Button onClick={save} disabled={action.isPending || !title.trim()}>
