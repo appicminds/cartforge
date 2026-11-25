@@ -206,6 +206,29 @@ A full-screen editor with three panels:
   section can never load an arbitrary page or script.
 - The same links work in the Custom section's Embed block.
 
+### Custom code
+
+- **Add section → Build your own → Custom code** has exactly two boxes: **Code** (HTML) and
+  **CSS**. Tab indents; press Esc and then Tab to leave a box.
+- **HTML without scripts** is shown on the page, cleaned against an allow-list:
+  - **kept:** layout and text tags, links, images (https), `<picture>`, `<video>`, tables,
+    `<details>`, simple SVG, and frames from known video and map providers;
+  - **removed:** scripts, event handlers, forms, and other frames.
+  - Inline `style` attributes are kept when they pass the Custom CSS check.
+- **Code with scripts** (or `on…=` handlers, `javascript:`, or form fields) runs in a sandboxed
+  frame on the page.
+  - The frame has no access to the store's cookies, storage or page, and gets the theme's colors
+    and fonts.
+  - It resizes to fit its content. Links in it open the store's pages when clicked.
+  - This keeps shoppers and staff safe on a shared platform where the admin and the stores can be
+    on one address.
+- **CSS**:
+  - scoped to the section (`:scope` is the section itself) when the HTML is on the page, and
+    unscoped inside the frame;
+  - `url(https://…)` images and `@font-face` fonts are allowed;
+  - `@import`, `http:` links, `javascript:`, escapes and `<` are refused;
+  - up to 20,000 characters, and 50,000 for the code.
+
 ### Saved sections
 
 - Select a section and click the **bookmark** button (Save section to reuse), then give it a name.

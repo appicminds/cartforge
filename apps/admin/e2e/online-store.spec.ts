@@ -371,3 +371,93 @@ test("custom section, embed and saved sections", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Theme deleted")).toBeVisible();
 });
+
+test("custom code section: HTML on the page, scripts in an isolated frame", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page, "admin@cartforge.test");
+  await page.goto("/admin/online-store");
+  await page.getByRole("button", { name: "Add Minimal" }).click();
+  await expect(page.getByText("Minimal added to your theme library")).toBeVisible();
+  const row = () =>
+    page
+      .getByRole("listitem")
+      .filter({ hasText: "Minimal" })
+      .filter({ has: page.getByRole("link", { name: "Customize" }) })
+      .first();
+  await row().getByRole("link", { name: "Customize" }).click();
+  const preview = page.frameLocator('iframe[title="Store preview"]');
+  await expect(preview.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: "Add section" }).nth(1).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Custom code", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Custom code" })).toBeVisible();
+  // Only two settings: Code and CSS.
+  const panel = page.getByRole("complementary", { name: "Settings" });
+  await expect(panel.getByRole("textbox")).toHaveCount(2);
+  await scan(page, "custom code");
+
+  const section = preview.locator('[data-cf-type="custom_code"]');
+  await page
+    .getByLabel("Code", { exact: true })
+    .fill(
+      '<div class="promo"><h2>Eid offer</h2><img src="x" onerror="alert(1)"></div><iframe src="https://evil.example/x"></iframe>',
+    );
+  // An event handler means scripts: the whole thing runs isolated.
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+  await expect(section.locator("iframe[sandbox]")).toBeAttached({ timeout: 10_000 });
+
+  // Plain HTML is shown on the page, unknown frames removed, CSS scoped.
+  await page
+    .getByLabel("Code", { exact: true })
+    .fill(
+      '<div class="promo"><h2>Eid offer</h2><p>Up to 30% off</p></div><iframe src="https://evil.example/x"></iframe>',
+    );
+  await page
+    .getByLabel("CSS", { exact: true })
+    .fill(".promo { border-top: 4px solid rgb(0, 128, 0); }");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+  await expect(section.getByRole("heading", { name: "Eid offer" })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(section.locator("iframe")).toHaveCount(0);
+  await expect
+    .poll(() => section.locator(".promo").evaluate((el) => getComputedStyle(el).borderTopColor), {
+      timeout: 10_000,
+    })
+    .toBe("rgb(0, 128, 0)");
+
+  // A script runs, isolated: it can change its own frame but not the store's page.
+  await page
+    .getByLabel("Code", { exact: true })
+    .fill(
+      '<p id="out">waiting</p><script>document.getElementById("out").textContent = "script ran"</script>',
+    );
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+  await expect(section.frameLocator("iframe[sandbox]").getByText("script ran")).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // Unsafe CSS is refused.
+  await page
+    .getByLabel("CSS", { exact: true })
+    .fill("p { background: url(http://insecure.example/a.png) }");
+  await expect(page.getByTestId("theme-problems")).toContainText("Custom code: Use https:// links");
+  await page.getByLabel("CSS", { exact: true }).fill("p { color: rgb(0, 0, 0) }");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+
+  await page.getByRole("link", { name: "Exit" }).click();
+  await row()
+    .getByRole("button", { name: /More actions/ })
+    .click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Theme deleted")).toBeVisible();
+});

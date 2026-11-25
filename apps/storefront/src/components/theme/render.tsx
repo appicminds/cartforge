@@ -12,6 +12,7 @@ import { storefront } from "@/lib/api";
 import { getTheme } from "@/lib/theme";
 import { Hero, ImageBanner, SlideshowSection } from "./banners";
 import { FeaturedBlog } from "./blog";
+import { CustomCode } from "./code";
 import { CustomSection, EmbedSection } from "./custom";
 import { FooterSection } from "./footer";
 import { BannerSlider, ImageGrid, ImageOnlyBanner } from "./images";
@@ -47,6 +48,7 @@ const COMPONENTS: Record<string, (p: Props) => ReactNode | Promise<ReactNode>> =
   featured_blog: FeaturedBlog,
   custom_section: CustomSection,
   embed: EmbedSection,
+  custom_code: CustomCode,
   slideshow: SlideshowSection,
   hero: Hero,
   featured_collection: FeaturedCollection,

@@ -1,4 +1,4 @@
-import { checkCss } from "./custom-css";
+import { checkCodeCss, checkCss } from "./custom-css";
 import { parseEmbed } from "./embed";
 import { parseVideo } from "./video";
 /**
@@ -53,6 +53,10 @@ export type Field =
   | (Base & { type: "embed" })
   /** A date and time (ISO 8601), e.g. a countdown's end. */
   | (Base & { type: "datetime" })
+  /** HTML for the Custom code section (cleaned or isolated when rendered). */
+  | (Base & { type: "code"; default?: string })
+  /** CSS for the Custom code section (https images and fonts allowed). */
+  | (Base & { type: "code_css"; default?: string })
   /** Custom CSS: checked for safety and scoped when rendered (see custom-css.ts). */
   | (Base & { type: "css"; default?: string })
   /** Editor-only headings and notes: no value. */
@@ -90,6 +94,8 @@ export function defaultValue(f: ValueField): unknown {
     case "richtext":
     case "link":
     case "css":
+    case "code":
+    case "code_css":
       return f.default ?? "";
     case "select":
     case "radio":
@@ -197,6 +203,14 @@ export function checkField(
         !Number.isNaN(Date.parse(raw))
         ? { ok: true, value: new Date(raw).toISOString() }
         : bad("Choose a date and time");
+    case "code":
+      if (typeof raw !== "string") return bad("Must be text");
+      return raw.length > 50_000 ? bad("At most 50,000 characters") : { ok: true, value: raw };
+    case "code_css": {
+      if (typeof raw !== "string") return bad("Must be text");
+      const problem = checkCodeCss(raw);
+      return problem ? bad(problem) : { ok: true, value: raw };
+    }
     case "css": {
       if (typeof raw !== "string") return bad("Must be text");
       const problem = checkCss(raw);

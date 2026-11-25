@@ -1162,6 +1162,29 @@ export const SECTION_DEFS: SectionDef[] = [
     ],
   },
 
+  {
+    type: "custom_code",
+    name: "Custom code",
+    category: "custom",
+    enabled_on: { templates: "*" },
+    settings: [
+      {
+        id: "code",
+        type: "code",
+        label: "Code",
+        default: '<div class="box">\n  <h2>Hello</h2>\n  <p>Write your own HTML here.</p>\n</div>',
+        info: "HTML. Code with scripts runs in an isolated frame on the page.",
+      },
+      {
+        id: "css",
+        type: "code_css",
+        label: "CSS",
+        default: ".box {\n  padding: 48px 24px;\n  text-align: center;\n}",
+        info: "Applies to this section only. Use :scope for the section itself.",
+      },
+    ],
+  },
+
   // ───────────── Media and layout ─────────────
   {
     type: "video",
@@ -1453,7 +1476,7 @@ export const SECTION_DEFS: SectionDef[] = [
 ];
 
 // Every section can carry its own CSS, scoped to it.
-for (const d of SECTION_DEFS)
+for (const d of SECTION_DEFS.filter((x) => x.type !== "custom_code"))
   d.settings.push(
     { type: "header", label: "Advanced" },
     {

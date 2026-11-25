@@ -520,3 +520,4 @@ Goal (PRD §11): merchants design their store like Shopify's theme editor. See `
 | SB-13 | Custom section builder (columns, 12 block types incl. countdown, embed, product/collection cards)             | ✅     | `embed.test`, admin spec                     |
 | SB-14 | Embed section: known providers only (Maps, Instagram, TikTok, Facebook, Forms, Typeform, Spotify, SoundCloud) | ✅     | `embed.test`, admin spec                     |
 | SB-15 | Saved sections: save, reuse across pages and themes, delete                                                   | ✅     | `online-store.e2e`, admin spec               |
+| SB-16 | Custom code section (HTML + CSS only): cleaned HTML on the page, scripts in a sandboxed frame                 | ✅     | `custom-css.test`, admin spec                |

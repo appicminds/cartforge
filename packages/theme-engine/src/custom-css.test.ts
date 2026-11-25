@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { checkCss, defaultTheme, scopeCss, themeCss, validateTheme } from "./index";
+import {
+  checkCodeCss,
+  checkCss,
+  defaultTheme,
+  scopeCodeCss,
+  scopeCss,
+  themeCss,
+  validateTheme,
+} from "./index";
 
 describe("custom CSS", () => {
   it("scopes rules to the section; :scope is the section itself", () => {
@@ -43,5 +51,29 @@ describe("custom CSS", () => {
     t.templates.home[0]!.settings.custom_css = "a { background: url(x) }";
     const bad = validateTheme(JSON.parse(JSON.stringify(t)));
     expect(bad.errors[0]).toMatchObject({ path: "templates.home.0.settings.custom_css" });
+  });
+});
+
+describe("custom code CSS", () => {
+  it("allows https images and fonts, still refuses tricks", () => {
+    expect(
+      checkCodeCss(".hero { background: url('https://cdn.example.com/a.jpg') center/cover }"),
+    ).toBeNull();
+    expect(
+      checkCodeCss("@font-face { font-family: X; src: url(https://fonts.example.com/x.woff2) }"),
+    ).toBeNull();
+    expect(checkCodeCss("a { background: url(http://insecure.example/a.png) }")).toMatch(/https/);
+    expect(checkCodeCss("a { background: url(javascript:alert(1)) }")).not.toBeNull();
+    expect(checkCodeCss("</style><script>x</script>")).not.toBeNull();
+    expect(checkCodeCss("@import url(https://x.example/a.css);")).not.toBeNull();
+    expect(
+      scopeCodeCss(
+        ".box { padding: 4px } @font-face { font-family: X; src: url(https://f.example/x.woff2) }",
+        ".s",
+      ),
+    ).toBe(
+      ".s .box{padding: 4px}@font-face{ font-family: X; src: url(https://f.example/x.woff2) }",
+    );
+    expect(scopeCodeCss(".box { padding: 4px }", null)).toBe(".box{padding: 4px}");
   });
 });

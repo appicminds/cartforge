@@ -77,6 +77,61 @@ export function checkCss(css: string): string | null {
   return checkBlocks(clean, 1);
 }
 
+export const MAX_CODE_CSS = 20_000;
+
+/** Only https and inline-image addresses in url(…). */
+const SAFE_URL =
+  /^url\(\s*(["']?)(https:\/\/[^\s"'()<>]+|data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[a-z0-9+/=]+)\1\s*\)$/i;
+
+/**
+ * The "Custom code" section's CSS: like Custom CSS, but images and fonts from
+ * https links (url(…), @font-face) are allowed. Still no @import, scripts,
+ * escapes or "<".
+ */
+export function checkCodeCss(css: string): string | null {
+  if (css.length > MAX_CODE_CSS) return `At most ${MAX_CODE_CSS.toLocaleString("en")} characters`;
+  const clean = stripComments(css);
+  if (/\/\*/.test(clean)) return "A comment isn't closed";
+  if (/</.test(clean)) return "“<” isn't allowed";
+  if (/@import|@charset|@namespace/i.test(clean))
+    return "@import, @charset and @namespace aren't allowed";
+  if (/expression\s*\(|javascript:|behavior\s*:|-moz-binding/i.test(clean))
+    return "That isn't allowed in CSS";
+  if (/\\/.test(clean)) return "Backslash escapes aren't allowed";
+  for (const m of clean.matchAll(/url\s*\([^)]*\)/gi))
+    if (!SAFE_URL.test(m[0])) return "Use https:// links in url(…)";
+  if (/image-set\s*\(|(?<![-\w])src\s*\(/i.test(clean))
+    return "Use url(https://…) for images and fonts";
+  const list = blocks(clean);
+  if (typeof list === "string") return list;
+  for (const b of list) {
+    if (/^@font-face\b/i.test(b.prelude)) continue;
+    if (b.prelude.startsWith("@")) {
+      if (/^@keyframes\b/i.test(b.prelude)) continue;
+      if (!NESTING.test(b.prelude)) return `${b.prelude.split(/\s/)[0]} isn't supported`;
+      const inner = checkBlocks(b.body, 2);
+      if (inner) return inner;
+    } else if (b.body.includes("{"))
+      return "Nested rules aren't supported; write each rule on its own";
+  }
+  return null;
+}
+
+/** The Custom code section's CSS, scoped (`scope` null = unscoped, for its isolated frame). */
+export function scopeCodeCss(css: string, scope: string | null): string {
+  if (!css.trim() || checkCodeCss(css)) return "";
+  const clean = stripComments(css);
+  const list = blocks(clean);
+  if (typeof list === "string") return "";
+  return list
+    .map((b) =>
+      /^@font-face\b/i.test(b.prelude)
+        ? `${b.prelude}{${b.body}}`
+        : scopeBlocks(`${b.prelude}{${b.body}}`, scope),
+    )
+    .join("");
+}
+
 /** Splits a selector list on top-level commas. */
 function splitSelectors(s: string): string[] {
   const out: string[] = [];

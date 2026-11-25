@@ -756,6 +756,42 @@ export function SettingField({
         </Labelled>
       );
     }
+    case "code":
+    case "code_css":
+      return (
+        <Labelled id={id} field={field} error={error}>
+          <Textarea
+            id={id}
+            value={str}
+            rows={field.type === "code" ? 16 : 10}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            wrap="off"
+            className="font-mono text-xs leading-relaxed [tab-size:2]"
+            aria-describedby={`${id}-keys`}
+            onBlur={(e) => delete e.currentTarget.dataset.escaped}
+            onKeyDown={(e) => {
+              // Tab inserts two spaces; after Esc, Tab leaves the box as usual.
+              if (e.key === "Escape") {
+                e.currentTarget.dataset.escaped = "1";
+                return;
+              }
+              if (e.key !== "Tab" || e.shiftKey || e.currentTarget.dataset.escaped) return;
+              e.preventDefault();
+              const t = e.currentTarget;
+              const { selectionStart: a, selectionEnd: b } = t;
+              const next = `${str.slice(0, a)}  ${str.slice(b)}`;
+              onChange(next);
+              requestAnimationFrame(() => t.setSelectionRange(a + 2, a + 2));
+            }}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <p id={`${id}-keys`} className="mt-1 text-xs text-fg-muted">
+            Tab indents. Press Esc, then Tab, to move on.
+          </p>
+        </Labelled>
+      );
     case "css":
       return (
         <Labelled id={id} field={field} error={error}>
