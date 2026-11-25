@@ -1,4 +1,6 @@
 import { checkCss } from "./custom-css";
+import { parseEmbed } from "./embed";
+import { parseVideo } from "./video";
 /**
  * Setting fields: one vocabulary drives validation (here), the editor's forms
  * (admin) and rendering (storefront). Every value is constrained — hex colors,
@@ -47,6 +49,10 @@ export type Field =
   | (Base & { type: "menu"; default: string })
   /** A YouTube or Vimeo address. */
   | (Base & { type: "video" })
+  /** A link from a known provider (Maps, Instagram, TikTok…), see embed.ts. */
+  | (Base & { type: "embed" })
+  /** A date and time (ISO 8601), e.g. a countdown's end. */
+  | (Base & { type: "datetime" })
   /** Custom CSS: checked for safety and scoped when rendered (see custom-css.ts). */
   | (Base & { type: "css"; default?: string })
   /** Editor-only headings and notes: no value. */
@@ -67,21 +73,7 @@ const HTTPS = /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(?:[/?#][^\s<>"']*)?$/i;
 /** Scheme ids are used in CSS class names. */
 export const SCHEME_ID = /^scheme-[a-z0-9]{1,12}$/;
 
-const VIDEO = [
-  /^https:\/\/(?:www\.|m\.)?youtube\.com\/watch\?(?:.*&)?v=([\w-]{11})/i,
-  /^https:\/\/youtu\.be\/([\w-]{11})/i,
-  /^https:\/\/(?:www\.)?youtube\.com\/(?:shorts|embed)\/([\w-]{11})/i,
-  /^https:\/\/(?:www\.)?vimeo\.com\/(\d{6,12})/i,
-];
-
-/** { provider, id } for a YouTube / Vimeo address, else null. */
-export function parseVideo(url: string): { provider: "youtube" | "vimeo"; id: string } | null {
-  for (const [i, re] of VIDEO.entries()) {
-    const m = re.exec(url.trim());
-    if (m) return { provider: i === 3 ? "vimeo" : "youtube", id: m[1]! };
-  }
-  return null;
-}
+export { parseVideo } from "./video";
 
 export const isSafeLink = (v: string) => v === "" || SITE_PATH.test(v) || HTTPS.test(v);
 
@@ -191,6 +183,20 @@ export function checkField(
       return typeof raw === "string" && (raw === "" || HANDLE.test(raw))
         ? { ok: true, value: raw }
         : bad("Choose a menu");
+    case "embed":
+      if (raw === null || raw === "") return { ok: true, value: null };
+      return typeof raw === "string" && parseEmbed(raw)
+        ? { ok: true, value: raw.trim() }
+        : bad(
+            "Use a link from YouTube, Vimeo, Google Maps, Instagram, TikTok, Facebook, Google Forms, Typeform, Spotify or SoundCloud",
+          );
+    case "datetime":
+      if (raw === null || raw === "") return { ok: true, value: null };
+      return typeof raw === "string" &&
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw) &&
+        !Number.isNaN(Date.parse(raw))
+        ? { ok: true, value: new Date(raw).toISOString() }
+        : bad("Choose a date and time");
     case "css": {
       if (typeof raw !== "string") return bad("Must be text");
       const problem = checkCss(raw);

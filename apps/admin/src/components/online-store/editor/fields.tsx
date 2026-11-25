@@ -4,7 +4,9 @@ import dynamic from "next/dynamic";
 import { useId, useMemo, useState } from "react";
 import { ImagePlus, Upload, X } from "lucide-react";
 import {
+  EMBED_PROVIDERS,
   FONTS,
+  parseEmbed,
   isValueField,
   type ColorScheme,
   type DynamicSource,
@@ -716,6 +718,44 @@ export function SettingField({
           <MenuSelect id={id} value={str} onChange={onChange} />
         </Labelled>
       );
+    case "embed": {
+      const e = str ? parseEmbed(str) : null;
+      return (
+        <Labelled id={id} field={field} error={error}>
+          <Input
+            id={id}
+            value={str}
+            placeholder="https://www.instagram.com/p/…"
+            onChange={(ev) => onChange(ev.target.value.trim() || null)}
+          />
+          {str && (
+            <p className={`mt-1 text-xs ${e ? "text-success" : "text-fg-muted"}`}>
+              {e ? `✓ ${e.label}` : `Supported: ${EMBED_PROVIDERS.join(", ")}`}
+            </p>
+          )}
+        </Labelled>
+      );
+    }
+    case "datetime": {
+      const local = (() => {
+        if (!str) return "";
+        const d = new Date(str);
+        const p = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+      })();
+      return (
+        <Labelled id={id} field={field} error={error}>
+          <Input
+            id={id}
+            type="datetime-local"
+            value={local}
+            onChange={(ev) =>
+              onChange(ev.target.value ? new Date(ev.target.value).toISOString() : null)
+            }
+          />
+        </Labelled>
+      );
+    }
     case "css":
       return (
         <Labelled id={id} field={field} error={error}>

@@ -180,6 +180,41 @@ A full-screen editor with three panels:
   share). The **Blog posts** section shows the latest posts on any page.
 - Menus can link to a blog, and blogs and posts are in the sitemap.
 
+## Build your own
+
+### Custom section
+
+- **Add section → Build your own → Custom section**: a section you lay out yourself.
+- **Section settings:**
+  - 1–4 columns; for 2 columns the widths can be equal, 2:1 or 1:2;
+  - vertical alignment, gap, width (narrow, page or full) and space above and below;
+  - "On phones, show the last column first";
+  - a background image with overlay, and a color scheme.
+- **Blocks** (up to 30): heading (four sizes), text, image (link, rounded, max width), buttons,
+  video, icon with text, product card, collection card, countdown timer, embed, divider, spacer.
+- Every block has a **column**, an **alignment** and **Show on** (all screens, desktop only or
+  phones only).
+- The countdown counts down to a date and time. When it ends it shows a message, or hides.
+
+### Embed section
+
+- **Add section → Build your own → Embed**: paste a link, not embed code.
+- Supported: YouTube, Vimeo, Google Maps (a place link or the "Embed a map" address), Instagram
+  posts and reels, TikTok videos, Facebook pages, posts and videos, Google Forms, Typeform,
+  Spotify and SoundCloud.
+- The link is turned into the provider's own embed address. Anything else is refused, so a
+  section can never load an arbitrary page or script.
+- The same links work in the Custom section's Embed block.
+
+### Saved sections
+
+- Select a section and click the **bookmark** button (Save section to reuse), then give it a name.
+- **Add section → Saved sections** adds a copy to any page, in any theme.
+- Copies are independent: editing one doesn't change the others or the saved version.
+- Up to 50 saved sections. A saved section is checked like a theme save: header, footer and a
+  page's main section can't be saved.
+- Delete a saved section with the trash icon in Add section.
+
 ## Not yet
 
 - Translations (with a Markets language setting).

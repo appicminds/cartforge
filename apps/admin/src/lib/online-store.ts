@@ -15,6 +15,8 @@ import type {
   TemplateTargetKind,
   ArticleView,
   BlogView,
+  SavedSectionDetail,
+  SavedSectionSummary,
 } from "@cartforge/types";
 import type { ArticleInput, MenuInput, PageInput } from "@cartforge/validation";
 import { apiRequest } from "./api-client";
@@ -264,6 +266,42 @@ export function useArticleAction() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: storeKey(storeId, "articles") });
       void qc.invalidateQueries({ queryKey: storeKey(storeId, "blogs") });
+    },
+  });
+}
+
+// ───────────── Saved sections ─────────────
+
+export const useSavedSections = () =>
+  useGet<SavedSectionSummary[]>(["saved-sections"], "/saved-sections");
+
+export function useSavedSectionAction() {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      a:
+        | { kind: "save"; name: string; section: unknown }
+        | { kind: "get"; id: string }
+        | { kind: "delete"; id: string },
+    ): Promise<SavedSectionSummary | SavedSectionDetail | null> => {
+      if (a.kind === "delete") {
+        await apiRequest(`/saved-sections/${a.id}`, { method: "DELETE", storeId });
+        return null;
+      }
+      if (a.kind === "get")
+        return apiRequest<DetailResponse<SavedSectionDetail>>(`/saved-sections/${a.id}`, {
+          storeId,
+        }).then((r) => r.data);
+      return apiRequest<DetailResponse<SavedSectionSummary>>("/saved-sections", {
+        method: "POST",
+        body: { name: a.name, section: a.section },
+        storeId,
+      }).then((r) => r.data);
+    },
+    onSettled: (_d, _e, a) => {
+      if (a.kind !== "get")
+        void qc.invalidateQueries({ queryKey: storeKey(storeId, "saved-sections") });
     },
   });
 }

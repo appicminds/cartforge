@@ -62,7 +62,16 @@ export interface SectionDef {
   type: string;
   name: string;
   /** Editor grouping in "Add section". */
-  category: "banner" | "products" | "text" | "media" | "layout" | "main" | "header" | "footer";
+  category:
+    | "banner"
+    | "products"
+    | "text"
+    | "media"
+    | "layout"
+    | "custom"
+    | "main"
+    | "header"
+    | "footer";
   settings: Field[];
   blocks?: BlockDef[];
   max_blocks?: number;
@@ -154,6 +163,39 @@ const BUTTONS_BLOCK: BlockDef = {
     { id: "link_2", type: "link", label: "Second button link", default: "" },
   ],
 };
+
+/** A Custom section block: its own settings plus column, alignment and visibility. */
+function cb(type: string, name: string, settings: Field[]): BlockDef {
+  return {
+    type,
+    name,
+    settings: [
+      ...settings,
+      { type: "header", label: "Layout" },
+      {
+        id: "column",
+        type: "select",
+        label: "Column",
+        options: o(["1", "Column 1"], ["2", "Column 2"], ["3", "Column 3"], ["4", "Column 4"]),
+        default: "1",
+      },
+      {
+        id: "align",
+        type: "select",
+        label: "Alignment",
+        options: o(["left", "Left"], ["center", "Center"], ["right", "Right"]),
+        default: "left",
+      },
+      {
+        id: "visibility",
+        type: "select",
+        label: "Show on",
+        options: o(["all", "All screens"], ["desktop", "Desktop only"], ["mobile", "Phones only"]),
+        default: "all",
+      },
+    ],
+  };
+}
 
 export const ICONS = o(
   ["truck", "Delivery truck"],
@@ -912,6 +954,212 @@ export const SECTION_DEFS: SectionDef[] = [
         },
       ],
     },
+  },
+
+  // ───────────── Build your own ─────────────
+  {
+    type: "custom_section",
+    name: "Custom section",
+    category: "custom",
+    enabled_on: { templates: "*" },
+    max_blocks: 30,
+    settings: [
+      {
+        type: "paragraph",
+        label:
+          "Build your own layout: choose columns, then add blocks and pick each block's column.",
+      },
+      { id: "columns", type: "range", label: "Columns", min: 1, max: 4, default: 2 },
+      {
+        id: "column_widths",
+        type: "select",
+        label: "Column widths (2 columns)",
+        options: o(
+          ["equal", "Equal"],
+          ["wide-left", "Wider left (2:1)"],
+          ["wide-right", "Wider right (1:2)"],
+        ),
+        default: "equal",
+      },
+      {
+        id: "vertical_align",
+        type: "select",
+        label: "Line up columns",
+        options: o(["top", "Top"], ["center", "Middle"], ["bottom", "Bottom"]),
+        default: "center",
+      },
+      {
+        id: "gap",
+        type: "select",
+        label: "Space between columns",
+        options: o(["small", "Small"], ["medium", "Medium"], ["large", "Large"]),
+        default: "medium",
+      },
+      {
+        id: "width",
+        type: "select",
+        label: "Width",
+        options: o(["narrow", "Narrow"], ["page", "Page width"], ["full", "Full page width"]),
+        default: "page",
+      },
+      {
+        id: "padding",
+        type: "select",
+        label: "Space above and below",
+        options: o(["none", "None"], ["small", "Small"], ["medium", "Medium"], ["large", "Large"]),
+        default: "medium",
+      },
+      {
+        id: "mobile_reverse",
+        type: "checkbox",
+        label: "On phones, show the last column first",
+        default: false,
+      },
+      { type: "header", label: "Background" },
+      { id: "background_image", type: "image", label: "Background image" },
+      {
+        id: "overlay",
+        type: "range",
+        label: "Image overlay",
+        min: 0,
+        max: 90,
+        step: 10,
+        unit: "%",
+        default: 40,
+      },
+      scheme(),
+    ],
+    blocks: [
+      cb("heading", "Heading", [
+        heading("Your heading"),
+        {
+          id: "size",
+          type: "select",
+          label: "Size",
+          options: o(
+            ["small", "Small"],
+            ["medium", "Medium"],
+            ["large", "Large"],
+            ["xlarge", "Extra large"],
+          ),
+          default: "medium",
+        },
+      ]),
+      cb("text", "Text", [
+        {
+          id: "text",
+          type: "richtext",
+          label: "Text",
+          default: "<p>Share something about your brand.</p>",
+        },
+      ]),
+      cb("image", "Image", [
+        { id: "image", type: "image", label: "Image" },
+        { id: "link", type: "link", label: "Link" },
+        { id: "alt", type: "text", label: "Description for screen readers", default: "", max: 200 },
+        { id: "rounded", type: "checkbox", label: "Rounded corners", default: true },
+        {
+          id: "max_width",
+          type: "range",
+          label: "Max width",
+          min: 10,
+          max: 100,
+          step: 5,
+          unit: "%",
+          default: 100,
+        },
+      ]),
+      cb("buttons", "Buttons", BUTTONS_BLOCK.settings),
+      cb("video", "Video", [{ id: "video", type: "video", label: "YouTube or Vimeo link" }]),
+      cb("icon", "Icon with text", [
+        { id: "icon", type: "select", label: "Icon", options: ICONS, default: "truck" },
+        { id: "title", type: "text", label: "Title", default: "Free delivery", max: 80 },
+        { id: "text", type: "text", label: "Text", default: "", max: 200 },
+      ]),
+      cb("product", "Product card", [{ id: "product", type: "product", label: "Product" }]),
+      cb("collection", "Collection card", [
+        { id: "collection", type: "collection", label: "Collection" },
+      ]),
+      cb("countdown", "Countdown timer", [
+        { id: "ends_at", type: "datetime", label: "Ends at" },
+        { id: "title", type: "text", label: "Title", default: "Sale ends in", max: 80 },
+        {
+          id: "ended_text",
+          type: "text",
+          label: "Text when it has ended",
+          default: "This offer has ended",
+          max: 120,
+        },
+        {
+          id: "hide_when_ended",
+          type: "checkbox",
+          label: "Hide when it has ended",
+          default: false,
+        },
+      ]),
+      cb("embed", "Embed", [
+        {
+          id: "url",
+          type: "embed",
+          label: "Link",
+          info: "Google Maps, Instagram, TikTok, Facebook, Google Forms, Typeform, Spotify, SoundCloud, YouTube or Vimeo.",
+        },
+      ]),
+      cb("divider", "Divider", []),
+      cb("spacer", "Spacer", [
+        {
+          id: "height",
+          type: "range",
+          label: "Height",
+          min: 8,
+          max: 160,
+          step: 8,
+          unit: "px",
+          default: 32,
+        },
+      ]),
+    ],
+    preset: {
+      blocks: [
+        { type: "image", settings: { column: "1" } },
+        { type: "heading", settings: { column: "2", heading: "Your heading" } },
+        { type: "text", settings: { column: "2" } },
+        { type: "buttons", settings: { column: "2" } },
+      ],
+    },
+  },
+  {
+    type: "embed",
+    name: "Embed",
+    category: "custom",
+    enabled_on: { templates: "*" },
+    settings: [
+      heading(""),
+      {
+        id: "url",
+        type: "embed",
+        label: "Link",
+        info: "Paste a link (not embed code) from Google Maps, Instagram, TikTok, Facebook, Google Forms, Typeform, Spotify, SoundCloud, YouTube or Vimeo.",
+      },
+      {
+        id: "width",
+        type: "select",
+        label: "Width",
+        options: o(["narrow", "Narrow"], ["page", "Page width"], ["full", "Full page width"]),
+        default: "page",
+      },
+      {
+        id: "height",
+        type: "range",
+        label: "Height (maps, forms and feeds)",
+        min: 200,
+        max: 1000,
+        step: 50,
+        unit: "px",
+        default: 450,
+      },
+      scheme(),
+    ],
   },
 
   // ───────────── Media and layout ─────────────

@@ -155,6 +155,7 @@ model Store {
   menus               Menu[]
   pages               Page[]
   blogs               Blog[]
+  saved_sections      SavedSection[]
   articles            Article[]
   variants            ProductVariant[]
   media               MediaAsset[]
@@ -1613,4 +1614,22 @@ model Article {
   @@unique([blog_id, handle])
   @@index([store_id, published, published_at])
   @@map("articles")
+}
+
+/// A section the merchant saved to reuse (theme editor → Add section → Saved).
+model SavedSection {
+  id         String   @id @default(uuid()) @db.Uuid
+  store_id   String   @db.Uuid
+  name       String   @db.VarChar(80)
+  /// Section type, e.g. custom_section.
+  type       String   @db.VarChar(40)
+  /// The section (settings and blocks), validated by @cartforge/theme-engine.
+  data       Json
+  created_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+
+  @@index([store_id, created_at])
+  @@map("saved_sections")
 }

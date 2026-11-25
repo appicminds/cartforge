@@ -370,4 +370,36 @@ describe("online store", () => {
     await owner.delete(`/blogs/${style.id}`).expect(204);
     await sf("/blogs/style-guide").expect(404);
   });
+
+  it("saved sections: save a custom section, reuse it, refuse unsafe or fixed ones", async () => {
+    const custom = newSection("custom_section");
+    custom.blocks[2]!.settings.text = "<p>Hi<script>x</script></p>";
+    custom.blocks.push({
+      id: "e1",
+      type: "embed",
+      settings: { url: "https://www.instagram.com/p/C0abcDEF123/" },
+    });
+    const saved = (
+      await owner.post("/saved-sections", { name: "Eid strip", section: custom }).expect(201)
+    ).body.data;
+    expect(saved).toMatchObject({ name: "Eid strip", type: "custom_section" });
+    const got = (await owner.get(`/saved-sections/${saved.id}`).expect(200)).body.data;
+    expect(got.section.blocks).toHaveLength(5);
+    expect(got.section.blocks[2].settings.text).toBe("<p>Hi</p>");
+    expect(
+      (await owner.get("/saved-sections").expect(200)).body.data.map((x: { id: string }) => x.id),
+    ).toContain(saved.id);
+
+    await owner
+      .post("/saved-sections", { name: "Header", section: newSection("header") })
+      .expect(422);
+    await owner
+      .post("/saved-sections", { name: "Main", section: newSection("main_product") })
+      .expect(422);
+    const bad = newSection("embed");
+    bad.settings.url = "https://evil.example/x";
+    const refused = await owner.post("/saved-sections", { name: "Bad", section: bad }).expect(422);
+    expect(refused.body.error.fields[0].path).toBe("section.settings.url");
+    await owner.delete(`/saved-sections/${saved.id}`).expect(204);
+  });
 });

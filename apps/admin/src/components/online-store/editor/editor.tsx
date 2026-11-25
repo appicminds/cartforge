@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  BookmarkPlus,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -36,6 +37,7 @@ import {
   MAX_ALTERNATES,
   allSections,
   canAddTo,
+  instantiateSection,
   newBlock,
   newId,
   newSection,
@@ -67,6 +69,8 @@ import {
   storefrontUrl,
   useArticles,
   useBlogs,
+  useSavedSectionAction,
+  useSavedSections,
   usePages,
   useSaveTheme,
   useStorefrontBase,
@@ -122,7 +126,8 @@ function blockLabel(def: SectionDef, b: BlockInstance) {
   const hint = [s.heading, s.title, s.text, s.question, s.author, s.label].find(
     (v) => typeof v === "string" && v.trim() && !v.includes("<"),
   ) as string | undefined;
-  return hint ? `${name}: ${hint}` : name;
+  const col = def.type === "custom_section" ? ` · col ${String(b.settings.column ?? "1")}` : "";
+  return (hint ? `${name}: ${hint}` : name) + col;
 }
 
 function templateForPath(path: string): TemplateKey | null {
@@ -167,6 +172,9 @@ export function ThemeEditor({
   const [creating, setCreating] = useState<AltTemplateKey | null>(null);
   const [altName, setAltName] = useState("");
   const [deletingAlt, setDeletingAlt] = useState(false);
+  const [savingSection, setSavingSection] = useState<SectionInstance | null>(null);
+  const [savedName, setSavedName] = useState("");
+  const savedAction = useSavedSectionAction();
   const [sel, setSel] = useState<Sel>(null);
   const [tab, setTab] = useState<"sections" | "settings">("sections");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -392,6 +400,25 @@ export function ThemeEditor({
     setAdding(null);
     setMobilePanel("settings");
   };
+
+  const addSaved = (w: Where, id: string) =>
+    savedAction.mutate(
+      { kind: "get", id },
+      {
+        onSuccess: (r) => {
+          const detail = r as { section: SectionInstance } | null;
+          if (!detail) return;
+          const s = instantiateSection(detail.section);
+          if (!data.color_schemes.some((c) => c.id === s.settings.color_scheme))
+            s.settings.color_scheme = data.color_schemes[0]!.id;
+          h.change((d) => void listOf(d, w).push(s));
+          setSel({ kind: "section", where: w, id: s.id });
+          setAdding(null);
+          setMobilePanel("settings");
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    );
 
   const removeSel = () => {
     if (!sel || (sel.kind !== "section" && sel.kind !== "block")) return;
@@ -713,6 +740,17 @@ export function ThemeEditor({
                     {!def.limit && (
                       <IconAction label="Duplicate section" onClick={duplicateSel}>
                         <Copy />
+                      </IconAction>
+                    )}
+                    {"template" in sel.where && (
+                      <IconAction
+                        label="Save section to reuse"
+                        onClick={() => {
+                          setSavedName(def.name);
+                          setSavingSection(s);
+                        }}
+                      >
+                        <BookmarkPlus />
                       </IconAction>
                     )}
                     <IconAction label="Remove section" onClick={removeSel} danger>
@@ -1258,7 +1296,54 @@ export function ThemeEditor({
         onClose={() => setDeletingAlt(false)}
       />
 
+      <Dialog
+        open={!!savingSection}
+        onClose={() => setSavingSection(null)}
+        title="Save section"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSavingSection(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!savedName.trim() || savedAction.isPending}
+              onClick={() =>
+                savingSection &&
+                savedAction.mutate(
+                  { kind: "save", name: savedName.trim(), section: savingSection },
+                  {
+                    onSuccess: () => {
+                      setSavingSection(null);
+                      toast.success("Section saved. Find it under Add section → Saved sections.");
+                    },
+                    onError: (e) => toast.error(e.message),
+                  },
+                )
+              }
+            >
+              Save
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-2 text-sm">
+          <p className="text-fg-muted">
+            Saves a copy of this section with its settings and blocks, to add to other pages or
+            themes. Copies don&apos;t change when you edit this one.
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-medium">Name</span>
+            <Input
+              value={savedName}
+              maxLength={80}
+              onChange={(e) => setSavedName(e.target.value)}
+            />
+          </label>
+        </div>
+      </Dialog>
+
       <AddSectionDialog
+        onAddSaved={addSaved}
         where={adding}
         onClose={() => setAdding(null)}
         onAdd={addSection}
@@ -1439,6 +1524,7 @@ function AddBlockMenu({
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  custom: "Build your own",
   banner: "Banners",
   products: "Products and collections",
   text: "Text and content",
@@ -1452,11 +1538,13 @@ function AddSectionDialog({
   where,
   onClose,
   onAdd,
+  onAddSaved,
   data,
 }: {
   where: Where | null;
   onClose: () => void;
   onAdd: (w: Where, type: string) => void;
+  onAddSaved: (w: Where, id: string) => void;
   data: ThemeData;
 }) {
   const [q, setQ] = useState("");
@@ -1470,6 +1558,18 @@ function AddSectionDialog({
       )
     : [];
   const cats = [...new Set(defs.map((d) => d.category))];
+  const saved = useSavedSections();
+  const savedAction = useSavedSectionAction();
+  const savedHere = where
+    ? (saved.data ?? []).filter((x) => {
+        const d = SECTIONS[x.type];
+        return (
+          d &&
+          canAddTo(d, "group" in where ? { group: where.group } : { template: where.template }) &&
+          (!q || x.name.toLowerCase().includes(q.toLowerCase()))
+        );
+      })
+    : [];
   return (
     <Dialog open={!!where} onClose={onClose} title="Add section">
       <div className="flex flex-col gap-3">
@@ -1483,6 +1583,37 @@ function AddSectionDialog({
           <p className="py-6 text-center text-sm text-fg-muted">Nothing more can be added here.</p>
         ) : (
           <div className="flex max-h-[55vh] flex-col gap-4 overflow-y-auto">
+            {savedHere.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                  Saved sections
+                </p>
+                <ul className="grid grid-cols-2 gap-2">
+                  {savedHere.map((x) => (
+                    <li key={x.id} className="group relative">
+                      <button
+                        type="button"
+                        onClick={() => where && (setQ(""), onAddSaved(where, x.id))}
+                        className="w-full rounded-md border border-border px-3 py-2.5 text-left text-sm hover:border-primary hover:bg-primary/5"
+                      >
+                        <span className="block truncate pr-6">{x.name}</span>
+                        <span className="block truncate text-xs text-fg-muted">
+                          {SECTIONS[x.type]?.name}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete saved section ${x.name}`}
+                        onClick={() => savedAction.mutate({ kind: "delete", id: x.id })}
+                        className="absolute right-1.5 top-1.5 rounded p-1 text-fg-subtle opacity-0 hover:text-danger focus:opacity-100 group-hover:opacity-100"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {cats.map((c) => (
               <div key={c}>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-fg-muted">

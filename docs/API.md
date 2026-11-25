@@ -429,3 +429,4 @@ need `content.write`.
 | `GET/POST /blogs`, `PUT/DELETE /blogs/:id`                                                         | `{ title, handle? }`; a News blog is created on first use                                                                      |
 | `GET/POST /articles`, `GET/PUT/DELETE /articles/:id`                                               | `{ blog_id, title, handle?, body_html, excerpt, image_id, author, tags, published, published_at, seo_title, seo_description }` |
 | `GET /storefront/blogs`, `GET /storefront/blogs/:handle`, `GET /storefront/blogs/:handle/:article` | Sitemap list; posts (`page`, `page_size`, `tag`); one post                                                                     |
+| `GET/POST /saved-sections`, `GET/DELETE /saved-sections/:id`                                       | `{ name, section }`, validated like a theme save (max 50); `themes.write` to change                                            |

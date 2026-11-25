@@ -274,3 +274,100 @@ test("blog posts", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Blog post deleted")).toBeVisible();
 });
+
+test("custom section, embed and saved sections", async ({ page }) => {
+  test.setTimeout(90_000);
+  const name = `Strip ${RUN}`;
+  await signIn(page, "admin@cartforge.test");
+  await page.goto("/admin/online-store");
+  await page.getByRole("button", { name: "Add Minimal" }).click();
+  await expect(page.getByText("Minimal added to your theme library")).toBeVisible();
+  const row = page
+    .getByRole("listitem")
+    .filter({ hasText: "Minimal" })
+    .filter({ has: page.getByRole("link", { name: "Customize" }) })
+    .first();
+  await row.getByRole("link", { name: "Customize" }).click();
+  const preview = page.frameLocator('iframe[title="Store preview"]');
+  await expect(preview.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 15_000 });
+
+  // Custom section: two columns, add a countdown to column 2.
+  await page.getByRole("button", { name: "Add section" }).nth(1).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Custom section", exact: true })
+    .click();
+  await expect(page.getByRole("heading", { level: 2, name: "Custom section" })).toBeVisible();
+  await expect(preview.locator('[data-cf-type="custom_section"]')).toBeVisible({ timeout: 10_000 });
+  const tree = page.getByRole("list", { name: "Custom section blocks" });
+  await tree.getByRole("button", { name: "Add block" }).click();
+  await tree.getByRole("button", { name: "Countdown timer" }).click();
+  await page.getByLabel("Ends at").fill("2030-01-01T12:00");
+  await page.getByLabel("Column", { exact: true }).selectOption("2");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+  await expect(
+    preview.locator('[data-cf-type="custom_section"]').getByText("Days", { exact: true }),
+  ).toBeVisible({
+    timeout: 10_000,
+  });
+  await scan(page, "custom section block");
+
+  // Embed section with an Instagram post.
+  await page.getByRole("button", { name: "Add section" }).nth(1).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Embed", exact: true }).click();
+  await page.getByLabel("Link", { exact: true }).fill("https://www.instagram.com/p/C0abcDEF123/");
+  await expect(page.getByText("✓ Instagram")).toBeVisible();
+  await expect(
+    preview.locator('iframe[src="https://www.instagram.com/p/C0abcDEF123/embed"]'),
+  ).toBeAttached({ timeout: 10_000 });
+  await page.getByLabel("Link", { exact: true }).fill("https://evil.example/x");
+  await expect(page.getByTestId("theme-problems")).toContainText("Embed: Use a link from YouTube");
+  await page
+    .getByLabel("Link", { exact: true })
+    .fill("https://www.google.com/maps/place/Liberty+Market+Lahore");
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+
+  // Save the custom section and add a copy from "Saved sections".
+  await page
+    .getByRole("list", { name: "Home page" })
+    .getByRole("button", { name: "Custom section", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Save section to reuse" }).click();
+  await page.getByRole("dialog", { name: "Save section" }).getByRole("textbox").fill(name);
+  await page
+    .getByRole("dialog", { name: "Save section" })
+    .getByRole("button", { name: "Save" })
+    .click();
+  await expect(page.getByText(/Section saved/)).toBeVisible();
+  await page.getByRole("button", { name: "Add section" }).nth(1).click();
+  await page
+    .getByRole("dialog", { name: "Add section" })
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .click();
+  await expect(preview.locator('[data-cf-type="custom_section"]')).toHaveCount(2, {
+    timeout: 10_000,
+  });
+  await expect(page.getByTestId("save-status")).toHaveText("All changes saved", {
+    timeout: 10_000,
+  });
+
+  // Tidy up: the saved section and the theme.
+  await page.getByRole("button", { name: "Add section" }).nth(1).click();
+  await page.getByRole("button", { name: `Delete saved section ${name}` }).click();
+  await expect(page.getByRole("button", { name: `Delete saved section ${name}` })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Exit" }).click();
+  const mine = page
+    .getByRole("listitem")
+    .filter({ hasText: "Minimal" })
+    .filter({ has: page.getByRole("link", { name: "Customize" }) })
+    .first();
+  await mine.getByRole("button", { name: /More actions/ }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Theme deleted")).toBeVisible();
+});

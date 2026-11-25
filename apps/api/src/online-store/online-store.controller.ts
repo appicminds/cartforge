@@ -23,6 +23,8 @@ import {
   type ArticleView,
   type BlogView,
   type MenuView,
+  type SavedSectionDetail,
+  type SavedSectionSummary,
   type StorefrontArticle,
   type StorefrontBlog,
   type PageView,
@@ -43,6 +45,7 @@ import {
   blogSchema,
   menuSchema,
   pageSchema,
+  savedSectionSchema,
   templateAssignSchema,
   themeCreateSchema,
   themeDataSchema,
@@ -63,6 +66,7 @@ import { StorefrontService } from "../storefront/storefront.service";
 import { MenusService } from "./menus.service";
 import { BlogService } from "./blog.service";
 import { PagesService } from "./pages.service";
+import { SavedSectionsService } from "./saved-sections.service";
 import { ThemesService } from "./themes.service";
 
 const uuid = (what: string) =>
@@ -301,6 +305,62 @@ export class ThemeTemplatesController {
     const k = kindOf(kind);
     if (!s.permissions.has(KIND_PERMISSION[k])) throw AppException.forbidden();
     return ok(req, await this.themes.assign(s.store_id, k, id, body.template, actor(auth, req)));
+  }
+}
+
+/** Admin: theme editor → saved sections. */
+@ApiTags("online-store")
+@ApiCookieAuth()
+@ApiHeader({ name: "X-Store-Id", required: true })
+@Controller("saved-sections")
+export class SavedSectionsController {
+  constructor(private readonly saved: SavedSectionsService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "Saved sections, newest first" })
+  async list(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+  ): Promise<DetailResponse<SavedSectionSummary[]>> {
+    return ok(req, await this.saved.list(s.store_id));
+  }
+
+  @Get(":id")
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({ summary: "A saved section with its settings and blocks" })
+  async get(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Saved section")) id: string,
+  ): Promise<DetailResponse<SavedSectionDetail>> {
+    return ok(req, await this.saved.get(s.store_id, id));
+  }
+
+  @Post()
+  @RequirePermissions(PERMISSIONS.THEMES_WRITE)
+  @ApiZodBody(savedSectionSchema)
+  @ApiOperation({ summary: "Save a section to reuse (checked like a theme)" })
+  async create(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Body(new ZodValidationPipe(savedSectionSchema)) body: { name: string; section?: unknown },
+  ): Promise<DetailResponse<SavedSectionSummary>> {
+    return ok(req, await this.saved.create(s.store_id, body.name, body.section, actor(auth, req)));
+  }
+
+  @Delete(":id")
+  @HttpCode(204)
+  @RequirePermissions(PERMISSIONS.THEMES_WRITE)
+  @ApiOperation({ summary: "Delete a saved section (pages using copies don't change)" })
+  async remove(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Saved section")) id: string,
+  ): Promise<void> {
+    await this.saved.remove(s.store_id, id, actor(auth, req));
   }
 }
 

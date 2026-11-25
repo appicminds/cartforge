@@ -146,3 +146,11 @@ export const articleSchema = z
   .strict();
 export type ArticleInput = z.input<typeof articleSchema>;
 export type ArticleData = z.output<typeof articleSchema>;
+
+export const savedSectionSchema = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name").max(80),
+    /** The section to save; checked by @cartforge/theme-engine. */
+    section: z.unknown(),
+  })
+  .strict();

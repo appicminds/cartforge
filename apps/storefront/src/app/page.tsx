@@ -5,7 +5,14 @@ import { jsonLd } from "@/lib/seo";
 import { templateSections } from "@/lib/theme";
 
 /** Sections that put the page's h1 in their first heading. */
-const H1_SECTIONS = new Set(["hero", "image_banner", "slideshow", "rich_text", "image_with_text"]);
+const H1_SECTIONS = new Set([
+  "hero",
+  "image_banner",
+  "slideshow",
+  "rich_text",
+  "image_with_text",
+  "custom_section",
+]);
 
 export default async function Home() {
   const [store, { siteUrl }, sections] = await Promise.all([
@@ -13,7 +20,12 @@ export default async function Home() {
     site(),
     templateSections("home"),
   ]);
-  const hasH1 = !!sections[0] && H1_SECTIONS.has(sections[0].type);
+  const first = sections[0];
+  const hasH1 =
+    !!first &&
+    H1_SECTIONS.has(first.type) &&
+    (first.type !== "custom_section" ||
+      first.blocks.some((b) => b.type === "heading" && !b.disabled));
   const website = {
     "@context": "https://schema.org",
     "@type": "WebSite",

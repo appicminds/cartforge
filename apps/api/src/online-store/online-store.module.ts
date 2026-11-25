@@ -8,11 +8,13 @@ import {
   BlogsController,
   MenusController,
   PagesController,
+  SavedSectionsController,
   StorefrontOnlineStoreController,
   ThemeTemplatesController,
   ThemesController,
 } from "./online-store.controller";
 import { PagesService } from "./pages.service";
+import { SavedSectionsService } from "./saved-sections.service";
 import { ThemesService } from "./themes.service";
 
 /** Store builder (Next 3): themes and the editor, menus, content pages. */
@@ -23,6 +25,7 @@ import { ThemesService } from "./themes.service";
     MenusController,
     PagesController,
     BlogsController,
+    SavedSectionsController,
     ArticlesController,
     StorefrontOnlineStoreController,
   ],
@@ -31,6 +34,7 @@ import { ThemesService } from "./themes.service";
     MenusService,
     PagesService,
     BlogService,
+    SavedSectionsService,
     {
       provide: ThemePreviewTokens,
       inject: [API_ENV],

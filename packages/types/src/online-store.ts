@@ -215,3 +215,20 @@ export interface StorefrontArticle extends StorefrontArticleSummary {
   seo: { title: string; description: string };
   updated_at: string;
 }
+
+// ───────────── Saved sections ─────────────
+
+export const MAX_SAVED_SECTIONS = 50;
+
+export interface SavedSectionSummary {
+  id: string;
+  name: string;
+  /** Section type (custom_section, image_banner…). */
+  type: string;
+  created_at: string;
+}
+
+export interface SavedSectionDetail extends SavedSectionSummary {
+  /** The section (theme-engine SectionInstance). */
+  section: unknown;
+}
