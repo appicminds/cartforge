@@ -35,6 +35,7 @@ import {
   type ThemeTemplateNames,
   type ThemeDetail,
   type ThemePresetSummary,
+  type SampleContentProgress,
   type ThemePreviewLink,
   type ThemeSaveResult,
   type ThemeSummary,
@@ -66,6 +67,7 @@ import { StorefrontService } from "../storefront/storefront.service";
 import { MenusService } from "./menus.service";
 import { BlogService } from "./blog.service";
 import { PagesService } from "./pages.service";
+import { SampleContentService } from "./sample/sample-content.service";
 import { SavedSectionsService } from "./saved-sections.service";
 import { ThemesService } from "./themes.service";
 
@@ -84,7 +86,10 @@ const ok = <T>(req: Request, data: T) => ({ data, request_id: String(req.id) });
 @ApiHeader({ name: "X-Store-Id", required: true })
 @Controller("themes")
 export class ThemesController {
-  constructor(private readonly themes: ThemesService) {}
+  constructor(
+    private readonly themes: ThemesService,
+    private readonly samples: SampleContentService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.STORE_READ)
@@ -245,6 +250,51 @@ export class ThemesController {
     @Param("id", uuid("Theme")) id: string,
   ): Promise<DetailResponse<ThemePreviewLink>> {
     return ok(req, await this.themes.previewLink(s.store_id, id));
+  }
+
+  @Get(":id/sample-content")
+  @RequirePermissions(PERMISSIONS.STORE_READ)
+  @ApiOperation({
+    summary: "How much of the theme's sample collections and products are in the store",
+  })
+  async sampleStatus(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Theme")) id: string,
+  ): Promise<DetailResponse<SampleContentProgress>> {
+    return ok(req, await this.samples.status(s.store_id, id));
+  }
+
+  @Post(":id/sample-content")
+  @HttpCode(200)
+  @InvalidatesStorefront()
+  @RequirePermissions(
+    PERMISSIONS.THEMES_WRITE,
+    PERMISSIONS.PRODUCTS_WRITE,
+    PERMISSIONS.COLLECTIONS_WRITE,
+    PERMISSIONS.MEDIA_WRITE,
+  )
+  @ApiZodBody(noBody)
+  @ApiOperation({
+    summary: "Add the theme's sample collections and products (one step; repeat until done)",
+    description:
+      "Skips anything already in the store (same handle). Each call works for up to ~15 seconds; call again while `done` is false.",
+  })
+  async sampleStep(
+    @CurrentAuth() auth: AuthContext,
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Theme")) id: string,
+  ): Promise<DetailResponse<SampleContentProgress>> {
+    return ok(
+      req,
+      await this.samples.step(id, {
+        store_id: s.store_id,
+        user_id: auth.user_id,
+        can_publish: s.permissions.has(PERMISSIONS.PRODUCTS_PUBLISH),
+        request_id: String(req.id),
+      }),
+    );
   }
 }
 

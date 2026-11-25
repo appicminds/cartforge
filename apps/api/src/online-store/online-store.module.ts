@@ -1,4 +1,7 @@
 import { Module } from "@nestjs/common";
+import { CatalogModule } from "../catalog/catalog.module";
+import { MediaModule } from "../media/media.module";
+import { ProductsModule } from "../products/products.module";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { ThemePreviewTokens } from "../storefront/preview-token";
 import { BlogService } from "./blog.service";
@@ -14,11 +17,13 @@ import {
   ThemesController,
 } from "./online-store.controller";
 import { PagesService } from "./pages.service";
+import { SampleContentService } from "./sample/sample-content.service";
 import { SavedSectionsService } from "./saved-sections.service";
 import { ThemesService } from "./themes.service";
 
 /** Store builder (Next 3): themes and the editor, menus, content pages. */
 @Module({
+  imports: [ProductsModule, CatalogModule, MediaModule],
   controllers: [
     ThemesController,
     ThemeTemplatesController,
@@ -35,6 +40,7 @@ import { ThemesService } from "./themes.service";
     PagesService,
     BlogService,
     SavedSectionsService,
+    SampleContentService,
     {
       provide: ThemePreviewTokens,
       inject: [API_ENV],

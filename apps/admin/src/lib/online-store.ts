@@ -17,6 +17,7 @@ import type {
   BlogView,
   SavedSectionDetail,
   SavedSectionSummary,
+  SampleContentProgress,
 } from "@cartforge/types";
 import type { ArticleInput, MenuInput, PageInput } from "@cartforge/validation";
 import { apiRequest } from "./api-client";
@@ -303,5 +304,29 @@ export function useSavedSectionAction() {
       if (a.kind !== "get")
         void qc.invalidateQueries({ queryKey: storeKey(storeId, "saved-sections") });
     },
+  });
+}
+
+// ───────────── Sample products ─────────────
+
+export const useSampleContent = (themeId: string | undefined, enabled: boolean) =>
+  useGet<SampleContentProgress>(
+    ["themes", "sample-content", themeId],
+    themeId && enabled ? `/themes/${themeId}/sample-content` : null,
+  );
+
+/** One step of "Add sample products"; the caller repeats until `done`. */
+export function useSampleContentStep(themeId: string) {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<DetailResponse<SampleContentProgress>>(`/themes/${themeId}/sample-content`, {
+        method: "POST",
+        body: {},
+        storeId,
+      }).then((r) => r.data),
+    onSuccess: (data) =>
+      qc.setQueryData(storeKey(storeId, "themes", "sample-content", themeId), data),
   });
 }

@@ -510,14 +510,15 @@ Goal (PRD §11): merchants design their store like Shopify's theme editor. See `
 
 ## Next 3b — Store builder (Round 2)
 
-| ID    | Task                                                                                                          | Status | Evidence                                     |
-| ----- | ------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
-| SB-08 | Brand color builds the color schemes (WCAG AA for any color); image-only banners, banner slider, image grid   | ✅     | theme-engine `theme.test`, admin spec        |
-| SB-09 | Custom CSS per section and theme-wide: checked (no url/@import/escapes/“<”) and scoped                        | ✅     | `custom-css.test`, `online-store.e2e`        |
-| SB-10 | Dynamic values (`{{ product.title }}`…) in text settings, HTML-escaped                                        | ✅     | `theme.test`, admin spec                     |
-| SB-11 | Alternate templates for products, collections and pages; Theme template card; `?view=` in previews            | ✅     | `theme.test`, `online-store.e2e`, admin spec |
-| SB-12 | Blog: blogs, posts (drafts, scheduling, tags, images), storefront pages, templates, section, menus, sitemap   | ✅     | `online-store.e2e`, admin spec               |
-| SB-13 | Custom section builder (columns, 12 block types incl. countdown, embed, product/collection cards)             | ✅     | `embed.test`, admin spec                     |
-| SB-14 | Embed section: known providers only (Maps, Instagram, TikTok, Facebook, Forms, Typeform, Spotify, SoundCloud) | ✅     | `embed.test`, admin spec                     |
-| SB-15 | Saved sections: save, reuse across pages and themes, delete                                                   | ✅     | `online-store.e2e`, admin spec               |
-| SB-16 | Custom code section (HTML + CSS only): cleaned HTML on the page, scripts in a sandboxed frame                 | ✅     | `custom-css.test`, admin spec                |
+| ID    | Task                                                                                                                              | Status | Evidence                                       |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------- |
+| SB-08 | Brand color builds the color schemes (WCAG AA for any color); image-only banners, banner slider, image grid                       | ✅     | theme-engine `theme.test`, admin spec          |
+| SB-09 | Custom CSS per section and theme-wide: checked (no url/@import/escapes/“<”) and scoped                                            | ✅     | `custom-css.test`, `online-store.e2e`          |
+| SB-10 | Dynamic values (`{{ product.title }}`…) in text settings, HTML-escaped                                                            | ✅     | `theme.test`, admin spec                       |
+| SB-11 | Alternate templates for products, collections and pages; Theme template card; `?view=` in previews                                | ✅     | `theme.test`, `online-store.e2e`, admin spec   |
+| SB-12 | Blog: blogs, posts (drafts, scheduling, tags, images), storefront pages, templates, section, menus, sitemap                       | ✅     | `online-store.e2e`, admin spec                 |
+| SB-13 | Custom section builder (columns, 12 block types incl. countdown, embed, product/collection cards)                                 | ✅     | `embed.test`, admin spec                       |
+| SB-14 | Embed section: known providers only (Maps, Instagram, TikTok, Facebook, Forms, Typeform, Spotify, SoundCloud)                     | ✅     | `embed.test`, admin spec                       |
+| SB-15 | Saved sections: save, reuse across pages and themes, delete                                                                       | ✅     | `online-store.e2e`, admin spec                 |
+| SB-16 | Custom code section (HTML + CSS only): cleaned HTML on the page, scripts in a sandboxed frame                                     | ✅     | `custom-css.test`, admin spec                  |
+| SB-17 | Noor preset (modest fashion, 2nd in the list) with "Add sample products": 9 collections, 25 products with drawn pictures, banners | ✅     | `sample-content.e2e`, `theme.test`, admin spec |

@@ -55,6 +55,16 @@ export interface ThemePresetSummary {
   key: string;
   name: string;
   description: string;
+  /** The theme can add its own sample collections and products to the store. */
+  has_sample_content: boolean;
+}
+
+/** Progress of "Add sample products" (call again until `done`). */
+export interface SampleContentProgress {
+  done: boolean;
+  products_total: number;
+  products_added: number;
+  collections_total: number;
 }
 
 export interface ThemePreviewLink {

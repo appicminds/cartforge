@@ -9,10 +9,23 @@ theme editor.
   others are unpublished, for working on a new look.
 - **Add a theme** from a preset:
   - **Foundry**: classic, serif headings, soft neutrals.
+  - **Noor**: modest fashion. Warm stone, ivory, black and soft gold; Montserrat in capitals;
+    portrait product rows; best sellers, shop by style, reviews, collection rows, a studio
+    story, reasons to buy, icons and FAQ. Comes with sample products (below).
   - **Bazaar**: bold fashion look with a slideshow, uppercase headings, blush and gold.
   - **Minimal**: one typeface, lots of white space, pill buttons.
 - Each theme can be **customized, previewed, renamed, duplicated and published**. A theme that
   isn't live can be deleted.
+- **Sample products** (Noor): "Add sample products" on the theme adds 9 collections (Best
+  sellers, New in, Black, Printed, Premium, Velvet and lace, Ready to wear, Dresses, Hijabs)
+  and 25 products: abayas in 6 sizes × 5 lengths, dresses, hijabs. Each has two drawn pictures
+  (full view and close-up), prices in the store's currency (rupees, converted for other
+  currencies) and stock not tracked. Products are published and tagged `sample`. Banner
+  pictures go into the theme's empty slideshow and story slots. Everything is original
+  (names, copy, drawings); nothing is copied from another store.
+  - It runs in steps of about 15 seconds (the admin repeats until done) and skips anything
+    already there by handle, so it can be run again safely.
+  - Code: `apps/api/src/online-store/sample/` (`noor-kit.ts` data, `art.ts` drawings).
 - Stores that never opened Online store show Foundry. It's saved as their live theme the first
   time Online store is opened.
 

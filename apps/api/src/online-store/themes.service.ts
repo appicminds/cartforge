@@ -33,6 +33,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CATALOG_TAG, StorefrontRevalidator } from "../storefront/revalidation";
 import { ThemePreviewTokens } from "../storefront/preview-token";
 import { MenusService } from "./menus.service";
+import { hasSampleContent } from "./sample/kits";
 
 type Actor = { user_id: string; request_id: string };
 const KEEP_VERSIONS = 30;
@@ -62,7 +63,12 @@ export class ThemesService {
   ) {}
 
   presets(): ThemePresetSummary[] {
-    return PRESETS.map(({ key, name, description }) => ({ key, name, description }));
+    return PRESETS.map(({ key, name, description }) => ({
+      key,
+      name,
+      description,
+      has_sample_content: hasSampleContent(key),
+    }));
   }
 
   private summary(t: Theme): ThemeSummary {

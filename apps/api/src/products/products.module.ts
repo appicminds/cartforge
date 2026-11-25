@@ -21,5 +21,6 @@ import { ProductActivityService } from "./activity.service";
     StoreTransferService,
     StoreCurrencyService,
   ],
+  exports: [ProductsService, VariantsService],
 })
 export class ProductsModule {}

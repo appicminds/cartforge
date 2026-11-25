@@ -22,6 +22,7 @@ import {
 } from "@cartforge/ui";
 import { OnlineStoreTabs } from "@/components/online-store/tabs";
 import { PresetSwatch } from "@/components/online-store/preset-swatch";
+import { SampleContentButton } from "@/components/online-store/sample-content";
 import { useBreadcrumbTitle } from "@/lib/breadcrumbs";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -39,6 +40,12 @@ export default function ThemesPage() {
   useBreadcrumbTitle(null);
   const { can } = useSession();
   const canEdit = can(PERMISSIONS.THEMES_WRITE);
+  const canAddSamples =
+    canEdit &&
+    can(PERMISSIONS.PRODUCTS_WRITE) &&
+    can(PERMISSIONS.PRODUCTS_PUBLISH) &&
+    can(PERMISSIONS.COLLECTIONS_WRITE) &&
+    can(PERMISSIONS.MEDIA_WRITE);
   const toast = useToast();
   const themes = useThemes();
   const presets = useThemePresets();
@@ -51,6 +58,11 @@ export default function ThemesPage() {
   const [publishing, setPublishing] = useState<ThemeSummary | null>(null);
 
   const live = themes.data?.find((t) => t.role === "live");
+  const samples = (t: ThemeSummary) =>
+    canAddSamples &&
+    presets.data?.some((p) => p.key === t.preset && p.has_sample_content) && (
+      <SampleContentButton theme={t} />
+    );
   const others = themes.data?.filter((t) => t.role !== "live") ?? [];
 
   const preview = (t: ThemeSummary) => {
@@ -133,6 +145,7 @@ export default function ThemesPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {actions(live)}
+                {samples(live)}
                 {canEdit && (
                   <Button asChild>
                     <Link href={`/admin/online-store/themes/${live.id}/editor`}>
@@ -164,6 +177,7 @@ export default function ThemesPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {actions(t)}
+                  {samples(t)}
                   {canEdit && (
                     <>
                       <Button variant="secondary" onClick={() => setPublishing(t)}>
@@ -188,13 +202,16 @@ export default function ThemesPage() {
             description="Start from a ready-made look. It's added to your library; your store doesn't change until you publish."
           />
           <CardBody>
-            <ul className="grid gap-4 md:grid-cols-3">
+            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {(presets.data ?? []).map((p) => (
                 <li key={p.key} className="flex flex-col gap-3 rounded-lg border border-border p-3">
                   <PresetSwatch preset={p.key} className="h-28" />
                   <div className="flex-1">
                     <p className="font-medium">{p.name}</p>
                     <p className="text-sm text-fg-muted">{p.description}</p>
+                    {p.has_sample_content && (
+                      <p className="mt-1 text-sm text-fg-muted">Includes sample products.</p>
+                    )}
                   </div>
                   <Button
                     variant="secondary"

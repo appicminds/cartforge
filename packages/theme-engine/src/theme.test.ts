@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PRESETS,
+  presetByKey,
   SECTION_DEFS,
   TEMPLATE_KEYS,
   canAddTo,
@@ -114,7 +115,7 @@ describe("theme engine", () => {
       "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Jost:wght@400;500;600;700&display=swap",
     );
     expect(googleFontsUrl(["sans", "serif"])).toBeNull();
-    expect(themeCss(PRESETS[2]!.build())).toContain("--sf-radius:999px");
+    expect(themeCss(presetByKey("minimal")!.build())).toContain("--sf-radius:999px");
   });
 
   it("lists referenced images and menus, and parses video links", () => {

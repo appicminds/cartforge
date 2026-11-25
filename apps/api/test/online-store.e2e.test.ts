@@ -59,7 +59,13 @@ describe("online store", () => {
     ]);
     live = list[0].id;
     const presets = (await owner.get("/themes/presets").expect(200)).body.data;
-    expect(presets.map((p: { key: string }) => p.key)).toEqual(["foundry", "bazaar", "minimal"]);
+    expect(presets.map((p: { key: string }) => p.key)).toEqual([
+      "foundry",
+      "noor",
+      "bazaar",
+      "minimal",
+    ]);
+    expect(presets.find((p: { key: string }) => p.key === "noor").has_sample_content).toBe(true);
   });
 
   it("saves drafts strictly; shoppers see changes only after publishing", async () => {

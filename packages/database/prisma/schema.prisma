@@ -1502,7 +1502,7 @@ model Theme {
   id           String    @id @default(uuid()) @db.Uuid
   store_id     String    @db.Uuid
   name         String    @db.VarChar(80)
-  /// The preset it started from (foundry | bazaar | minimal).
+  /// The preset it started from (foundry | noor | bazaar | minimal).
   preset       String    @db.VarChar(20)
   /// live | unpublished
   role         String    @default("unpublished") @db.VarChar(12)

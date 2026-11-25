@@ -461,3 +461,34 @@ test("custom code section: HTML on the page, scripts in an isolated frame", asyn
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Theme deleted")).toBeVisible();
 });
+
+/**
+ * Noor comes with sample products: the library offers to add them and explains
+ * what's added. (Adding them is covered by the API tests, so the shared demo
+ * store's catalog stays as it is.)
+ */
+test("Noor theme offers sample products", async ({ page }) => {
+  await signIn(page, "admin@cartforge.test");
+  await page.getByRole("link", { name: "Online store" }).click();
+  const card = page.getByRole("listitem").filter({ hasText: "Includes sample products." });
+  await expect(card.getByText("Noor", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: "Add Noor" }).click();
+  await expect(page.getByText("Noor added to your theme library")).toBeVisible();
+
+  const row = page
+    .getByRole("listitem")
+    .filter({ hasText: "Noor" })
+    .filter({ has: page.getByRole("link", { name: "Customize" }) })
+    .first();
+  await row.getByRole("button", { name: "Add sample products" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("25 products with pictures")).toBeVisible();
+  await expect(dialog.getByText("9 collections, such as Best sellers and New in")).toBeVisible();
+  await scan(page, "sample products dialog");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+
+  await row.getByRole("button", { name: /More actions/ }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Theme deleted")).toBeVisible();
+});
