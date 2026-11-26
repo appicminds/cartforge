@@ -7,7 +7,7 @@ const TABS = [
   {
     key: "editor",
     label: "Store builder",
-    src: "/shots/editor.webp",
+    src: "/site/shots/editor.webp",
     w: 2400,
     h: 1350,
     alt: "The theme editor: sections on the left and a live preview of the store",
@@ -15,7 +15,7 @@ const TABS = [
   {
     key: "products",
     label: "Products",
-    src: "/shots/products.webp",
+    src: "/site/shots/products.webp",
     w: 2000,
     h: 1250,
     alt: "Products with pictures, variants, stock and prices",
@@ -23,7 +23,7 @@ const TABS = [
   {
     key: "orders",
     label: "Orders",
-    src: "/shots/orders.webp",
+    src: "/site/shots/orders.webp",
     w: 2000,
     h: 1250,
     alt: "Orders with payment and fulfillment status",
@@ -31,7 +31,7 @@ const TABS = [
   {
     key: "markets",
     label: "Markets",
-    src: "/shots/markets.webp",
+    src: "/site/shots/markets.webp",
     w: 2000,
     h: 1250,
     alt: "Markets with their own currencies and payment methods",

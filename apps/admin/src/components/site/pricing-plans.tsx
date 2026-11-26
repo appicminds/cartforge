@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { BETA, PLANS, YEARLY_DISCOUNT } from "@/lib/plans";
-import { SIGNUP_URL } from "@/lib/site";
+import { BETA, PLANS, YEARLY_DISCOUNT } from "@/lib/site/plans";
+import { SIGNUP_URL } from "@/lib/site/site";
 
 const money = (n: number) =>
   new Intl.NumberFormat("en-US", {

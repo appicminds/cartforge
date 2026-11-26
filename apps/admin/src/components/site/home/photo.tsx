@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { Photo } from "@/lib/photos";
+import type { Photo } from "@/lib/site/photos";
 
 /**
  * A photograph filling its box, or (until a photo is added) a warm, designed

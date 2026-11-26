@@ -1,12 +1,11 @@
 /**
- * Site-wide settings for the marketing site. The app (sign-up, log-in, admin)
- * lives on its own address; set NEXT_PUBLIC_APP_URL in each environment.
+ * Site-wide settings for the public website. It's served by the admin app, so
+ * sign-up and log-in are on the same address (relative links).
  */
-export const APP_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "https://cartforge-app.vercel.app"
-).replace(/\/+$/, "");
+export const APP_URL = "";
+/** The public address, for the sitemap, canonical links and sharing images. */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://cartforge-web.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://cartforge-app.vercel.app"
 ).replace(/\/+$/, "");
 
 export const SIGNUP_URL = `${APP_URL}/signup`;

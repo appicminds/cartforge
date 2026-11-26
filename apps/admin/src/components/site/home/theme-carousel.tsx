@@ -45,7 +45,7 @@ export function ThemeCarousel() {
         {THEMES.map((t) => (
           <li key={t.key} className="w-[82vw] shrink-0 snap-start sm:w-[560px] lg:w-[680px]">
             <Image
-              src={`/themes/${t.key}.webp`}
+              src={`/site/themes/${t.key}.webp`}
               alt={`The ${t.name} theme's home page`}
               width={1600}
               height={1300}

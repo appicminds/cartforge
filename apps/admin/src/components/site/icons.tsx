@@ -7,7 +7,7 @@ import {
   Store,
   type LucideIcon,
 } from "lucide-react";
-import type { FeatureLink } from "@/lib/site";
+import type { FeatureLink } from "@/lib/site/site";
 
 export const FEATURE_ICONS: Record<FeatureLink["icon"], LucideIcon> = {
   store: Store,

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { PricingPlans } from "@/components/pricing-plans";
-import { SignupForm } from "@/components/signup-form";
-import { BETA, COMPARISON, PLANS, PRICING_FAQ } from "@/lib/plans";
+import { PricingPlans } from "@/components/site/pricing-plans";
+import { SignupForm } from "@/components/site/signup-form";
+import { BETA, COMPARISON, PLANS, PRICING_FAQ } from "@/lib/site/plans";
 import { Check, Minus } from "lucide-react";
 
 export const metadata: Metadata = {

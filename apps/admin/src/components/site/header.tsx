@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
-import { FEATURES, LOGIN_URL, SIGNUP_URL } from "@/lib/site";
+import { FEATURES, LOGIN_URL, SIGNUP_URL } from "@/lib/site/site";
 import { FEATURE_ICONS } from "./icons";
 import { Logo } from "./logo";
 

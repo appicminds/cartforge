@@ -3,8 +3,9 @@ import type { NextConfig } from "next";
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 /**
  * Optional: the storefront app's own URL. When set, this domain serves the
- * storefront at "/" and every path the admin doesn't own (single public URL),
- * while /admin, /login and /api stay here. Read at build time.
+ * storefront for every path the admin doesn't own (single public URL), while
+ * the website (/, /pricing, /legal), /admin, /login and /api stay here. "/" is
+ * the storefront only during a store or theme preview. Read at build time.
  */
 const STOREFRONT_ORIGIN = process.env.STOREFRONT_ORIGIN?.replace(/\/+$/, "");
 
@@ -23,8 +24,16 @@ const config: NextConfig = {
     ];
     if (!STOREFRONT_ORIGIN) return api;
     return {
-      // "/" is the storefront home, ahead of the admin's own root redirect.
-      beforeFiles: [{ source: "/", destination: `${STOREFRONT_ORIGIN}/` }],
+      // "/" is the website, except while previewing a store or a theme (started
+      // with ?store= / ?theme_preview=, then remembered in the storefront's cookies).
+      beforeFiles: (
+        [
+          { type: "query", key: "store" },
+          { type: "query", key: "theme_preview" },
+          { type: "cookie", key: "cf_store_preview" },
+          { type: "cookie", key: "cf_theme_preview" },
+        ] as const
+      ).map((has) => ({ source: "/", has: [has], destination: `${STOREFRONT_ORIGIN}/` })),
       afterFiles: api,
       // Anything the admin doesn't serve (products, collections, sitemap, the
       // storefront's /sf-static assets…) belongs to the storefront.

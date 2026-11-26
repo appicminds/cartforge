@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { SIGNUP_URL } from "@/lib/site";
+import { SIGNUP_URL } from "@/lib/site/site";
 
 /**
  * "Enter your email → Start for free". A plain GET form to the app's sign-up

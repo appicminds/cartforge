@@ -33,7 +33,6 @@ export default tseslint.config(
     files: [
       "apps/admin/**/*.{ts,tsx}",
       "apps/storefront/**/*.{ts,tsx}",
-      "apps/web/**/*.{ts,tsx}",
       "packages/ui/**/*.{ts,tsx}",
     ],
     plugins: { "react-hooks": reactHooks },

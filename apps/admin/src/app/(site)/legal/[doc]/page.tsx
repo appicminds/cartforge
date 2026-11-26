@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LEGAL, legalBySlug } from "@/lib/legal";
+import { LEGAL, legalBySlug } from "@/lib/site/legal";
 
 export const dynamicParams = false;
 export const generateStaticParams = () => LEGAL.map((d) => ({ doc: d.slug }));

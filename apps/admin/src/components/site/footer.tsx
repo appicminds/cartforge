@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FEATURES, LOGIN_URL, SIGNUP_URL } from "@/lib/site";
+import { FEATURES, LOGIN_URL, SIGNUP_URL } from "@/lib/site/site";
 import { Logo } from "./logo";
 
 const COLUMNS: { title: string; links: { href: string; label: string; external?: boolean }[] }[] = [

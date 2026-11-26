@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Inter } from "next/font/google";
-import { Footer } from "@/components/footer";
-import { Header } from "@/components/header";
-import { SITE_URL } from "@/lib/site";
-import "./globals.css";
+import { Footer } from "@/components/site/footer";
+import { Header } from "@/components/site/header";
+import { SITE_URL } from "@/lib/site/site";
+import "./site.css";
 
 const display = Bricolage_Grotesque({
   subsets: ["latin"],

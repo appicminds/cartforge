@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { PhotoFill } from "@/components/home/photo";
-import { Showcase } from "@/components/home/showcase";
-import { ThemeCarousel } from "@/components/home/theme-carousel";
+import { PhotoFill } from "@/components/site/home/photo";
+import { Showcase } from "@/components/site/home/showcase";
+import { ThemeCarousel } from "@/components/site/home/theme-carousel";
 import {
   CurrencyCard,
   DiscountCard,
@@ -12,10 +12,10 @@ import {
   SalesCard,
   SecurityCard,
   ShippedCard,
-} from "@/components/home/ui-cards";
-import { SignupForm } from "@/components/signup-form";
-import { BETA } from "@/lib/plans";
-import { PHOTOS } from "@/lib/photos";
+} from "@/components/site/home/ui-cards";
+import { SignupForm } from "@/components/site/signup-form";
+import { BETA } from "@/lib/site/plans";
+import { PHOTOS } from "@/lib/site/photos";
 
 function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
   return (
@@ -58,7 +58,7 @@ export default function Home() {
           <div className="relative mx-auto max-w-6xl">
             <div className="frame border-white/10">
               <Image
-                src="/shots/storefront.webp"
+                src="/site/shots/storefront.webp"
                 alt="A store built with CartForge: a slideshow of abayas and a row of best sellers"
                 width={2000}
                 height={1250}
@@ -70,7 +70,7 @@ export default function Home() {
             <div className="absolute -bottom-16 left-[4%] hidden w-[19%] md:block">
               <div className="overflow-hidden rounded-[2rem] border-[6px] border-ink-3 shadow-[0_40px_80px_-20px_rgb(0_0_0/0.7)]">
                 <Image
-                  src="/shots/phone-product.webp"
+                  src="/site/shots/phone-product.webp"
                   alt="The same store on a phone: a product page with sizes and lengths"
                   width={780}
                   height={1688}
@@ -182,7 +182,7 @@ export default function Home() {
               <div className="mt-auto flex justify-center gap-6 bg-gradient-to-b from-paper to-paper-2 px-8 pt-2">
                 <div className="w-44 translate-y-6 overflow-hidden rounded-t-[1.75rem] border-[5px] border-b-0 border-ink shadow-xl sm:w-52">
                   <Image
-                    src="/shots/phone-home.webp"
+                    src="/site/shots/phone-home.webp"
                     alt="A store's home page on a phone"
                     width={780}
                     height={1688}
@@ -192,7 +192,7 @@ export default function Home() {
                 </div>
                 <div className="hidden w-52 overflow-hidden rounded-t-[1.75rem] border-[5px] border-b-0 border-ink shadow-xl sm:block">
                   <Image
-                    src="/shots/phone-product.webp"
+                    src="/site/shots/phone-product.webp"
                     alt="A product page on a phone with sizes and lengths"
                     width={780}
                     height={1688}
@@ -286,7 +286,7 @@ export default function Home() {
           <div className="reveal relative">
             <div className="frame">
               <Image
-                src="/shots/order-detail.webp"
+                src="/site/shots/order-detail.webp"
                 alt="An order with its items, payment, shipment and customer"
                 width={1400}
                 height={1364}
