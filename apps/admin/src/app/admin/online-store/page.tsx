@@ -129,7 +129,11 @@ export default function ThemesPage() {
             <Skeleton className="h-28 w-full" />
           ) : (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <ThemeThumbnail preset={live.preset} className="aspect-[16/10] w-full sm:w-64" />
+              <ThemeThumbnail
+                preset={live.preset}
+                url={live.thumbnail_url}
+                className="aspect-[16/10] w-full sm:w-64"
+              />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-lg font-semibold">
                   {live.name} <Badge tone="success">Live</Badge>
@@ -170,7 +174,11 @@ export default function ThemesPage() {
           <ul className="divide-y divide-border">
             {others.map((t) => (
               <li key={t.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                <ThemeThumbnail preset={t.preset} className="aspect-[16/10] w-full sm:w-40" />
+                <ThemeThumbnail
+                  preset={t.preset}
+                  url={t.thumbnail_url}
+                  className="aspect-[16/10] w-full sm:w-40"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{t.name}</p>
                   <p className="text-sm text-fg-muted">Last saved {formatDateTime(t.updated_at)}</p>

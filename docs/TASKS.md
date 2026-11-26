@@ -522,3 +522,4 @@ Goal (PRD §11): merchants design their store like Shopify's theme editor. See `
 | SB-15 | Saved sections: save, reuse across pages and themes, delete                                                                       | ✅     | `online-store.e2e`, admin spec                 |
 | SB-16 | Custom code section (HTML + CSS only): cleaned HTML on the page, scripts in a sandboxed frame                                     | ✅     | `custom-css.test`, admin spec                  |
 | SB-17 | Noor preset (modest fashion, 2nd in the list) with "Add sample products": 9 collections, 25 products with drawn pictures, banners | ✅     | `sample-content.e2e`, `theme.test`, admin spec |
+| SB-18 | Theme library pictures: preset pictures, then a picture of your changes taken by the editor after each save                       | ✅     | `theme-thumbnail.e2e`, admin spec              |

@@ -492,3 +492,39 @@ test("Noor theme offers sample products", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Theme deleted")).toBeVisible();
 });
+
+/** The library shows each theme as it looks with its changes (taken by the editor). */
+test("theme library picture follows the editor's changes", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page, "admin@cartforge.test");
+  await page.getByRole("link", { name: "Online store" }).click();
+  await page.getByRole("button", { name: "Add Minimal" }).click();
+  await expect(page.getByText("Minimal added to your theme library")).toBeVisible();
+  const row = () =>
+    page
+      .getByRole("listitem")
+      .filter({ hasText: "Minimal" })
+      .filter({ has: page.getByRole("link", { name: "Customize" }) })
+      .first();
+  // Before any change: the preset's own picture.
+  await expect(row().locator("img")).toHaveAttribute("src", "/theme-previews/minimal.webp");
+
+  const uploaded = page.waitForResponse(
+    (r) => r.url().includes("/thumbnail") && r.request().method() === "PUT" && r.ok(),
+    { timeout: 45_000 },
+  );
+  await row().getByRole("link", { name: "Customize" }).click();
+  await uploaded;
+  await page.getByRole("link", { name: "Exit" }).click();
+  await expect(row().locator("img")).toHaveAttribute(
+    "src",
+    /theme-thumbnails\/[0-9a-f]{64}\.webp$/,
+  );
+
+  await row()
+    .getByRole("button", { name: /More actions/ })
+    .click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("Theme deleted")).toBeVisible();
+});

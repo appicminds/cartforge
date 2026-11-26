@@ -21,6 +21,8 @@ export interface ThemeSummary {
   published_at: string | null;
   /** Saved in the editor but not published yet (live theme). */
   has_unpublished_changes: boolean;
+  /** Picture of the theme's home page with its changes; null until it's been edited. */
+  thumbnail_url: string | null;
 }
 
 export interface ThemeImage {

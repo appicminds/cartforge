@@ -20,7 +20,8 @@ import type {
   SampleContentProgress,
 } from "@cartforge/types";
 import type { ArticleInput, MenuInput, PageInput } from "@cartforge/validation";
-import { apiRequest } from "./api-client";
+import { HEADERS, COOKIES } from "@cartforge/types";
+import { API_BASE, apiRequest, newRequestId, normalizeError, readCookie } from "./api-client";
 import { storeKey, useSession } from "./session";
 
 const useStoreId = () => useSession().store?.store_id;
@@ -328,5 +329,41 @@ export function useSampleContentStep(themeId: string) {
       }).then((r) => r.data),
     onSuccess: (data) =>
       qc.setQueryData(storeKey(storeId, "themes", "sample-content", themeId), data),
+  });
+}
+
+// ───────────── Theme pictures ─────────────
+
+/**
+ * Sends the editor's picture of a theme's home page; the theme library shows it.
+ * Refreshes the library afterwards.
+ */
+export function useUploadThemeThumbnail(themeId: string) {
+  const storeId = useStoreId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (image: Blob): Promise<ThemeSummary> => {
+      const body = new FormData();
+      body.append("file", image, "home.webp");
+      const requestId = newRequestId();
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        [HEADERS.REQUEST_ID]: requestId,
+        [HEADERS.STORE_ID]: storeId ?? "",
+      };
+      const csrf = readCookie(COOKIES.CSRF, document.cookie);
+      if (csrf) headers[HEADERS.CSRF] = csrf;
+      const res = await fetch(`${API_BASE}/themes/${themeId}/thumbnail`, {
+        method: "PUT",
+        credentials: "include",
+        headers,
+        body,
+      });
+      if (!res.ok) throw await normalizeError(res, requestId);
+      return ((await res.json()) as DetailResponse<ThemeSummary>).data;
+    },
+    // Only the library list: the editor's own copy of the theme stays as it is.
+    onSuccess: () =>
+      void qc.invalidateQueries({ queryKey: storeKey(storeId, "themes"), exact: true }),
   });
 }

@@ -7,22 +7,37 @@ import { PresetSwatch } from "./preset-swatch";
 const PICTURES = new Set(["foundry", "noor", "bazaar", "minimal"]);
 
 /**
- * A picture of a theme's home page (made from the preset with sample products),
- * or its color swatch when there's no picture. Decorative: the theme name is always
+ * A picture of a theme's home page: the one the editor took after the latest
+ * changes, else the preset's own (made with sample products), else its color swatch. Decorative: the theme name is always
  * shown beside it.
  */
-export function ThemeThumbnail({ preset, className = "" }: { preset: string; className?: string }) {
-  const [failed, setFailed] = useState(false);
-  if (!PICTURES.has(preset) || failed)
-    return <PresetSwatch preset={preset} className={className} />;
+export function ThemeThumbnail({
+  preset,
+  url,
+  className = "",
+}: {
+  preset: string;
+  /** The theme's own picture, taken by the editor after changes. */
+  url?: string | null;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const src =
+    url && failed !== url
+      ? url
+      : PICTURES.has(preset) && failed !== "preset"
+        ? `/theme-previews/${preset}.webp`
+        : null;
+  if (!src) return <PresetSwatch preset={preset} className={className} />;
   return (
     <img
-      src={`/theme-previews/${preset}.webp`}
+      key={src}
+      src={src}
       alt=""
       width={800}
       height={650}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setFailed(src === url ? url : "preset")}
       className={`rounded-lg border border-border bg-surface-sunken object-cover object-top ${className}`}
     />
   );

@@ -1499,18 +1499,21 @@ model SaleItem {
 /// A storefront theme (Online store → Themes). One per store is live; `data`
 /// is what the editor saves, `live_data` what shoppers see (set on publish).
 model Theme {
-  id           String    @id @default(uuid()) @db.Uuid
-  store_id     String    @db.Uuid
-  name         String    @db.VarChar(80)
+  id            String    @id @default(uuid()) @db.Uuid
+  store_id      String    @db.Uuid
+  name          String    @db.VarChar(80)
   /// The preset it started from (foundry | noor | bazaar | minimal).
-  preset       String    @db.VarChar(20)
+  preset        String    @db.VarChar(20)
   /// live | unpublished
-  role         String    @default("unpublished") @db.VarChar(12)
-  data         Json
-  live_data    Json?
-  published_at DateTime? @db.Timestamptz(3)
-  created_at   DateTime  @default(now()) @db.Timestamptz(3)
-  updated_at   DateTime  @updatedAt @db.Timestamptz(3)
+  role          String    @default("unpublished") @db.VarChar(12)
+  data          Json
+  live_data     Json?
+  /// Picture of the draft's home page, taken by the editor after changes.
+  thumbnail_url String?   @db.VarChar(1000)
+  thumbnail_at  DateTime? @db.Timestamptz(3)
+  published_at  DateTime? @db.Timestamptz(3)
+  created_at    DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(3)
 
   store    Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
   versions ThemeVersion[]

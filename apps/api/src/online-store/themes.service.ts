@@ -1,4 +1,5 @@
-import { HttpStatus, Injectable } from "@nestjs/common";
+import { HttpStatus, Inject, Injectable } from "@nestjs/common";
+import sharp from "sharp";
 import { Prisma, type Theme } from "@cartforge/database";
 import {
   ALT_TEMPLATE_KEYS,
@@ -28,6 +29,8 @@ import {
 import { AuditService } from "../audit/audit.service";
 import { AppException } from "../common/app-exception";
 import { sanitizeRichText } from "../common/sanitize-html";
+import { checksumOf, sniffImageType } from "../media/image-processor";
+import { STORAGE_DRIVER, type StorageDriver } from "../storage/storage.driver";
 import { mediaUrls } from "../media/media.mapper";
 import { PrismaService } from "../prisma/prisma.service";
 import { CATALOG_TAG, StorefrontRevalidator } from "../storefront/revalidation";
@@ -60,6 +63,7 @@ export class ThemesService {
     private readonly revalidator: StorefrontRevalidator,
     private readonly previews: ThemePreviewTokens,
     private readonly menus: MenusService,
+    @Inject(STORAGE_DRIVER) private readonly storage: StorageDriver,
   ) {}
 
   presets(): ThemePresetSummary[] {
@@ -81,6 +85,7 @@ export class ThemesService {
       published_at: t.published_at?.toISOString() ?? null,
       has_unpublished_changes:
         t.role === "live" && JSON.stringify(t.data) !== JSON.stringify(t.live_data),
+      thumbnail_url: t.thumbnail_url,
     };
   }
 
@@ -201,6 +206,8 @@ export class ThemesService {
           name: `Copy of ${src.name}`.slice(0, 80),
           preset: src.preset,
           data: src.data as Prisma.InputJsonValue,
+          thumbnail_url: src.thumbnail_url,
+          thumbnail_at: src.thumbnail_at,
         },
       }),
     );
@@ -226,6 +233,53 @@ export class ThemesService {
     await this.audited(storeId, "theme.deleted", actor, id, { name: t.name }, (tx) =>
       tx.theme.delete({ where: { id } }),
     );
+    await this.dropThumbnail(storeId, t.thumbnail_url);
+  }
+
+  /**
+   * The editor's picture of the theme's home page. Re-encoded here (only real
+   * JPEG, PNG or WebP, at most 4000 × 4000), stored by content, and the old one
+   * removed when no other theme uses it. Doesn't count as an edit.
+   */
+  async setThumbnail(storeId: string, id: string, file: Buffer): Promise<ThemeSummary> {
+    const t = await this.find(storeId, id);
+    if (!sniffImageType(file))
+      throw AppException.validation([
+        { path: "file", message: "Send a PNG, JPEG or WebP picture.", code: "invalid_image" },
+      ]);
+    let body: Buffer;
+    try {
+      body = await sharp(file, { limitInputPixels: 4000 * 4000 })
+        .resize({ width: 800, withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+    } catch {
+      throw AppException.validation([
+        { path: "file", message: "That picture couldn't be read.", code: "invalid_image" },
+      ]);
+    }
+    const stored = await this.storage.put(
+      `stores/${storeId}/theme-thumbnails/${checksumOf(body)}.webp`,
+      body,
+      "image/webp",
+    );
+    const updated = await this.prisma.theme.update({
+      where: { id },
+      // Keeps updated_at: a new picture isn't a change to the theme.
+      data: { thumbnail_url: stored.url, thumbnail_at: new Date(), updated_at: t.updated_at },
+    });
+    if (t.thumbnail_url !== stored.url) await this.dropThumbnail(storeId, t.thumbnail_url);
+    return this.summary(updated);
+  }
+
+  private async dropThumbnail(storeId: string, url: string | null) {
+    const hash = url?.match(/theme-thumbnails\/([0-9a-f]{64})\.webp/)?.[1];
+    if (!url || !hash) return;
+    const used = await this.prisma.theme.count({
+      where: { store_id: storeId, thumbnail_url: url },
+    });
+    if (used) return;
+    await this.storage.delete([{ key: `stores/${storeId}/theme-thumbnails/${hash}.webp`, url }]);
   }
 
   /** The editor's save: strict validation, rich text sanitized. */

@@ -26,10 +26,17 @@ theme editor.
   - It runs in steps of about 15 seconds (the admin repeats until done) and skips anything
     already there by handle, so it can be run again safely.
   - Code: `apps/api/src/online-store/sample/` (`noor-kit.ts` data, `art.ts` drawings).
-- **Thumbnails**: the theme library shows a picture of each preset's home page
-  (`apps/admin/public/theme-previews/<preset>.webp`). After changing a preset, run
-  `node scripts/theme-thumbnails.mjs` with the local stack running to make new ones. It
-  photographs every preset in a "Lumen Studio" store filled with the sample products.
+- **Thumbnails**: the theme library shows a picture of each theme's home page.
+  - **Your changes**: a few seconds after the editor saves (and once when a theme without a
+    picture is opened), the editor opens the home page at desktop width in a hidden frame,
+    the storefront photographs itself there (`modern-screenshot`, theme fonts embedded, no
+    editor outlines or preview bars) and the picture is uploaded with
+    `PUT /themes/:id/thumbnail`. The API re-encodes it (800 px WebP) and stores it by content;
+    it doesn't count as an edit. Copies of a theme keep its picture.
+  - **Before any change**: the preset's picture
+    (`apps/admin/public/theme-previews/<preset>.webp`). After changing a preset, run
+    `node scripts/theme-thumbnails.mjs` with the local stack running to make new ones. It
+    photographs every preset in a "Lumen Studio" store filled with the sample products.
 - Stores that never opened Online store show Foundry. It's saved as their live theme the first
   time Online store is opened.
 

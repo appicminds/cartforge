@@ -73,6 +73,7 @@ import {
   useSavedSections,
   usePages,
   useSaveTheme,
+  useUploadThemeThumbnail,
   useStorefrontBase,
   useThemeAction,
   useThemePreviewLink,
@@ -164,6 +165,7 @@ export function ThemeEditor({
   const save = useSaveTheme(theme.id);
   const action = useThemeAction();
   const previewLink = useThemePreviewLink();
+  const uploadThumb = useUploadThemeThumbnail(theme.id);
   const base = useStorefrontBase();
   const [images, setImages] = useState<Record<string, ThemeImage>>(theme.images);
   const [template, setTemplate] = useState<TemplateKey>("home");
@@ -263,6 +265,71 @@ export function ThemeEditor({
     frame.current?.contentWindow?.postMessage({ source: "cf-editor", ...msg }, "*");
   }, []);
 
+  // ── Theme library picture ──
+  // A few seconds after changes are saved, the home page is opened at desktop
+  // width in a hidden frame, photographed there and uploaded for the theme
+  // library. Works whatever page or device the editor is showing.
+  const needsThumb = useRef(!theme.thumbnail_url);
+  const thumbTimer = useRef<number | undefined>(undefined);
+  const thumbFrame = useRef<HTMLIFrameElement | null>(null);
+  const takeThumb = useCallback(() => {
+    if (!base || !token || thumbFrame.current) return;
+    const f = document.createElement("iframe");
+    f.title = "Theme picture";
+    f.setAttribute("aria-hidden", "true");
+    f.tabIndex = -1;
+    f.style.cssText =
+      "position:fixed;left:-20000px;top:0;width:1280px;height:800px;border:0;pointer-events:none";
+    const id = crypto.randomUUID();
+    let asked = false;
+    const done = () => {
+      window.removeEventListener("message", onMsg);
+      window.clearTimeout(giveUp);
+      f.remove();
+      thumbFrame.current = null;
+    };
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== f.contentWindow) return;
+      const m = e.data as { source?: string; type?: string; id?: string; image?: unknown };
+      if (m?.source !== "cf-preview") return;
+      if (m.type === "ready" && !asked) {
+        asked = true;
+        window.setTimeout(
+          () => f.contentWindow?.postMessage({ source: "cf-editor", type: "capture", id }, "*"),
+          1500,
+        );
+      }
+      if (m.type === "capture" && m.id === id) {
+        done();
+        if (m.image instanceof Blob)
+          uploadThumb.mutate(m.image, { onSuccess: () => (needsThumb.current = false) });
+      }
+    };
+    const giveUp = window.setTimeout(done, 30_000);
+    window.addEventListener("message", onMsg);
+    f.src = storefrontUrl(base, "/", { theme_preview: token });
+    document.body.appendChild(f);
+    thumbFrame.current = f;
+  }, [base, token, uploadThumb]);
+  const scheduleThumb = useCallback(
+    (delay: number) => {
+      window.clearTimeout(thumbTimer.current);
+      thumbTimer.current = window.setTimeout(takeThumb, delay);
+    },
+    [takeThumb],
+  );
+  useEffect(
+    () => () => {
+      window.clearTimeout(thumbTimer.current);
+      thumbFrame.current?.remove();
+    },
+    [],
+  );
+  // A theme that has never had its picture taken gets one when the editor opens.
+  useEffect(() => {
+    if (needsThumb.current && token) scheduleThumb(3000);
+  }, [token, scheduleThumb]);
+
   // Messages from the preview.
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
@@ -326,6 +393,8 @@ export function ThemeEditor({
       savedJson.current = json;
       setStatus("saved");
       post({ type: "refresh" });
+      needsThumb.current = true;
+      scheduleThumb(4000);
       return true;
     } catch (err) {
       setStatus("error");
@@ -336,7 +405,7 @@ export function ThemeEditor({
       );
       return false;
     }
-  }, [data, errors, save, post, toast]);
+  }, [data, errors, save, post, toast, scheduleThumb]);
 
   useEffect(() => {
     // Back to what's saved (e.g. an invalid edit was corrected, or undone).

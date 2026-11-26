@@ -12,8 +12,17 @@ import {
   Query,
   Req,
   Res,
+  UseInterceptors,
 } from "@nestjs/common";
-import { ApiCookieAuth, ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from "@nestjs/swagger";
+import { MediaUploadInterceptor } from "../media/upload.interceptor";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import {
@@ -250,6 +259,30 @@ export class ThemesController {
     @Param("id", uuid("Theme")) id: string,
   ): Promise<DetailResponse<ThemePreviewLink>> {
     return ok(req, await this.themes.previewLink(s.store_id, id));
+  }
+
+  @Put(":id/thumbnail")
+  @RequirePermissions(PERMISSIONS.THEMES_WRITE)
+  @UseInterceptors(MediaUploadInterceptor)
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: { file: { type: "string", format: "binary", description: "PNG, JPEG or WebP" } },
+    },
+  })
+  @ApiOperation({
+    summary: "Replace the picture of the theme shown in the theme library",
+    description: "Sent by the editor after changes. Resized to 800 px wide WebP.",
+  })
+  async thumbnail(
+    @CurrentStore() s: StoreContext,
+    @Req() req: Request,
+    @Param("id", uuid("Theme")) id: string,
+  ): Promise<DetailResponse<ThemeSummary>> {
+    return ok(req, await this.themes.setThumbnail(s.store_id, id, req.file!.buffer));
   }
 
   @Get(":id/sample-content")
