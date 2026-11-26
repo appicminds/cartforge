@@ -1,25 +1,31 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Banknote, Building2, CreditCard, Smartphone, Truck } from "lucide-react";
-import { Eyebrow, Points } from "@/components/section";
-import { Shot } from "@/components/shot";
+import { ArrowRight } from "lucide-react";
+import { PhotoFill } from "@/components/home/photo";
+import { Showcase } from "@/components/home/showcase";
+import { ThemeCarousel } from "@/components/home/theme-carousel";
+import {
+  CurrencyCard,
+  DiscountCard,
+  OrderCard,
+  PaymentsCard,
+  SalesCard,
+  SecurityCard,
+  ShippedCard,
+} from "@/components/home/ui-cards";
 import { SignupForm } from "@/components/signup-form";
 import { BETA } from "@/lib/plans";
+import { PHOTOS } from "@/lib/photos";
 
-const THEMES = [
-  { key: "foundry", name: "Foundry", text: "Classic and calm, with serif headings." },
-  { key: "noor", name: "Noor", text: "Modest fashion in stone, black and gold." },
-  { key: "bazaar", name: "Bazaar", text: "Bold fashion with a big slideshow." },
-  { key: "minimal", name: "Minimal", text: "One typeface and lots of white space." },
-];
-
-const PAYMENT_METHODS = [
-  { icon: CreditCard, title: "Cards", text: "Visa, Mastercard and more through Stripe." },
-  { icon: Building2, title: "Local gateways", text: "Regional payment gateways like Safepay." },
-  { icon: Smartphone, title: "Mobile wallets", text: "Wallets such as JazzCash and Easypaisa." },
-  { icon: Banknote, title: "Bank transfer", text: "Show your bank details; mark orders paid." },
-  { icon: Truck, title: "Cash on delivery", text: "Customers pay when the parcel arrives." },
-];
+function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
+  return (
+    <p
+      className={`text-sm font-semibold uppercase tracking-[0.16em] ${dark ? "text-ember-bright" : "text-ember"}`}
+    >
+      {children}
+    </p>
+  );
+}
 
 export default function Home() {
   return (
@@ -27,359 +33,285 @@ export default function Home() {
       {/* ── Hero ── */}
       <section className="relative overflow-hidden bg-ink text-fg-inverse">
         <div aria-hidden className="glow pointer-events-none absolute inset-0" />
-        <div className="container-x relative flex flex-col items-center pb-10 pt-16 text-center sm:pt-24">
+        <div className="container-x relative pb-16 pt-20 sm:pt-28">
           {BETA && (
-            <p className="mb-6 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-fg-inverse-muted">
-              CartForge is in beta. Every plan is free while it lasts.
+            <p className="inline-flex rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-fg-inverse-muted">
+              Now in beta · every plan is free
             </p>
           )}
-          <h1 className="max-w-4xl text-5xl font-semibold leading-[1.02] sm:text-6xl lg:text-7xl">
-            Build the store your brand deserves
+          <h1 className="display-xl mt-8">
+            <span className="block">Make it.</span>
+            <span className="block">Sell it.</span>
+            <span className="block text-ember-bright">Grow it.</span>
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-fg-inverse-muted sm:text-xl">
-            Design an online store you&apos;re proud of, get paid every way your customers like to
-            pay, and run your whole business from one place.
-          </p>
-          <div className="mt-10 flex w-full justify-center">
+          <div className="mt-10 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
+            <p className="lede max-w-xl text-fg-inverse-muted">
+              CartForge is the commerce platform for independent brands: a store you&apos;re proud
+              of, payments your customers trust, and every order in one place.
+            </p>
             <SignupForm id="hero-email" />
           </div>
         </div>
-        <div className="container-x relative pb-0">
-          <div className="relative mx-auto max-w-5xl translate-y-10">
-            <Shot
-              src="/shots/storefront.webp"
-              alt="A CartForge store's home page: a slideshow of abayas and a row of best sellers"
-              address="noor-studio.store"
-              tone="dark"
-              priority
-            />
-            <div className="absolute -bottom-8 -right-4 hidden w-[46%] md:block lg:-right-16">
-              <Shot
-                src="/shots/orders.webp"
-                alt="The orders list in CartForge's admin"
-                tone="light"
-                sizes="520px"
+
+        {/* The stage: the store on desktop and phone, with live-looking moments around it. */}
+        <div className="container-x relative pb-24">
+          <div className="relative mx-auto max-w-6xl">
+            <div className="frame border-white/10">
+              <Image
+                src="/shots/storefront.webp"
+                alt="A store built with CartForge: a slideshow of abayas and a row of best sellers"
+                width={2000}
+                height={1250}
+                priority
+                sizes="(min-width: 1280px) 1150px, 100vw"
+                className="block h-auto w-full"
               />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Sell ── */}
-      <section id="sell" className="bg-paper pb-24 pt-36">
-        <div className="container-x grid items-center gap-14 lg:grid-cols-2">
-          <div className="flex flex-col gap-6">
-            <Eyebrow>Sell online</Eyebrow>
-            <h2 className="text-4xl font-semibold sm:text-5xl">
-              Everything you need to start selling
-            </h2>
-            <p className="max-w-xl text-lg text-fg-muted">
-              Add your products, set your prices and open your doors. Checkout, stock and orders are
-              taken care of.
-            </p>
-            <Points
-              items={[
-                {
-                  title: "Products and variants",
-                  text: "Sizes, colors and more, each with its own price and stock.",
-                },
-                {
-                  title: "One-page checkout",
-                  text: "Fast on phones, with saved details for returning customers.",
-                },
-                {
-                  title: "Inventory you can trust",
-                  text: "Stock is held while customers check out, so you never oversell.",
-                },
-                {
-                  title: "Orders in one list",
-                  text: "Mark paid, ship, refund and keep a full timeline.",
-                },
-              ]}
-            />
-          </div>
-          <Shot
-            src="/shots/products.webp"
-            alt="The products list with pictures, variants and prices"
-          />
-        </div>
-      </section>
-
-      {/* ── Store builder ── */}
-      <section id="store-builder" className="bg-paper-2 py-24">
-        <div className="container-x flex flex-col gap-12">
-          <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-            <Eyebrow>Store builder</Eyebrow>
-            <h2 className="text-4xl font-semibold sm:text-5xl">
-              Design it your way. No code needed.
-            </h2>
-            <p className="text-lg text-fg-muted">
-              Pick a theme, then make it yours: drag sections into place, change colors and fonts,
-              and see every change in a live preview before you publish.
-            </p>
-          </div>
-          <Shot
-            src="/shots/editor.webp"
-            alt="The theme editor: a list of sections on the left and a live preview of the store"
-            address="Theme editor"
-          />
-          <Points
-            items={[
-              {
-                title: "Sections and blocks",
-                text: "Slideshows, collections, image grids, FAQs, videos and more.",
-              },
-              {
-                title: "Your brand's colors",
-                text: "Choose one brand color and the whole theme follows, readably.",
-              },
-              {
-                title: "Pages and a blog",
-                text: "About pages, size guides and stories, all on your store.",
-              },
-              {
-                title: "Custom code when you want it",
-                text: "Add your own HTML and CSS sections for anything special.",
-              },
-            ]}
-          />
-          <div id="themes" className="flex flex-col gap-6 pt-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h3 className="text-2xl font-semibold sm:text-3xl">Start from a theme</h3>
-                <p className="mt-2 text-fg-muted">Every theme is free and fully customizable.</p>
+            <div className="absolute -bottom-16 left-[4%] hidden w-[19%] md:block">
+              <div className="overflow-hidden rounded-[2rem] border-[6px] border-ink-3 shadow-[0_40px_80px_-20px_rgb(0_0_0/0.7)]">
+                <Image
+                  src="/shots/phone-product.webp"
+                  alt="The same store on a phone: a product page with sizes and lengths"
+                  width={780}
+                  height={1688}
+                  sizes="220px"
+                  className="block h-auto w-full"
+                />
               </div>
             </div>
-            <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {THEMES.map((t) => (
-                <li key={t.key} className="flex flex-col gap-3">
-                  <Image
-                    src={`/themes/${t.key}.webp`}
-                    alt={`The ${t.name} theme's home page`}
-                    width={800}
-                    height={650}
-                    sizes="(min-width: 1024px) 280px, (min-width: 640px) 50vw, 100vw"
-                    className="aspect-[16/12] w-full rounded-xl border border-line object-cover object-top shadow-sm"
-                  />
-                  <div>
-                    <p className="font-semibold">{t.name}</p>
-                    <p className="text-sm text-fg-muted">{t.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <OrderCard className="float-slow absolute -top-6 right-[6%] hidden md:flex" />
+            <SalesCard className="float-slower absolute -bottom-14 right-[-2%] hidden lg:block" />
           </div>
         </div>
       </section>
 
-      {/* ── Payments ── */}
-      <section id="payments" className="relative overflow-hidden bg-ink py-24 text-fg-inverse">
-        <div aria-hidden className="glow pointer-events-none absolute inset-0 opacity-60" />
-        <div className="container-x relative grid items-center gap-14 lg:grid-cols-[1fr_1.1fr]">
-          <div className="flex flex-col gap-6">
-            <Eyebrow tone="dark">Payments</Eyebrow>
-            <h2 className="text-4xl font-semibold sm:text-5xl">
-              Get paid the way your customers pay
-            </h2>
-            <p className="max-w-xl text-lg text-fg-inverse-muted">
-              Offer the methods people trust where you sell, from cards to cash. Online payments are
-              matched to their orders automatically.
-            </p>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {PAYMENT_METHODS.map(({ icon: Icon, title, text }) => (
-                <li
-                  key={title}
-                  className="flex gap-3 rounded-xl border border-line-dark bg-ink-2 p-4"
-                >
-                  <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-ember-bright" />
-                  <span>
-                    <span className="block font-semibold">{title}</span>
-                    <span className="block text-sm text-fg-inverse-muted">{text}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <Shot
-            src="/shots/checkout.webp"
-            alt="The store's checkout with an order summary and a discount code box"
-            address="Checkout"
-            tone="dark"
-          />
-        </div>
-      </section>
-
-      {/* ── Markets ── */}
-      <section id="markets" className="bg-paper py-24">
-        <div className="container-x grid items-center gap-14 lg:grid-cols-[1.1fr_1fr]">
-          <Shot
-            src="/shots/markets.webp"
-            alt="Markets: Pakistan, the Gulf, the United Kingdom and the United States, each with its own currency"
-          />
-          <div className="flex flex-col gap-6 lg:order-last">
-            <Eyebrow>Sell internationally</Eyebrow>
-            <h2 className="text-4xl font-semibold sm:text-5xl">One store. Every market.</h2>
-            <p className="max-w-xl text-lg text-fg-muted">
-              Sell to new countries without opening new stores. Each market gets its own currency,
-              prices and ways to pay.
-            </p>
-            <Points
-              items={[
-                { title: "Local currencies", text: "Shoppers see prices in their own money." },
-                { title: "Prices per market", text: "Use an exchange rate or set exact prices." },
-                {
-                  title: "Shipping by region",
-                  text: "Rates, free-shipping thresholds and limits.",
-                },
-                {
-                  title: "Taxes by region",
-                  text: "Included or added, set for each place you sell.",
-                },
-              ]}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Marketing ── */}
-      <section id="grow" className="bg-paper-2 py-24">
-        <div className="container-x grid items-center gap-14 lg:grid-cols-2">
-          <div className="flex flex-col gap-6">
-            <Eyebrow>Marketing</Eyebrow>
-            <h2 className="text-4xl font-semibold sm:text-5xl">Turn visitors into regulars</h2>
-            <p className="max-w-xl text-lg text-fg-muted">
-              Run the promotions that work for your brand, and bring people back with stories worth
-              reading.
-            </p>
-            <Points
-              items={[
-                {
-                  title: "Discount codes",
-                  text: "Percent or fixed amounts, with minimums and limits.",
-                },
-                { title: "Automatic discounts", text: "Applied at checkout without a code." },
-                {
-                  title: "Scheduled sales",
-                  text: "Mark down a collection, end it on a date, prices return.",
-                },
-                {
-                  title: "A blog on your store",
-                  text: "Write posts, schedule them, and show them anywhere.",
-                },
-              ]}
-            />
-          </div>
-          <div className="flex flex-col gap-5">
-            <Shot
-              src="/shots/discounts.webp"
-              alt="Discounts: an automatic discount and two discount codes"
-              height={560}
-              sizes="(min-width: 1024px) 560px, 100vw"
-            />
-            <div className="lg:ml-16">
-              <Shot
-                src="/shots/sales.webp"
-                alt="A running sale: 15% off the velvet and lace collection until a set date"
-                height={520}
-                sizes="(min-width: 1024px) 500px, 100vw"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Manage ── */}
-      <section id="manage" className="bg-paper py-24">
-        <div className="container-x flex flex-col gap-12">
-          <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-            <Eyebrow>Run your business</Eyebrow>
-            <h2 className="text-4xl font-semibold sm:text-5xl">
-              Your whole business, in one place
-            </h2>
-            <p className="text-lg text-fg-muted">
-              From the first order to your hundredth customer, everything is organized and easy to
-              find, for you and your team.
-            </p>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="flex flex-col gap-4">
-              <Shot
-                src="/shots/order.webp"
-                alt="An order with its items, payment, shipping address and timeline"
-                sizes="(min-width: 1024px) 560px, 100vw"
-              />
-              <div>
-                <h3 className="text-xl font-semibold">Orders</h3>
-                <p className="text-fg-muted">
-                  Payment, shipping and refunds, with a timeline of everything that happened.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-4">
-              <Shot
-                src="/shots/customers.webp"
-                alt="Customers with their orders and amount spent"
-                sizes="(min-width: 1024px) 560px, 100vw"
-              />
-              <div>
-                <h3 className="text-xl font-semibold">Customers</h3>
-                <p className="text-fg-muted">
-                  Accounts, addresses and order history for everyone who buys from you.
-                </p>
-              </div>
-            </div>
-          </div>
-          <Points
-            items={[
-              {
-                title: "Staff accounts and roles",
-                text: "Invite your team and choose what each person can do.",
-              },
-              {
-                title: "Two-step sign-in",
-                text: "Protect every account with an authenticator app.",
-              },
-              {
-                title: "Order emails",
-                text: "Customers get a receipt and updates as their order moves.",
-              },
-              { title: "Your own domain", text: "Connect the address you already own." },
-            ]}
-          />
-        </div>
-      </section>
-
-      {/* ── Pricing teaser ── */}
-      <section className="bg-paper-2 py-20">
-        <div className="container-x flex flex-col items-center gap-5 text-center">
-          <h2 className="text-3xl font-semibold sm:text-4xl">Simple plans that grow with you</h2>
-          <p className="max-w-xl text-lg text-fg-muted">
-            {BETA
-              ? "Every plan is free while CartForge is in beta. No credit card needed."
-              : "Start small and upgrade as you grow."}
+      {/* ── Statement ── */}
+      <section className="bg-paper pb-24 pt-36 sm:pt-44">
+        <div className="container-x">
+          <p className="display-lg reveal max-w-5xl">
+            One place for your store, your payments{" "}
+            <span className="text-fg-muted">and every order in between.</span>
           </p>
-          <Link
-            href="/pricing"
-            className="inline-flex items-center gap-2 rounded-full border border-ink px-6 py-3 font-semibold hover:bg-ink hover:text-white"
-          >
-            See pricing <ArrowRight aria-hidden className="size-4" />
-          </Link>
+          <div className="mt-16 grid gap-10 border-t border-line pt-10 sm:grid-cols-3">
+            {[
+              ["Design", "Choose a theme and make it yours with a drag-and-drop editor."],
+              ["Sell", "Products, a fast checkout and the payment methods people trust."],
+              ["Grow", "Discounts, sales, new markets and a blog to bring people back."],
+            ].map(([t, d]) => (
+              <div key={t} className="reveal">
+                <p className="font-display text-2xl font-semibold">{t}</p>
+                <p className="mt-2 text-lg text-fg-muted">{d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Product showcase ── */}
+      <section id="store-builder" className="relative overflow-hidden bg-ink py-28 text-fg-inverse">
+        <div aria-hidden className="glow pointer-events-none absolute inset-0 opacity-70" />
+        <div className="container-x relative flex flex-col gap-14">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+            <Eyebrow dark>The CartForge admin</Eyebrow>
+            <h2 className="display-lg">Everything in one beautiful place</h2>
+            <p className="lede text-fg-inverse-muted">
+              Design your store, add products, ship orders and sell abroad, without switching tools.
+            </p>
+          </div>
+          <Showcase />
+        </div>
+      </section>
+
+      {/* ── Feature bento ── */}
+      <section id="sell" className="bg-paper-2 py-28">
+        <div className="container-x flex flex-col gap-14">
+          <div className="flex max-w-3xl flex-col gap-6">
+            <Eyebrow>Built in, not bolted on</Eyebrow>
+            <h2 className="display-lg">Everything you need to sell</h2>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-6">
+            <article
+              id="payments"
+              className="reveal flex flex-col overflow-hidden rounded-3xl bg-ink text-fg-inverse lg:col-span-4"
+            >
+              <div className="flex flex-col gap-3 p-8 sm:p-10">
+                <h3 className="text-3xl font-semibold sm:text-4xl">Get paid every way</h3>
+                <p className="max-w-lg text-lg text-fg-inverse-muted">
+                  Cards through Stripe, local gateways, mobile wallets, bank transfer and cash on
+                  delivery. Online payments match their orders automatically.
+                </p>
+              </div>
+              <div className="relative mt-auto flex justify-center px-8 pb-10">
+                <div aria-hidden className="glow absolute inset-0" />
+                <PaymentsCard className="relative" />
+              </div>
+            </article>
+            <article className="reveal flex flex-col overflow-hidden rounded-3xl bg-paper lg:col-span-2">
+              <div className="flex flex-col gap-3 p-8">
+                <h3 className="text-2xl font-semibold">Promotions that work</h3>
+                <p className="text-fg-muted">
+                  Discount codes, automatic discounts and scheduled sales.
+                </p>
+              </div>
+              <div className="flex flex-1 items-center justify-center bg-gradient-to-b from-paper to-ember-soft px-6 pb-8">
+                <DiscountCard />
+              </div>
+            </article>
+            <article
+              id="markets"
+              className="reveal flex flex-col overflow-hidden rounded-3xl bg-paper lg:col-span-2"
+            >
+              <div className="flex flex-col gap-3 p-8">
+                <h3 className="text-2xl font-semibold">Sell across borders</h3>
+                <p className="text-fg-muted">
+                  Each market gets its own currency, prices and ways to pay.
+                </p>
+              </div>
+              <div className="flex flex-1 items-center justify-center bg-gradient-to-b from-paper to-paper-2 px-6 pb-8">
+                <CurrencyCard />
+              </div>
+            </article>
+            <article className="reveal flex flex-col overflow-hidden rounded-3xl bg-paper lg:col-span-4">
+              <div className="flex flex-col gap-3 p-8 sm:p-10">
+                <h3 className="text-3xl font-semibold sm:text-4xl">A checkout made for phones</h3>
+                <p className="max-w-lg text-lg text-fg-muted">
+                  One page, saved details for returning customers, and stock held while they pay, so
+                  you never oversell.
+                </p>
+              </div>
+              <div className="mt-auto flex justify-center gap-6 bg-gradient-to-b from-paper to-paper-2 px-8 pt-2">
+                <div className="w-44 translate-y-6 overflow-hidden rounded-t-[1.75rem] border-[5px] border-b-0 border-ink shadow-xl sm:w-52">
+                  <Image
+                    src="/shots/phone-home.webp"
+                    alt="A store's home page on a phone"
+                    width={780}
+                    height={1688}
+                    sizes="210px"
+                    className="block h-auto w-full"
+                  />
+                </div>
+                <div className="hidden w-52 overflow-hidden rounded-t-[1.75rem] border-[5px] border-b-0 border-ink shadow-xl sm:block">
+                  <Image
+                    src="/shots/phone-product.webp"
+                    alt="A product page on a phone with sizes and lengths"
+                    width={780}
+                    height={1688}
+                    sizes="210px"
+                    className="block h-auto w-full"
+                  />
+                </div>
+              </div>
+            </article>
+            <article
+              id="manage"
+              className="reveal flex flex-col overflow-hidden rounded-3xl bg-paper lg:col-span-3"
+            >
+              <div className="flex flex-col gap-3 p-8">
+                <h3 className="text-2xl font-semibold">Orders, handled</h3>
+                <p className="text-fg-muted">
+                  Mark paid, ship, refund, and keep customers updated by email.
+                </p>
+              </div>
+              <div className="mt-auto flex flex-col items-center gap-3 px-6 pb-8">
+                <OrderCard />
+                <ShippedCard />
+              </div>
+            </article>
+            <article className="reveal flex flex-col overflow-hidden rounded-3xl bg-paper lg:col-span-3">
+              <div className="flex flex-col gap-3 p-8">
+                <h3 className="text-2xl font-semibold">Safe for your whole team</h3>
+                <p className="text-fg-muted">
+                  Staff accounts with roles, and two-step sign-in for everyone.
+                </p>
+              </div>
+              <div className="mt-auto flex justify-center px-6 pb-8">
+                <SecurityCard />
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Photo band ── */}
+      <section className="relative isolate overflow-hidden">
+        <div className="relative min-h-[640px]">
+          <PhotoFill photo={PHOTOS.founder} sizes="100vw" />
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent"
+          />
+          <div className="container-x relative flex min-h-[640px] flex-col justify-center gap-6 py-24 text-white">
+            <Eyebrow dark>For independent brands</Eyebrow>
+            <h2 className="display-lg max-w-[14ch]">Built for the way you work</h2>
+            <p className="lede max-w-lg text-white/80">
+              Whether you sell from a studio, a warehouse or your living room, CartForge keeps the
+              busywork out of your way so you can focus on what you make.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Themes ── */}
+      <section id="themes" className="overflow-hidden bg-ink py-28 text-fg-inverse">
+        <div className="container-x flex flex-col gap-12">
+          <div className="flex flex-col gap-6 lg:max-w-2xl">
+            <Eyebrow dark>Themes</Eyebrow>
+            <h2 className="display-lg">Start beautiful. Make it yours.</h2>
+            <p className="lede text-fg-inverse-muted">
+              Every theme is free. Change colors, fonts and sections in the editor, and preview
+              every change before shoppers see it.
+            </p>
+          </div>
+          <ThemeCarousel />
+        </div>
+      </section>
+
+      {/* ── Grow ── */}
+      <section id="grow" className="bg-paper py-28">
+        <div className="container-x grid items-center gap-16 lg:grid-cols-2">
+          <div className="reveal flex flex-col gap-6">
+            <Eyebrow>Run your business</Eyebrow>
+            <h2 className="display-lg">Know every order inside out</h2>
+            <p className="lede text-fg-muted">
+              Payments, shipments, refunds and notes in one timeline, plus customer accounts with
+              their addresses and history.
+            </p>
+            <Link
+              href="/pricing"
+              className="inline-flex w-fit items-center gap-2 text-lg font-semibold text-ember hover:text-ember-hover"
+            >
+              See plans and pricing <ArrowRight aria-hidden className="size-5" />
+            </Link>
+          </div>
+          <div className="reveal relative">
+            <div className="frame">
+              <Image
+                src="/shots/order-detail.webp"
+                alt="An order with its items, payment, shipment and customer"
+                width={1400}
+                height={1364}
+                sizes="(min-width: 1024px) 580px, 100vw"
+                className="block h-auto w-full"
+              />
+            </div>
+            <ShippedCard className="float-slow absolute -bottom-8 -left-6 hidden sm:flex" />
+          </div>
         </div>
       </section>
 
       {/* ── Final call to action ── */}
-      <section className="relative overflow-hidden bg-ink py-24 text-fg-inverse">
-        <div aria-hidden className="glow pointer-events-none absolute inset-0" />
-        <div className="container-x relative flex flex-col items-center gap-6 text-center">
-          <h2 className="max-w-3xl text-4xl font-semibold sm:text-6xl">
-            Your store could be live today
-          </h2>
-          <p className="max-w-xl text-lg text-fg-inverse-muted">
-            Create your store in minutes. Add products, choose a theme, and share your link.
+      <section className="relative isolate overflow-hidden bg-ink text-fg-inverse">
+        <PhotoFill photo={PHOTOS.packing} className="opacity-60" />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/30"
+        />
+        <div className="container-x relative flex flex-col items-center gap-8 py-32 text-center sm:py-40">
+          <h2 className="display-xl max-w-[14ch]">Your store could be live today</h2>
+          <p className="lede max-w-xl text-fg-inverse-muted">
+            Create your store in minutes. Add products, pick a theme and share your link.
           </p>
-          <div className="flex w-full justify-center">
-            <SignupForm id="cta-email" />
-          </div>
+          <SignupForm id="cta-email" />
         </div>
       </section>
     </>

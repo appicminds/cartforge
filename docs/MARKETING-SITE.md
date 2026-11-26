@@ -28,14 +28,24 @@ The Features menu points at the home page's sections until phase 2 adds a page f
 - **Navigation**: `src/lib/site.ts`.
 - **Legal text**: `src/lib/legal.ts`.
 - **Screenshots**: `public/shots/*.webp` are real screens of the "Noor Studio" demo store (Noor
-  theme with its sample products, sample orders, discounts, a sale and markets), 1600 × 1000.
-  Theme pictures in `public/themes/` are copies of `apps/admin/public/theme-previews/`.
+  theme with its sample products, sample orders, discounts, a sale and markets), taken at
+  double resolution (2000–2400 px wide; phones at 780 px). Theme pictures in `public/themes/`
+  come from `OUT_DIR=apps/web/public/themes SCALE=2 node scripts/theme-thumbnails.mjs`.
+- **UI cards** (`src/components/home/ui-cards.tsx`): small pieces of the admin drawn in code
+  (a new order, sales, payments, currencies, a discount, two-step sign-in) so they stay sharp.
+  Their numbers are illustrations.
+- **Photographs**: `src/lib/photos.ts` lists the photo slots (`founder`, `packing`, `global`).
+  Put free-license photos (e.g. Unsplash License) in `public/photos/`, set `src`, `alt` and the
+  credit. Until then each slot shows a designed gradient.
 - No invented proof: no merchant logos, testimonials or usage numbers until real ones exist.
 
 ## Design
 
 Ink (`#111214`) and white bands, CartForge ember (`#c2410c`) for actions, Bricolage Grotesque
-for headings and Inter for text (self-hosted by `next/font`). Tokens are in `src/app/globals.css`.
+for headings (display sizes up to 128 px) and Inter for text (self-hosted by `next/font`).
+Tokens are in `src/app/globals.css`. Motion: sections fade up as they scroll into view (CSS
+scroll-driven animations, where supported) and UI cards float gently; both are off for
+visitors who prefer reduced motion.
 
 ## Tests
 

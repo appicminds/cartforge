@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "CartForge: build the store your brand deserves";
+export const alt = "CartForge: make it, sell it, grow it";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -41,7 +41,7 @@ export default function OpengraphImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1.02, letterSpacing: -2 }}>
-            Build the store your brand deserves
+            Make it. Sell it. Grow it.
           </div>
           <div style={{ fontSize: 32, color: "#b3b5bd" }}>
             Online store, payments and orders in one place.

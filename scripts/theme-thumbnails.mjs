@@ -25,7 +25,11 @@ const sharp = require(
 const API = process.env.API_URL ?? "http://localhost:4000/api/v1";
 const SF = process.env.STOREFRONT_URL ?? "http://localhost:3100";
 const ADMIN = process.env.ADMIN_URL ?? "http://localhost:3000";
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "../apps/admin/public/theme-previews");
+const OUT =
+  process.env.OUT_DIR ??
+  join(dirname(fileURLToPath(import.meta.url)), "../apps/admin/public/theme-previews");
+/** SCALE=2 makes sharper, larger pictures (the marketing site uses 1600 px wide). */
+const SCALE = Number(process.env.SCALE ?? 1);
 mkdirSync(OUT, { recursive: true });
 
 const login = await fetch(`${API}/auth/login`, {
@@ -110,7 +114,10 @@ try {
         await call(store.id, "PUT", `/themes/${theme.id}/data`, { data: withPictures(data) });
       }
       const { token } = await call(store.id, "POST", `/themes/${theme.id}/preview-link`, {});
-      const page = await browser.newPage({ viewport: { width: 1280, height: 1040 } });
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 1040 },
+        deviceScaleFactor: SCALE,
+      });
       await page.goto(`${SF}/?store=${store.handle}`);
       await page.goto(`${SF}/?theme_preview=${token}`);
       await page.waitForLoadState("networkidle");
@@ -122,7 +129,7 @@ try {
       await page.waitForTimeout(1200);
       const shot = await page.screenshot();
       await sharp(shot)
-        .resize(800, 650)
+        .resize(800 * SCALE, 650 * SCALE)
         .webp({ quality: 80 })
         .toFile(join(OUT, `${p.key}.webp`));
       await page.close();

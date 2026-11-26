@@ -10,8 +10,8 @@ import { Logo } from "./logo";
 
 /**
  * Sticky site header: Features menu, Themes, Pricing, Log in and Start for free.
- * The phone menu sits outside <header>: the header's backdrop blur would make it
- * the containing block of a fixed panel.
+ * The phone menu sits outside <header> so its fixed panel is placed against the
+ * window, whatever effects the header gets.
  */
 export function Header() {
   const path = usePathname();
@@ -45,13 +45,13 @@ export function Header() {
     document.body.style.overflow = mobile ? "hidden" : "";
   }, [mobile]);
 
-  const navLink = "rounded-md px-3 py-2 text-[15px] font-medium text-fg hover:bg-paper-2";
+  const navLink = "rounded-md px-3 py-2 text-[15px] font-medium text-fg-inverse hover:bg-white/10";
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur supports-[backdrop-filter]:bg-paper/80">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink text-fg-inverse">
         <div className="container-x flex h-16 items-center gap-6">
-          <Logo />
+          <Logo tone="light" />
           <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
             <div ref={menuRef} className="relative">
               <button
@@ -70,7 +70,7 @@ export function Header() {
               {features && (
                 <div
                   id="features-menu"
-                  className="absolute left-0 top-full mt-2 w-[640px] rounded-2xl border border-line bg-paper p-3 shadow-xl"
+                  className="absolute left-0 top-full mt-2 w-[640px] rounded-2xl border border-line bg-paper p-3 text-fg shadow-xl"
                 >
                   <ul className="grid grid-cols-2 gap-1">
                     {FEATURES.map((f) => {
@@ -114,14 +114,14 @@ export function Header() {
             </a>
             <a
               href={SIGNUP_URL}
-              className="rounded-full bg-ink px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-ink-3"
+              className="rounded-full bg-white px-5 py-2.5 text-[15px] font-semibold text-ink hover:bg-paper-2"
             >
               Start for free
             </a>
           </div>
           <button
             type="button"
-            className="ml-auto inline-flex size-10 items-center justify-center rounded-md hover:bg-paper-2 lg:hidden"
+            className="ml-auto inline-flex size-10 items-center justify-center rounded-md text-fg-inverse hover:bg-white/10 lg:hidden"
             aria-expanded={mobile}
             aria-controls="mobile-menu"
             aria-label={mobile ? "Close menu" : "Open menu"}

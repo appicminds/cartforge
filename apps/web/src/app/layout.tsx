@@ -16,7 +16,7 @@ const sans = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swa
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "CartForge: build your online store and sell anywhere",
+    default: "CartForge: make it, sell it, grow it",
     template: "%s · CartForge",
   },
   description:

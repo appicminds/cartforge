@@ -15,8 +15,11 @@ test("home: hero, sections, accessible, sign-up carries the email", async ({ pag
   await page.goto("/");
   await expect(page).toHaveTitle(/CartForge/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Build the store your brand deserves",
+    /Make it\.\s*Sell it\.\s*Grow it\./,
   );
+  // The admin showcase switches screens.
+  await page.getByRole("tab", { name: "Orders" }).click();
+  await expect(page.getByRole("tabpanel").getByRole("img")).toHaveAttribute("alt", /Orders/);
   for (const id of ["sell", "store-builder", "themes", "payments", "markets", "grow", "manage"])
     await expect(page.locator(`#${id}`)).toBeVisible();
   await scan(page, "home");
