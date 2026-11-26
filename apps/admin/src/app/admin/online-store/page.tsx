@@ -21,7 +21,7 @@ import {
   useToast,
 } from "@cartforge/ui";
 import { OnlineStoreTabs } from "@/components/online-store/tabs";
-import { PresetSwatch } from "@/components/online-store/preset-swatch";
+import { ThemeThumbnail } from "@/components/online-store/theme-thumbnail";
 import { SampleContentButton } from "@/components/online-store/sample-content";
 import { useBreadcrumbTitle } from "@/lib/breadcrumbs";
 import { formatDateTime } from "@/lib/format";
@@ -129,7 +129,7 @@ export default function ThemesPage() {
             <Skeleton className="h-28 w-full" />
           ) : (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <PresetSwatch preset={live.preset} className="h-24 w-full sm:w-56" />
+              <ThemeThumbnail preset={live.preset} className="aspect-[16/10] w-full sm:w-64" />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-lg font-semibold">
                   {live.name} <Badge tone="success">Live</Badge>
@@ -170,7 +170,7 @@ export default function ThemesPage() {
           <ul className="divide-y divide-border">
             {others.map((t) => (
               <li key={t.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                <PresetSwatch preset={t.preset} className="h-14 w-full sm:w-32" />
+                <ThemeThumbnail preset={t.preset} className="aspect-[16/10] w-full sm:w-40" />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{t.name}</p>
                   <p className="text-sm text-fg-muted">Last saved {formatDateTime(t.updated_at)}</p>
@@ -205,7 +205,7 @@ export default function ThemesPage() {
             <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {(presets.data ?? []).map((p) => (
                 <li key={p.key} className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                  <PresetSwatch preset={p.key} className="h-28" />
+                  <ThemeThumbnail preset={p.key} className="aspect-[16/10] w-full" />
                   <div className="flex-1">
                     <p className="font-medium">{p.name}</p>
                     <p className="text-sm text-fg-muted">{p.description}</p>
