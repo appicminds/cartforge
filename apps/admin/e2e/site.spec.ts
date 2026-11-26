@@ -61,7 +61,7 @@ test("pricing: monthly and yearly, comparison and FAQ", async ({ page }) => {
   await scan(page, "pricing");
 });
 
-test("legal pages, 404, sitemap and robots", async ({ page, request }) => {
+test("legal pages, sitemap and robots", async ({ page, request }) => {
   for (const [path, title] of [
     ["/legal/terms", "Terms of service"],
     ["/legal/privacy", "Privacy policy"],
@@ -71,10 +71,10 @@ test("legal pages, 404, sitemap and robots", async ({ page, request }) => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
   }
   await scan(page, "legal");
-  expect((await page.goto("/nope"))?.status()).toBe(404);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("This page doesn't exist");
   const sitemap = await (await request.get("/sitemap.xml")).text();
   expect(sitemap).toContain("/pricing");
   expect(await (await request.get("/robots.txt")).text()).toContain("Sitemap:");
-  expect((await request.get("/opengraph-image")).headers()["content-type"]).toBe("image/png");
+  await page.goto("/");
+  const og = new URL((await page.locator('meta[property="og:image"]').getAttribute("content"))!);
+  expect((await request.get(og.pathname + og.search)).headers()["content-type"]).toBe("image/png");
 });

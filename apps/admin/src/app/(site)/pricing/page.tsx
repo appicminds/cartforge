@@ -13,23 +13,29 @@ export const metadata: Metadata = {
 export default function Pricing() {
   return (
     <>
-      <section className="bg-paper-2 pb-20 pt-16 sm:pt-24">
-        <div className="container-x flex flex-col items-center gap-5 text-center">
-          <h1 className="max-w-3xl text-5xl font-semibold sm:text-6xl">Pick the plan that fits</h1>
-          <p className="max-w-2xl text-lg text-fg-muted">
+      <section className="relative overflow-hidden bg-ink pb-40 pt-20 text-fg-inverse sm:pt-28">
+        <div aria-hidden className="glow pointer-events-none absolute inset-0" />
+        <div className="container-x relative flex flex-col items-center gap-6 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-ember-bright">
+            Pricing
+          </p>
+          <h1 className="display-xl max-w-[14ch]">Pick the plan that fits</h1>
+          <p className="lede max-w-2xl text-fg-inverse-muted">
             {BETA
               ? "Every plan is free while CartForge is in beta. Try everything; choose a plan when billing starts."
               : "Start with what you need today and change plans any time."}
           </p>
         </div>
-        <div className="container-x mt-12">
+      </section>
+      <section className="relative bg-paper-2 pb-24">
+        <div className="container-x -mt-28">
           <PricingPlans />
         </div>
       </section>
 
       <section className="bg-paper py-20" aria-labelledby="compare">
         <div className="container-x">
-          <h2 id="compare" className="text-3xl font-semibold sm:text-4xl">
+          <h2 id="compare" className="display-lg">
             Compare plans
           </h2>
           <div className="mt-8 overflow-x-auto rounded-2xl border border-line">
@@ -84,7 +90,7 @@ export default function Pricing() {
 
       <section className="bg-paper-2 py-20" aria-labelledby="faq">
         <div className="container-x grid gap-10 lg:grid-cols-[1fr_2fr]">
-          <h2 id="faq" className="text-3xl font-semibold sm:text-4xl">
+          <h2 id="faq" className="display-lg">
             Questions about pricing
           </h2>
           <div className="divide-y divide-line border-y border-line">
@@ -108,8 +114,8 @@ export default function Pricing() {
 
       <section className="relative overflow-hidden bg-ink py-20 text-fg-inverse">
         <div aria-hidden className="glow pointer-events-none absolute inset-0" />
-        <div className="container-x relative flex flex-col items-center gap-6 text-center">
-          <h2 className="text-4xl font-semibold sm:text-5xl">Start building today</h2>
+        <div className="container-x relative flex flex-col items-center gap-8 py-10 text-center">
+          <h2 className="display-xl max-w-[12ch]">Start building today</h2>
           <SignupForm id="pricing-email" />
         </div>
       </section>

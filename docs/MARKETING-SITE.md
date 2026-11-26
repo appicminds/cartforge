@@ -1,6 +1,10 @@
-# Marketing site (`apps/web`)
+# Public website
 
-The public website: what CartForge is, pricing, and the way in ("Start for free").
+The public website: what CartForge is, pricing, and the way in ("Start for free"). It lives in
+the admin app as its own route group, `apps/admin/src/app/(site)`, with its own layout, fonts and
+stylesheet (`site.css`); the admin is in `(app)`. Components are in
+`apps/admin/src/components/site`, content in `apps/admin/src/lib/site`, pictures in
+`apps/admin/public/site`. It deploys with the admin, at the same address.
 Inspired by the structure of the big commerce platforms' sites, with CartForge's own
 identity, words and pictures. Phase 1 is live; phases 2 and 3 are planned below.
 
@@ -17,25 +21,26 @@ The Features menu points at the home page's sections until phase 2 adds a page f
 
 ## How it connects to the app
 
-- "Start for free" forms are plain `GET` forms to `NEXT_PUBLIC_APP_URL/signup?email=…`; the
-  sign-up page fills the email in (only if it looks like an email).
-- "Log in" goes to `NEXT_PUBLIC_APP_URL/login`.
+- "Start for free" forms are plain `GET` forms to `/signup?email=…`; the sign-up page fills the
+  email in (only if it looks like an email). "Log in" goes to `/login`.
+- `/` is the website except during a store or theme preview (see `apps/admin/next.config.ts`
+  and DEPLOY-VERCEL §5f).
 
 ## Content
 
-- **Plans**: `src/lib/plans.ts` (USD prices, features, comparison table, FAQ). `BETA = true`
+- **Plans**: `lib/site/plans.ts` (USD prices, features, comparison table, FAQ). `BETA = true`
   shows every plan as free during the beta; set it to `false` when billing starts.
-- **Navigation**: `src/lib/site.ts`.
-- **Legal text**: `src/lib/legal.ts`.
-- **Screenshots**: `public/shots/*.webp` are real screens of the "Noor Studio" demo store (Noor
+- **Navigation**: `lib/site/site.ts`.
+- **Legal text**: `lib/site/legal.ts`.
+- **Screenshots**: `public/site/shots/*.webp` are real screens of the "Noor Studio" demo store (Noor
   theme with its sample products, sample orders, discounts, a sale and markets), taken at
-  double resolution (2000–2400 px wide; phones at 780 px). Theme pictures in `public/themes/`
-  come from `OUT_DIR=apps/web/public/themes SCALE=2 node scripts/theme-thumbnails.mjs`.
-- **UI cards** (`src/components/home/ui-cards.tsx`): small pieces of the admin drawn in code
+  double resolution (2000–2400 px wide; phones at 780 px). Theme pictures in `public/site/themes/`
+  come from `OUT_DIR=apps/admin/public/site/themes SCALE=2 node scripts/theme-thumbnails.mjs`.
+- **UI cards** (`components/site/home/ui-cards.tsx`): small pieces of the admin drawn in code
   (a new order, sales, payments, currencies, a discount, two-step sign-in) so they stay sharp.
   Their numbers are illustrations.
-- **Photographs**: `src/lib/photos.ts` lists the photo slots (`founder`, `packing`, `global`).
-  Put free-license photos (e.g. Unsplash License) in `public/photos/`, set `src`, `alt` and the
+- **Photographs**: `lib/site/photos.ts` lists the photo slots (`founder`, `packing`, `global`).
+  Put free-license photos (e.g. Unsplash License) in `public/site/photos/`, set `src`, `alt` and the
   credit. Until then each slot shows a designed gradient.
 - No invented proof: no merchant logos, testimonials or usage numbers until real ones exist.
 
@@ -43,13 +48,13 @@ The Features menu points at the home page's sections until phase 2 adds a page f
 
 Ink (`#111214`) and white bands, CartForge ember (`#c2410c`) for actions, Bricolage Grotesque
 for headings (display sizes up to 128 px) and Inter for text (self-hosted by `next/font`).
-Tokens are in `src/app/globals.css`. Motion: sections fade up as they scroll into view (CSS
+Tokens are in `site.css`. Motion: sections fade up as they scroll into view (CSS
 scroll-driven animations, where supported) and UI cards float gently; both are off for
 visitors who prefer reduced motion.
 
 ## Tests
 
-`pnpm --filter @cartforge/web test:e2e` (after `build`): home, Features menu, pricing switch,
+Admin e2e `site.spec.ts` and `site-mobile.spec.ts`: home, Features menu, pricing switch,
 legal pages, 404, sitemap and robots, accessibility (axe, WCAG 2.1 AA) and phone width.
 
 ## Next phases

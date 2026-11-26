@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+/** The public website on a phone. */
+test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
 for (const path of ["/", "/pricing", "/legal/terms"]) {
   test(`${path} fits a phone screen`, async ({ page }) => {
     await page.goto(path);
