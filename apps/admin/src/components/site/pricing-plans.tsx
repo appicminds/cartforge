@@ -62,7 +62,7 @@ export function PricingPlans() {
               <div>
                 <p className="flex items-baseline gap-2">
                   <span
-                    className={`font-display text-5xl font-semibold ${BETA ? "text-fg-muted line-through decoration-2" : ""}`}
+                    className={`font-display text-5xl font-semibold tracking-tight ${BETA ? `line-through decoration-2 ${p.highlight ? "text-fg-inverse-muted" : "text-fg-muted"}` : ""}`}
                   >
                     {money(price)}
                   </span>
