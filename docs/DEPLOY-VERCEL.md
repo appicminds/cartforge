@@ -162,6 +162,21 @@ so nothing is needed. If the admin runs on a different address from the storefro
 `ADMIN_URL` on `cartforge-storefront` (comma-separated if several). It is used for the
 storefront's `Content-Security-Policy: frame-ancestors`, so rebuild the storefront after changing it.
 
+## 5f. Marketing site (cartforge.com)
+
+The public website (home, pricing, legal pages) is its own app, `apps/web`. It needs no
+database or API.
+
+1. **Add New → Project**, import the same repository, **Root Directory** `apps/web`
+   (framework Next.js; `apps/web/vercel.json` sets the install and build commands).
+2. Environment variables:
+   - `NEXT_PUBLIC_APP_URL` = the admin address, e.g. `https://cartforge-app.vercel.app`
+     ("Start for free" and "Log in" go there; the email typed on the site is passed to sign-up).
+   - `NEXT_PUBLIC_SITE_URL` = this site's own address (used for the sitemap, canonical links
+     and sharing images), e.g. `https://cartforge-web.vercel.app`.
+3. Deploy. Later, add your domain (e.g. `cartforge.com`) to this project and move the admin to
+   `app.cartforge.com`, then update both variables.
+
 ## 6. Sign in
 
 Open `https://cartforge-app.vercel.app/admin` and sign in as any demo user with your

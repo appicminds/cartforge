@@ -141,3 +141,10 @@ test("store staff never see platform pages", async ({ page }) => {
   await page.goto("/admin/platform/stores");
   await expect(page.getByText("Platform administrators only")).toBeVisible();
 });
+
+test("sign-up starts with the email typed on the marketing site", async ({ page }) => {
+  await page.goto("/signup?email=new.seller%40example.com");
+  await expect(page.getByLabel("Email")).toHaveValue("new.seller@example.com");
+  await page.goto("/signup?email=not-an-email");
+  await expect(page.getByLabel("Email")).toHaveValue("");
+});

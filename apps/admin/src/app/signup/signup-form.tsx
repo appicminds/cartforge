@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { CurrentUser, DetailResponse } from "@cartforge/types";
 import { Alert, Button, Field, Input, Select, Spinner } from "@cartforge/ui";
@@ -37,6 +37,12 @@ export function SignupForm() {
     },
   });
   const { errors } = form.formState;
+  // Coming from the marketing site's "Enter your email" box: start with it filled in.
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email")?.trim();
+    if (email && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      form.setValue("email", email);
+  }, [form]);
   const storeName = form.watch("store_name");
   const handleValue = form.watch("handle") ?? "";
   const effectiveHandle = handleTouched
