@@ -9,8 +9,7 @@ import { FEATURE_ICONS } from "./icons";
 import { Logo } from "./logo";
 
 /**
- * Sticky site header: Features menu, Self-hosted, Developers, Pricing, Log in and
- * Start for free.
+ * Sticky site header: Features menu, Self-hosted, Pricing, Log in and Start for free.
  * The phone menu sits outside <header> so its fixed panel is placed against the
  * window, whatever effects the header gets.
  */
@@ -104,9 +103,6 @@ export function Header() {
               aria-current={path === "/self-hosted" ? "page" : undefined}
             >
               Self-hosted
-            </Link>
-            <Link href="/#developers" className={navLink}>
-              Developers
             </Link>
             <Link
               href="/pricing"

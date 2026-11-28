@@ -19,7 +19,7 @@ export interface FeatureLink {
   href: string;
   title: string;
   text: string;
-  icon: "store" | "box" | "card" | "globe" | "megaphone" | "settings" | "server" | "code";
+  icon: "store" | "box" | "card" | "globe" | "megaphone" | "settings" | "server";
 }
 
 /** The Features menu. It points at the home page's sections and the self-hosted page. */
@@ -66,12 +66,6 @@ export const FEATURES: FeatureLink[] = [
     text: "Your own installation on your own server",
     icon: "server",
   },
-  {
-    href: "/#developers",
-    title: "For developers",
-    text: "REST API, custom code and a standard stack",
-    icon: "code",
-  },
 ];
 
 /**
@@ -97,12 +91,12 @@ export const EDITIONS = {
   selfHosted: {
     name: "CartForge Self-hosted",
     model: "One-time license",
-    tagline: "Your server. Your platform. Your rules.",
+    tagline: "Pay once. Own the complete platform.",
     points: [
-      "Pay once for your own standalone installation",
-      "Host it on your own server or cloud account",
-      "Full control over infrastructure, data and deployment",
-      "No monthly platform fee",
+      "Your own server: run it anywhere, completely separate from us",
+      "Your own database: every product, order and customer stays with you",
+      "Your own code: the full source code, yours to change however you like",
+      "One payment for the complete solution, no monthly platform fee",
     ],
   },
 } as const;

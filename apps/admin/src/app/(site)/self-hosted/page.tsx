@@ -3,8 +3,8 @@ import Link from "next/link";
 import {
   ArrowRight,
   Check,
+  Code2,
   Database,
-  HardDrive,
   KeyRound,
   Layers,
   RefreshCw,
@@ -17,7 +17,7 @@ import { EDITIONS, LICENSE_URL, SIGNUP_URL } from "@/lib/site/site";
 export const metadata: Metadata = {
   title: "Self-hosted",
   description:
-    "Buy CartForge once and run your own standalone installation on your own server, with full control over infrastructure, data and deployment.",
+    "Pay once for the complete CartForge platform with its full source code. Run it on your own server with your own database, and change it however you like.",
   alternates: { canonical: "/self-hosted" },
 };
 
@@ -29,8 +29,13 @@ const GET: [LucideIcon, string, string][] = [
   ],
   [
     Server,
-    "Your own installation",
-    "A standalone CartForge that runs on infrastructure you choose.",
+    "Your own server",
+    "A standalone CartForge, completely separate from us, on infrastructure you choose.",
+  ],
+  [
+    Code2,
+    "The full source code",
+    "Change anything, add your own features and build on it however you like, now or years later.",
   ],
   [Database, "Your data, your database", "Everything lives in your own PostgreSQL database."],
   [KeyRound, "Pay once", "A one-time license instead of a monthly platform fee."],
@@ -39,7 +44,6 @@ const GET: [LucideIcon, string, string][] = [
     "Update on your schedule",
     "Install new versions when it suits you, not when it suits us.",
   ],
-  [HardDrive, "Your storage", "Keep pictures on the server's disk or any S3-compatible storage."],
 ];
 
 const NEEDS: [string, string][] = [
@@ -63,8 +67,16 @@ const FAQ: [string, string][] = [
     "It's the same platform. With Cloud we host it, keep it updated and look after the servers, for a subscription. With Self-hosted you pay once and run it yourself, with full control over where and how it runs.",
   ],
   [
+    "Can I change the code?",
+    "Yes. You get the full source code. Change the design, add features, connect your own systems or build something new on top of it. Your installation is yours.",
+  ],
+  [
+    "Does my store depend on CartForge after I buy?",
+    "No. It runs completely on your own server and database, separate from us. You don't need a CartForge account to keep selling.",
+  ],
+  [
     "Do I need to be a developer?",
-    "To run your store, no: the admin is the same simple one. To install and look after the server, you need someone comfortable with basic server administration, or a hosting partner.",
+    "To run your store, no: the admin is the same simple one. To install and look after the server, or to change the code, you need someone comfortable with server administration and development, or a partner who is.",
   ],
   ["What does the license include?", `${LICENSE.features.join(". ")}.`],
   [
@@ -94,8 +106,9 @@ export default function SelfHosted() {
             <span className="block text-ember-bright">Your platform.</span>
           </h1>
           <p className="lede max-w-2xl text-fg-inverse-muted">
-            Buy CartForge once and run your own standalone installation, with full control over
-            infrastructure, data and deployment. No monthly platform fee.
+            Pay once and get the complete platform: your own server, your own database and the full
+            source code, yours to change however you like. Completely separate from us, with no
+            monthly platform fee.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <a

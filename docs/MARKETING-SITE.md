@@ -10,10 +10,9 @@ identity, words and pictures. Phase 1 is live; phases 2 and 3 are planned below.
 
 ## Message
 
-Four ideas run through every page: **freedom and ownership** ("Your store. Your rules."),
-**simplicity for non-technical merchants**, **flexibility for developers** (REST API with
-OpenAPI docs, custom code sections, a standard stack, self-hosting), and **a complete commerce
-platform, not just a website builder**.
+The home page keeps its design ("Make it. Sell it. Grow it.") and adds one section, "Two ways
+to run CartForge", right after the opening statement. The self-hosted offer is explained in
+full on `/self-hosted` and in the pricing switch.
 
 Two ways to run CartForge, presented everywhere side by side:
 

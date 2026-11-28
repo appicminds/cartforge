@@ -14,7 +14,9 @@ async function scan(page: Page, label: string) {
 test("home: hero, sections, accessible, sign-up carries the email", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/CartForge/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Your store\.\s*Your rules\./);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    /Make it\.\s*Sell it\.\s*Grow it\./,
+  );
   // The admin showcase switches screens.
   await page.getByRole("tab", { name: "Orders" }).click();
   await expect(page.getByRole("tabpanel").getByRole("img")).toHaveAttribute("alt", /Orders/);
@@ -22,7 +24,6 @@ test("home: hero, sections, accessible, sign-up carries the email", async ({ pag
     "editions",
     "sell",
     "store-builder",
-    "developers",
     "themes",
     "payments",
     "markets",
@@ -45,7 +46,7 @@ test("Features menu opens, links to sections and closes with Escape", async ({ p
   await page.goto("/pricing");
   await page.getByRole("button", { name: "Features" }).click();
   const menu = page.locator("#features-menu");
-  await expect(menu.getByRole("link")).toHaveCount(8);
+  await expect(menu.getByRole("link")).toHaveCount(7);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await page.getByRole("button", { name: "Features" }).click();
@@ -98,9 +99,11 @@ test("self-hosted page: one-time license, requirements, comparison", async ({ pa
     /Your server\.\s*Your platform\./,
   );
   await expect(page.getByText("PostgreSQL 16")).toBeVisible();
+  await expect(page.getByText("The full source code").first()).toBeVisible();
   const table = page.getByRole("table");
   await expect(table).toContainText("One-time license");
   await expect(table).toContainText("Monthly or yearly subscription");
+  await expect(table).toContainText("Full source code, yours to change");
   await scan(page, "self-hosted");
 });
 

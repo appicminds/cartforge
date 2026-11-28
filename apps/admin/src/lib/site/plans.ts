@@ -147,12 +147,14 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
 export const LICENSE = {
   price: 499,
   name: "Self-hosted license",
-  blurb: "Your own standalone CartForge installation, paid once.",
+  blurb: "The complete CartForge platform, with its full source code, paid once.",
   features: [
     "Every CartForge feature: store, checkout, payments, orders and more",
-    "One production installation on your own server",
+    "The full source code, yours to change and extend",
+    "Runs on your own server with your own database",
+    "Completely separate from CartForge: no account, no dependency on us",
     "Unlimited products, orders and staff accounts",
-    "Your data in your own database",
+    "One production installation",
     "Installation guide and operations runbook",
     "12 months of platform updates",
   ],
@@ -162,9 +164,16 @@ export const LICENSE = {
 export const EDITION_COMPARISON: [string, string, string][] = [
   ["How you pay", "Monthly or yearly subscription", "One-time license"],
   ["Who hosts it", "We do", "You do, on your own server"],
+  ["Database", "Run by CartForge", "Your own database"],
+  ["Source code", "Not included", "Full source code, yours to change"],
+  [
+    "Changes and custom features",
+    "Themes, settings and custom sections",
+    "Anything: change the code itself",
+  ],
   ["Updates", "Automatic", "You choose when to install them"],
   ["Servers and backups", "Handled for you", "You manage them"],
-  ["Infrastructure and data", "Hosted by CartForge", "Fully under your control"],
+  ["Infrastructure and data", "Hosted by CartForge", "Fully under your control, separate from us"],
   ["Technical skills needed", "None", "Basic server administration"],
   ["Best for", "Merchants who want to focus on selling", "Teams that want full ownership"],
 ];

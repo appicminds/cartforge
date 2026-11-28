@@ -1,6 +1,5 @@
 import {
   Box,
-  Code2,
   Server,
   CreditCard,
   Globe2,
@@ -19,5 +18,4 @@ export const FEATURE_ICONS: Record<FeatureLink["icon"], LucideIcon> = {
   megaphone: Megaphone,
   settings: Settings2,
   server: Server,
-  code: Code2,
 };
