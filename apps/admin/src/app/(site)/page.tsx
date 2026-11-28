@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Developers } from "@/components/site/home/developers";
+import { Ecosystem } from "@/components/site/home/ecosystem";
+import { Editions } from "@/components/site/home/editions";
 import { PhotoFill } from "@/components/site/home/photo";
 import { Showcase } from "@/components/site/home/showcase";
 import { ThemeCarousel } from "@/components/site/home/theme-carousel";
@@ -34,22 +37,32 @@ export default function Home() {
       <section className="relative overflow-hidden bg-ink text-fg-inverse">
         <div aria-hidden className="glow pointer-events-none absolute inset-0" />
         <div className="container-x relative pb-16 pt-20 sm:pt-28">
-          {BETA && (
-            <p className="inline-flex rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-fg-inverse-muted">
-              Now in beta · every plan is free
-            </p>
-          )}
+          <p className="inline-flex rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-fg-inverse-muted">
+            Cloud or self-hosted{BETA ? " · free during beta" : ""}
+          </p>
           <h1 className="display-xl mt-8">
-            <span className="block">Make it.</span>
-            <span className="block">Sell it.</span>
-            <span className="block text-ember-bright">Grow it.</span>
+            <span className="block">Your store.</span>
+            <span className="block text-ember-bright">Your rules.</span>
           </h1>
           <div className="mt-10 flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
-            <p className="lede max-w-xl text-fg-inverse-muted">
-              CartForge is the commerce platform for independent brands: a store you&apos;re proud
-              of, payments your customers trust, and every order in one place.
-            </p>
-            <SignupForm id="hero-email" />
+            <div className="flex max-w-xl flex-col gap-5">
+              <p className="lede text-fg-inverse-muted">
+                CartForge is a complete commerce platform: storefront, checkout, payments, orders
+                and more. Let us run it for you, or run it on your own server. Either way, it&apos;s
+                yours.
+              </p>
+              <Link
+                href="/self-hosted"
+                className="inline-flex w-fit items-center gap-2 font-semibold text-white underline decoration-white/30 underline-offset-4 hover:decoration-white"
+              >
+                Want it on your own server? See self-hosted{" "}
+                <ArrowRight aria-hidden className="size-4" />
+              </Link>
+            </div>
+            <SignupForm
+              id="hero-email"
+              note="Start on CartForge Cloud. Free during beta, no credit card."
+            />
           </div>
         </div>
 
@@ -88,22 +101,29 @@ export default function Home() {
       {/* ── Statement ── */}
       <section className="bg-paper pb-24 pt-36 sm:pt-44">
         <div className="container-x">
-          <p className="display-lg reveal max-w-5xl">
-            One place for your store, your payments{" "}
-            <span className="text-fg-muted">and every order in between.</span>
-          </p>
-          <div className="mt-16 grid gap-10 border-t border-line pt-10 sm:grid-cols-3">
-            {[
-              ["Design", "Choose a theme and make it yours with a drag-and-drop editor."],
-              ["Sell", "Products, a fast checkout and the payment methods people trust."],
-              ["Grow", "Discounts, sales, new markets and a blog to bring people back."],
-            ].map(([t, d]) => (
-              <div key={t} className="reveal">
-                <p className="font-display text-2xl font-semibold">{t}</p>
-                <p className="mt-2 text-lg text-fg-muted">{d}</p>
-              </div>
-            ))}
+          <Eyebrow>A complete commerce platform</Eyebrow>
+          <h2 className="display-lg reveal mt-6 max-w-5xl">
+            Not just a website builder.{" "}
+            <span className="text-fg-muted">Everything it takes to run a business that sells.</span>
+          </h2>
+          <div className="mt-16">
+            <Ecosystem />
           </div>
+        </div>
+      </section>
+
+      {/* ── Two ways to run it ── */}
+      <section id="editions" className="bg-paper-2 py-28">
+        <div className="container-x flex flex-col gap-14">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+            <Eyebrow>Freedom to choose</Eyebrow>
+            <h2 className="display-lg">Two ways to run CartForge</h2>
+            <p className="lede text-fg-muted">
+              The same platform, your choice of how it runs. Start in our cloud and move to your own
+              server later, or own it from day one.
+            </p>
+          </div>
+          <Editions />
         </div>
       </section>
 
@@ -251,6 +271,21 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Merchants and developers ── */}
+      <section id="developers" className="bg-paper-2 py-28">
+        <div className="container-x flex flex-col gap-14">
+          <div className="flex max-w-3xl flex-col gap-6">
+            <Eyebrow>One platform, two kinds of freedom</Eyebrow>
+            <h2 className="display-lg">Simple for merchants. Open for developers.</h2>
+            <p className="lede text-fg-muted">
+              Run your whole store without writing a line of code, and give your developers
+              everything they need when you want more.
+            </p>
+          </div>
+          <Developers />
+        </div>
+      </section>
+
       {/* ── Themes ── */}
       <section id="themes" className="overflow-hidden bg-ink py-28 text-fg-inverse">
         <div className="container-x flex flex-col gap-12">
@@ -307,11 +342,17 @@ export default function Home() {
           className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/30"
         />
         <div className="container-x relative flex flex-col items-center gap-8 py-32 text-center sm:py-40">
-          <h2 className="display-xl max-w-[14ch]">Your store could be live today</h2>
+          <h2 className="display-xl max-w-[14ch]">Build something that&apos;s yours</h2>
           <p className="lede max-w-xl text-fg-inverse-muted">
-            Create your store in minutes. Add products, pick a theme and share your link.
+            Start on CartForge Cloud in minutes, or own the whole platform on your own server.
           </p>
           <SignupForm id="cta-email" />
+          <Link
+            href="/self-hosted"
+            className="inline-flex items-center gap-2 font-semibold text-white underline decoration-white/30 underline-offset-4 hover:decoration-white"
+          >
+            Prefer to self-host? Get a license <ArrowRight aria-hidden className="size-4" />
+          </Link>
         </div>
       </section>
     </>

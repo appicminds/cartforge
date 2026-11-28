@@ -21,9 +21,8 @@ export default function Pricing() {
           </p>
           <h1 className="display-xl max-w-[14ch]">Pick the plan that fits</h1>
           <p className="lede max-w-2xl text-fg-inverse-muted">
-            {BETA
-              ? "Every plan is free while CartForge is in beta. Try everything; choose a plan when billing starts."
-              : "Start with what you need today and change plans any time."}
+            Subscribe to CartForge Cloud and we run everything, or buy a self-hosted license once
+            and run it on your own server.{BETA ? " Cloud plans are free during the beta." : ""}
           </p>
         </div>
       </section>
@@ -36,7 +35,7 @@ export default function Pricing() {
       <section className="bg-paper py-20" aria-labelledby="compare">
         <div className="container-x">
           <h2 id="compare" className="display-lg">
-            Compare plans
+            Compare Cloud plans
           </h2>
           <div className="mt-8 overflow-x-auto rounded-2xl border border-line">
             <table className="w-full min-w-[640px] border-collapse text-left text-[15px]">

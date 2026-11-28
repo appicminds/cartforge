@@ -110,8 +110,12 @@ export const COMPARISON: { group: string; rows: [string, ...(boolean | string)[]
 
 export const PRICING_FAQ: { q: string; a: string }[] = [
   {
-    q: "Is CartForge really free right now?",
-    a: "Yes. While CartForge is in beta, every plan is free. We'll tell you well before billing starts, and you can choose a plan then.",
+    q: "What's the difference between Cloud and Self-hosted?",
+    a: "It's the same platform. Cloud is a subscription: we host it, keep it secure and update it for you. Self-hosted is a one-time license: you get your own standalone installation and run it on your own server, with full control over infrastructure and data.",
+  },
+  {
+    q: "Is CartForge Cloud really free right now?",
+    a: "Yes. While CartForge is in beta, every Cloud plan is free. We'll tell you well before billing starts, and you can choose a plan then.",
   },
   {
     q: "Do I need a credit card to start?",
@@ -133,4 +137,34 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
     q: "Can I change plans later?",
     a: "Yes, at any time. Your store, products and orders stay exactly as they are.",
   },
+];
+
+/**
+ * The self-hosted edition: a one-time license. PLACEHOLDER price and terms:
+ * set your real price, what updates and support include, and how many
+ * installations a license covers.
+ */
+export const LICENSE = {
+  price: 499,
+  name: "Self-hosted license",
+  blurb: "Your own standalone CartForge installation, paid once.",
+  features: [
+    "Every CartForge feature: store, checkout, payments, orders and more",
+    "One production installation on your own server",
+    "Unlimited products, orders and staff accounts",
+    "Your data in your own database",
+    "Installation guide and operations runbook",
+    "12 months of platform updates",
+  ],
+};
+
+/** Cloud vs self-hosted, for the comparison tables. */
+export const EDITION_COMPARISON: [string, string, string][] = [
+  ["How you pay", "Monthly or yearly subscription", "One-time license"],
+  ["Who hosts it", "We do", "You do, on your own server"],
+  ["Updates", "Automatic", "You choose when to install them"],
+  ["Servers and backups", "Handled for you", "You manage them"],
+  ["Infrastructure and data", "Hosted by CartForge", "Fully under your control"],
+  ["Technical skills needed", "None", "Basic server administration"],
+  ["Best for", "Merchants who want to focus on selling", "Teams that want full ownership"],
 ];

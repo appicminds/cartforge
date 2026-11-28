@@ -14,13 +14,21 @@ async function scan(page: Page, label: string) {
 test("home: hero, sections, accessible, sign-up carries the email", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/CartForge/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    /Make it\.\s*Sell it\.\s*Grow it\./,
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Your store\.\s*Your rules\./);
   // The admin showcase switches screens.
   await page.getByRole("tab", { name: "Orders" }).click();
   await expect(page.getByRole("tabpanel").getByRole("img")).toHaveAttribute("alt", /Orders/);
-  for (const id of ["sell", "store-builder", "themes", "payments", "markets", "grow", "manage"])
+  for (const id of [
+    "editions",
+    "sell",
+    "store-builder",
+    "developers",
+    "themes",
+    "payments",
+    "markets",
+    "grow",
+    "manage",
+  ])
     await expect(page.locator(`#${id}`)).toBeVisible();
   await scan(page, "home");
 
@@ -37,7 +45,7 @@ test("Features menu opens, links to sections and closes with Escape", async ({ p
   await page.goto("/pricing");
   await page.getByRole("button", { name: "Features" }).click();
   const menu = page.locator("#features-menu");
-  await expect(menu.getByRole("link")).toHaveCount(6);
+  await expect(menu.getByRole("link")).toHaveCount(8);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await page.getByRole("button", { name: "Features" }).click();
@@ -77,4 +85,39 @@ test("legal pages, sitemap and robots", async ({ page, request }) => {
   await page.goto("/");
   const og = new URL((await page.locator('meta[property="og:image"]').getAttribute("content"))!);
   expect((await request.get(og.pathname + og.search)).headers()["content-type"]).toBe("image/png");
+});
+
+test("self-hosted page: one-time license, requirements, comparison", async ({ page }) => {
+  await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Self-hosted" })
+    .click();
+  await expect(page).toHaveURL(/\/self-hosted$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    /Your server\.\s*Your platform\./,
+  );
+  await expect(page.getByText("PostgreSQL 16")).toBeVisible();
+  const table = page.getByRole("table");
+  await expect(table).toContainText("One-time license");
+  await expect(table).toContainText("Monthly or yearly subscription");
+  await scan(page, "self-hosted");
+});
+
+test("pricing: Cloud plans or the self-hosted license", async ({ page }) => {
+  await page.goto("/pricing");
+  await expect(page.getByRole("tab", { name: "Cloud · subscription" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.getByRole("tab", { name: "Self-hosted · one time" }).click();
+  const panel = page.getByRole("tabpanel");
+  await expect(panel).toContainText("USD, one time");
+  await expect(panel.getByRole("link", { name: "Get a license" })).toBeVisible();
+  // A link to #self-hosted opens the license directly.
+  await page.goto("/pricing#self-hosted");
+  await expect(page.getByRole("tab", { name: "Self-hosted · one time" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });

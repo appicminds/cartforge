@@ -8,7 +8,22 @@ stylesheet (`site.css`); the admin is in `(app)`. Components are in
 Inspired by the structure of the big commerce platforms' sites, with CartForge's own
 identity, words and pictures. Phase 1 is live; phases 2 and 3 are planned below.
 
-## Pages (phase 1)
+## Message
+
+Four ideas run through every page: **freedom and ownership** ("Your store. Your rules."),
+**simplicity for non-technical merchants**, **flexibility for developers** (REST API with
+OpenAPI docs, custom code sections, a standard stack, self-hosting), and **a complete commerce
+platform, not just a website builder**.
+
+Two ways to run CartForge, presented everywhere side by side:
+
+|         | CartForge Cloud                  | CartForge Self-hosted                                 |
+| ------- | -------------------------------- | ----------------------------------------------------- |
+| Payment | Subscription (monthly or yearly) | One-time license                                      |
+| Hosting | We host, secure and update it    | The customer's own server                             |
+| Control | Managed for them                 | Full control over infrastructure, data and deployment |
+
+## Pages
 
 | Path                                                      | What's there                                                                                                                                                |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,7 +45,11 @@ The Features menu points at the home page's sections until phase 2 adds a page f
 
 - **Plans**: `lib/site/plans.ts` (USD prices, features, comparison table, FAQ). `BETA = true`
   shows every plan as free during the beta; set it to `false` when billing starts.
-- **Navigation**: `lib/site/site.ts`.
+- **Navigation and editions**: `lib/site/site.ts` (`FEATURES`, `EDITIONS`).
+- **Self-hosted license**: `LICENSE` and `EDITION_COMPARISON` in `lib/site/plans.ts`. The price
+  ($499) and terms (one installation, 12 months of updates) are **placeholders**: set the real
+  ones. "Get a license" goes to `NEXT_PUBLIC_LICENSE_URL` (e.g. a checkout link from your
+  licensing or payment provider); until it's set it leads to the self-hosted page.
 - **Legal text**: `lib/site/legal.ts`.
 - **Screenshots**: `public/site/shots/*.webp` are real screens of the "Noor Studio" demo store (Noor
   theme with its sample products, sample orders, discounts, a sale and markets), taken at

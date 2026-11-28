@@ -9,7 +9,8 @@ import { FEATURE_ICONS } from "./icons";
 import { Logo } from "./logo";
 
 /**
- * Sticky site header: Features menu, Themes, Pricing, Log in and Start for free.
+ * Sticky site header: Features menu, Self-hosted, Developers, Pricing, Log in and
+ * Start for free.
  * The phone menu sits outside <header> so its fixed panel is placed against the
  * window, whatever effects the header gets.
  */
@@ -97,8 +98,15 @@ export function Header() {
                 </div>
               )}
             </div>
-            <Link href="/#themes" className={navLink}>
-              Themes
+            <Link
+              href="/self-hosted"
+              className={navLink}
+              aria-current={path === "/self-hosted" ? "page" : undefined}
+            >
+              Self-hosted
+            </Link>
+            <Link href="/#developers" className={navLink}>
+              Developers
             </Link>
             <Link
               href="/pricing"
@@ -155,10 +163,10 @@ export function Header() {
             ))}
             <hr className="my-2 border-line" />
             <Link
-              href="/#themes"
+              href="/self-hosted"
               className="rounded-md px-3 py-3 text-base font-medium hover:bg-paper-2"
             >
-              Themes
+              Self-hosted
             </Link>
             <Link
               href="/pricing"

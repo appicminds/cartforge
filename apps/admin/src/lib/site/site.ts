@@ -19,10 +19,10 @@ export interface FeatureLink {
   href: string;
   title: string;
   text: string;
-  icon: "store" | "box" | "card" | "globe" | "megaphone" | "settings";
+  icon: "store" | "box" | "card" | "globe" | "megaphone" | "settings" | "server" | "code";
 }
 
-/** The Features menu. Phase 1 points at the home page's sections. */
+/** The Features menu. It points at the home page's sections and the self-hosted page. */
 export const FEATURES: FeatureLink[] = [
   {
     href: "/#store-builder",
@@ -60,4 +60,49 @@ export const FEATURES: FeatureLink[] = [
     text: "Orders, customers, staff and security",
     icon: "settings",
   },
+  {
+    href: "/self-hosted",
+    title: "Self-hosted",
+    text: "Your own installation on your own server",
+    icon: "server",
+  },
+  {
+    href: "/#developers",
+    title: "For developers",
+    text: "REST API, custom code and a standard stack",
+    icon: "code",
+  },
 ];
+
+/**
+ * Where "Get a license" goes for the self-hosted edition (a checkout or payment
+ * link from your licensing provider, or a contact page). Until it's set, the
+ * button leads to the self-hosted pricing details.
+ */
+export const LICENSE_URL = process.env.NEXT_PUBLIC_LICENSE_URL || "/pricing#self-hosted";
+
+/** The two ways to run CartForge. */
+export const EDITIONS = {
+  cloud: {
+    name: "CartForge Cloud",
+    model: "Subscription",
+    tagline: "We run the platform. You run the business.",
+    points: [
+      "Subscribe and start selling in minutes",
+      "Hosting, security, backups and updates handled for you",
+      "No servers to set up or look after",
+      "Scale from your first order to your busiest season",
+    ],
+  },
+  selfHosted: {
+    name: "CartForge Self-hosted",
+    model: "One-time license",
+    tagline: "Your server. Your platform. Your rules.",
+    points: [
+      "Pay once for your own standalone installation",
+      "Host it on your own server or cloud account",
+      "Full control over infrastructure, data and deployment",
+      "No monthly platform fee",
+    ],
+  },
+} as const;

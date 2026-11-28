@@ -7,6 +7,8 @@ const COLUMNS: { title: string; links: { href: string; label: string; external?:
   {
     title: "CartForge",
     links: [
+      { href: "/#editions", label: "Cloud or self-hosted" },
+      { href: "/self-hosted", label: "Self-hosted" },
       { href: "/#themes", label: "Themes" },
       { href: "/pricing", label: "Pricing" },
       { href: SIGNUP_URL, label: "Start for free", external: true },
@@ -30,7 +32,7 @@ export function Footer() {
         <div className="flex flex-col gap-4">
           <Logo tone="light" />
           <p className="max-w-xs text-sm text-fg-inverse-muted">
-            The commerce platform for building your store, getting paid and growing your brand.
+            The complete commerce platform you can own. Run it in our cloud or on your own server.
           </p>
         </div>
         {COLUMNS.map((c) => (

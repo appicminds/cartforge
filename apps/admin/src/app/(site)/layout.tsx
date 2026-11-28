@@ -16,11 +16,11 @@ const sans = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swa
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "CartForge: make it, sell it, grow it",
+    default: "CartForge: the commerce platform you own",
     template: "%s · CartForge",
   },
   description:
-    "Create a beautiful online store, take payments every way your customers want, and run your business from one place. Free during beta.",
+    "A complete commerce platform: storefront, checkout, payments and orders. Run it in our cloud by subscription, or on your own server with a one-time license.",
   applicationName: "CartForge",
   openGraph: { type: "website", siteName: "CartForge", url: "/" },
   twitter: { card: "summary_large_image" },
